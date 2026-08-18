@@ -71,8 +71,12 @@ func TestOcca_New_Getters(t *testing.T) {
 	if msg18.GetMsgCode() != TTIPFN {
 		t.Fatalf("expected TTIPFN, got %v", msg18.GetMsgCode())
 	}
-	if msg18.(interface{ GetFuncCode() driverCommon.FunctionType }).GetFuncCode() != occa {
-		t.Fatalf("expected occa function code, got %v", msg18.(interface{ GetFuncCode() driverCommon.FunctionType }).GetFuncCode())
+	if msg18.(interface {
+		GetFuncCode() driverCommon.FunctionType
+	}).GetFuncCode() != occa {
+		t.Fatalf("expected occa function code, got %v", msg18.(interface {
+			GetFuncCode() driverCommon.FunctionType
+		}).GetFuncCode())
 	}
 	if _, ok := msg18.(*tTIOcca).headerMarshaller.(*ttiFunHeader18); !ok {
 		t.Fatal("expected newOcca18 to use the 18+ function header")
