@@ -369,10 +369,10 @@ var TestCategory string
 // default configuration
 func InitConfig() error {
 
-	flag.StringVar(&configFileName, "driver.config.filename", "C:/work/driver/go-driver/pure-go-driver-config/configurations/driver_test_config.json", "testing config name")
-	flag.StringVar(&configName, "driver.config.name", "phoenix127228", "testing config name")
+	flag.StringVar(&configFileName, "driver.config.filename", "", "testing config name")
+	flag.StringVar(&configName, "driver.config.name", "", "testing config name")
 
-	flag.StringVar(&TestCategory, "test.category", "functional", "testing category, can be unitary, functional, performance, robustness")
+	flag.StringVar(&TestCategory, "test.category", "", "testing category, can be unitary, functional, performance, robustness")
 
 	if !flag.Parsed() {
 		flag.Parse()
