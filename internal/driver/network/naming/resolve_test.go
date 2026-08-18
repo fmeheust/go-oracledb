@@ -165,4 +165,3 @@ func TestResolveAddresses_HostClassification(t *testing.T) {
 		})
 	}
 }
-

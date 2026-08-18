@@ -659,4 +659,3 @@ func (t *RepresentationTable) SetFlags(flags byte) {
 func (t *RepresentationTable) getFlags() byte {
 	return t.conversionFlags
 }
-

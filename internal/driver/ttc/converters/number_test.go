@@ -803,4 +803,3 @@ func TestEncodeBinary_ReturnsSameBytes(t *testing.T) {
 		t.Fatalf("EncodeBinary should not copy: got points to different backing array")
 	}
 }
-

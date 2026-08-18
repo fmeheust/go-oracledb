@@ -51,4 +51,3 @@ func GetConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *sess
 	// Get the correct connection instantiator depending on the configuration. For now we only support TTC
 	return ttc.NewTTCConnectionInstantiator(config, ns)
 }
-

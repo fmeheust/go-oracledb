@@ -351,4 +351,3 @@ func EncodeBinaryDouble(v driver.Value) ([]byte, error) {
 	binary.BigEndian.PutUint64(bytes, stored)
 	return bytes, nil
 }
-

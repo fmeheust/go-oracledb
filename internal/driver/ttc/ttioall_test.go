@@ -865,4 +865,3 @@ func TestOall8_MarshalTo_Fail_SELECT(t *testing.T) {
 		})
 	}
 }
-

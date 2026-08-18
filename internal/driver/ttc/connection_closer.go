@@ -108,4 +108,3 @@ func (c *Connection) Close() error {
 func (c *Connection) _closeTTCConnection(ctx context.Context) error {
 	return c.runFunctionWithFunHeader(ctx, logOff)
 }
-

@@ -242,4 +242,3 @@ func (drv *Driver) openConnector(dsn string) (driver.Connector, error) {
 
 	return buildOracleConnector(drv, parsed, confToUse), nil
 }
-

@@ -502,4 +502,3 @@ func initMessagesEn() {
 	message.SetString(language.English, string(oracleErrors.ServerTimeZoneError), "Failed to %s server timezone")
 
 }
-

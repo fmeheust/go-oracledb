@@ -385,4 +385,3 @@ func (ms *MessageStreamer) getMessageForHeader(header *messageHeader) (driverCom
 	}
 	return ms.shelf.GetMessageFactory().GetMessage(header.messageType)
 }
-

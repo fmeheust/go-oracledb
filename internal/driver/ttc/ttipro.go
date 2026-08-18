@@ -246,4 +246,3 @@ func (p *tTIpro) GetFlags() byte { return p.svrFlags }
 
 // GetSvrPortDescription returns the raw server description/version string.
 func (p *tTIpro) GetSvrPortDescription() driverCommon.B1Array { return p.svrPortDescription }
-

@@ -153,4 +153,3 @@ func TestConnectionCloser_CloseWithTimeout(t *testing.T) {
 	}
 
 }
-

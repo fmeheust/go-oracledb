@@ -309,4 +309,3 @@ func DecodeTimestampWithLocalTimeZone(value driverCommon.B1Array, serverTimeZone
 	utc = utc.Add(time.Second * time.Duration(-1*serverTimeZoneOffset))
 	return utc.In(time.Local), nil
 }
-

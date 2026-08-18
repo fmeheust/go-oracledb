@@ -534,4 +534,3 @@ func TestTTILobRpa_SetDefinition_NilDefinition(t *testing.T) {
 		t.Fatalf("expected error message to mention missing definition, got %q", err.Error())
 	}
 }
-

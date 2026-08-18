@@ -1215,4 +1215,3 @@ func validateBooleanValue(value reflect.Value, valueName string) (any, error) {
 		[]string{"true", "false"},
 	)
 }
-

@@ -86,4 +86,3 @@ func (mh *messageHeader) MarshalTo(ctx context.Context, engine driverCommon.Mars
 func (mh *messageHeader) GetType() driverCommon.MessageType {
 	return mh.messageType
 }
-

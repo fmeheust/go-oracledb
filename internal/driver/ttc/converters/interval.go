@@ -602,4 +602,3 @@ func EncodeIntervalDayToSecond(v driver.Value) (driverCommon.B1Array, error) {
 	binary.BigEndian.PutUint32(encoded[_dsFracStart:_dsFracStart+_dsFracLen], rawFrac)
 	return encoded, nil
 }
-

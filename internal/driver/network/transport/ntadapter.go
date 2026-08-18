@@ -79,4 +79,3 @@ type NTattributes struct {
 	WalletLocation          string
 	UseSystemTrust          bool
 }
-

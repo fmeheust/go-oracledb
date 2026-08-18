@@ -156,4 +156,3 @@ func (p lobAmtPolicy) Translate(isNCLOB bool, codeUnits, codePoints int) (int, b
 		return 0, false, nil
 	}
 }
-

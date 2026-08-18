@@ -138,4 +138,3 @@ func (p *tTIlobd) setBuffer(buf driverCommon.B1Array) {
 func (p *tTIlobd) getLastBytesRead() driverCommon.UB8 {
 	return p.lastBytesRead
 }
-

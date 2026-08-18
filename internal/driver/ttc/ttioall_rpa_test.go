@@ -351,4 +351,3 @@ func TestTTIOallRPA_Unmarshal_TransactionContext_Fail_Bytes(t *testing.T) {
 		t.Fatalf("expected failure for transaction context bytes, got err=%v", err)
 	}
 }
-

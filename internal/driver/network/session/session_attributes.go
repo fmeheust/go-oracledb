@@ -256,4 +256,3 @@ func (sa *SessionAtts) Prepare(protocol driverCommon.Protocol) error {
 	//sa.NT.Atts = sa // Set the reference back to SessionAtts
 	return nil
 }
-

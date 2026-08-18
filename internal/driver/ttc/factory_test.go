@@ -411,4 +411,3 @@ func TestFactoryGetMessageFromFunction(t *testing.T) {
 		})
 	}
 }
-

@@ -310,4 +310,3 @@ func (t *testLocalizationService) Format(code oracleErrors.ErrorCode, args ...in
 func (t *testLocalizationService) LocalizeError(err error) error {
 	return err
 }
-

@@ -408,4 +408,3 @@ func TestIntervalDayToSecond_Encode_TrimWhitespace_Success(t *testing.T) {
 		})
 	}
 }
-

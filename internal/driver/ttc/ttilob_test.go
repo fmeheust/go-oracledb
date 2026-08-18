@@ -272,4 +272,3 @@ func TestTTIlob_MarshalTo_Fail(t *testing.T) {
 		})
 	}
 }
-

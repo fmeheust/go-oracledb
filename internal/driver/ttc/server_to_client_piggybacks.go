@@ -90,4 +90,3 @@ func (sessionUpdater serverToClientPiggybackUpdater) updateSessionProperties(msg
 
 	return false, nil
 }
-

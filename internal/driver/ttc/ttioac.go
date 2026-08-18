@@ -443,4 +443,3 @@ func (p *tTIoac) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshaller)
 func (p *tTIoac) addFlagsContinuation(flag driverCommon.UB8) {
 	p.flagsContinuation = p.flagsContinuation | flag
 }
-

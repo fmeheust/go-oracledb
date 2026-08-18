@@ -158,4 +158,3 @@ func TestConnectionPinger_IsValidWithInband(t *testing.T) {
 	}
 
 }
-

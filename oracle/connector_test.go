@@ -281,4 +281,3 @@ func TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess(t *test
 		t.Fatal("did not expect connector to disconnect session after later successful attempt")
 	}
 }
-

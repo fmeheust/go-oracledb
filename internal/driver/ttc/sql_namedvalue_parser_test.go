@@ -426,4 +426,3 @@ func bindListStatement(n int) string {
 	b.WriteString("); end;")
 	return b.String()
 }
-

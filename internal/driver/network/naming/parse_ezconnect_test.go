@@ -880,4 +880,3 @@ func TestSplitAndParseExtendedParams_ParensBeforeParams(t *testing.T) {
 		t.Errorf("expected recognized HTTPS_PROXY=proxy.corp, got %v", recognized)
 	}
 }
-

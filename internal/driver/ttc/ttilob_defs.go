@@ -609,4 +609,3 @@ func (l *locator) clearAccessState() {
 	}
 	l.locatorBytes[koll4FlagOffset] &^= (kolblOpenFlagByte | kolblReadWriteFlagByte)
 }
-

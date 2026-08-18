@@ -70,4 +70,3 @@ func TestInitLoggingWithConfigFileDestination(t *testing.T) {
 		t.Fatalf("expected log file to contain message, got %q", string(data))
 	}
 }
-

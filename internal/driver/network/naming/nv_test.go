@@ -565,4 +565,3 @@ func TestParseIterative_NoTokens(t *testing.T) {
 	_, err := parseIterative([]string{})
 	assertErrorCode(t, err, oracleErrors.NamingParseFailed)
 }
-

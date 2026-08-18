@@ -331,4 +331,3 @@ func parseTimeZone(timezone string) (int, int, error) {
 
 	return sign * TZH, sign * TZM, nil
 }
-

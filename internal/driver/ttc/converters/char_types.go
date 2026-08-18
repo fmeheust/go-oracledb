@@ -243,4 +243,3 @@ func DecodeUTF16BEToString(value driverCommon.B1Array) (string, error) {
 	runes := utf16.Decode(units)
 	return string(runes), nil
 }
-

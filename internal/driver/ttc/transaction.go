@@ -129,4 +129,3 @@ func (t *transaction) Rollback() error {
 func newNotInTransactionError() error {
 	return common.NewOracleError(oracleErrors.NotInTransaction, nil, nil)
 }
-

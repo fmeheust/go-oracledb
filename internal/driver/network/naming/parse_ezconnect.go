@@ -562,4 +562,3 @@ func buildSecurity(params map[string]string) string {
 
 	return fmt.Sprintf("(SECURITY=%s)", security.String())
 }
-

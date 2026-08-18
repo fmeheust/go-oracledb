@@ -1015,4 +1015,3 @@ func init() {
 	_sqlKindMap["flashback"] = other
 
 }
-

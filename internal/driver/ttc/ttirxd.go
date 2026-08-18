@@ -617,4 +617,3 @@ func (rxd *tTIrxd) _unmarshalBlobColumn(ctx context.Context, mar driverCommon.Ma
 	return nil
 
 }
-

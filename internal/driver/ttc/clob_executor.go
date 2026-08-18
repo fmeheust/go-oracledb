@@ -876,4 +876,3 @@ func writeUTF16ToBuffer(codeUnits []uint16, destinationBuffer []byte, littleEndi
 
 	return bytesNeeded
 }
-

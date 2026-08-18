@@ -213,4 +213,3 @@ func TestTTIShelf_StatementDrain(t *testing.T) {
 		t.Fatalf("statements in the shelf should not have been drained")
 	}
 }
-

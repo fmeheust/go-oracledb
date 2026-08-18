@@ -147,4 +147,3 @@ func TestNewLogOff18(t *testing.T) {
 		t.Errorf("Marshalled token should be 0 but was %d", dataBuffer.bytes[2])
 	}
 }
-

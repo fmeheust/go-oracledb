@@ -2177,4 +2177,3 @@ func TestConnectionIterator_RoundRobin(t *testing.T) {
 		}
 	})
 }
-

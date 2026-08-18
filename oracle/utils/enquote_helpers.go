@@ -92,4 +92,3 @@ func EnquoteIdentifier(identifier string) (string, error) {
 
 	return `"` + unquoted + `"`, nil
 }
-

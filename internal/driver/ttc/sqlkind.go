@@ -150,4 +150,3 @@ func _classifySQL(q string) (sqlKind, error) {
 	return k, nil
 
 }
-

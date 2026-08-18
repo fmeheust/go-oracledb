@@ -360,4 +360,3 @@ func TestConnectionNegotiator_Negotiate_Success(t *testing.T) {
 		})
 	}
 }
-

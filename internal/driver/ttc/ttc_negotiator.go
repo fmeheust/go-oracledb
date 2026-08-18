@@ -302,4 +302,3 @@ func _createAndRegisterMarshaller(
 	shelf.RegisterMarshaller(mar)
 	common.Odl.Debug("ConnectionNegotiator: Marshaller created/updated and registered")
 }
-

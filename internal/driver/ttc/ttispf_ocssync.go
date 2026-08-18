@@ -176,4 +176,3 @@ func (spf *ttiSPFOCSSync) getKeyValueArr() *driverCommon.Properties[string] {
 	}
 	return props
 }
-

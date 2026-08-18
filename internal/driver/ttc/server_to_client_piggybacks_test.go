@@ -222,4 +222,3 @@ type mockFunction struct {
 func (m *mockFunction) GetFuncCode() common.FunctionType {
 	return m.funcCode
 }
-

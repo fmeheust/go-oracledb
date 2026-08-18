@@ -619,4 +619,3 @@ func (f *CodecFactoryImpl) GetDefineOac(
 
 	return newTTIOacScalarDefine(columnContext)
 }
-

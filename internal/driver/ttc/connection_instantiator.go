@@ -176,4 +176,3 @@ func GetNegotiator(transport driverCommon.DataBuffer) Negotiator {
 	n.SetDataBuffer(transport)
 	return n
 }
-

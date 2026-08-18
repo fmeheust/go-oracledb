@@ -711,4 +711,3 @@ func (rpa *OAuthRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Mars
 	common.Odl.Debug("unmarshal OAUTH RPA complete")
 	return nil
 }
-

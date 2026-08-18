@@ -128,4 +128,3 @@ func TestServerError(t *testing.T) {
 		checkErrorRaised(t, err, oracleErrors.ConnectFailed, oracleErrors.NoListenerAvailable) // ORA-12541
 	})
 }
-

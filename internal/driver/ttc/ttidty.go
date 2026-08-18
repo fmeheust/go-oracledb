@@ -221,4 +221,3 @@ func isCharSetMultibyte(charSet driverCommon.UB2) bool {
 		return false
 	}
 }
-

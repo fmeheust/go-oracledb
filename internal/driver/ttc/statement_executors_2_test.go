@@ -500,4 +500,3 @@ func TestPrepareBindsAndOAC_OAC_Errors(t *testing.T) {
 		t.Fatalf("expected type encode error containing 'bind-type', got %v", err)
 	}
 }
-

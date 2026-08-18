@@ -564,4 +564,3 @@ func clamp(value, min, max int) int {
 	}
 	return value
 }
-

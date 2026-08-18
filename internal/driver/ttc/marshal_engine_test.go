@@ -2200,4 +2200,3 @@ func checkSQLErrorCodeContains(t *testing.T, err error, code, contains string) {
 		t.Fatalf("Error should be instance of SQLError")
 	}
 }
-

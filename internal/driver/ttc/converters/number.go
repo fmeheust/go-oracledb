@@ -810,4 +810,3 @@ func addDigitToMantissa(current uint64, digit int) (uint64, error) {
 	}
 	return next, nil
 }
-

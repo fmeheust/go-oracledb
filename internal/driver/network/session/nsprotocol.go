@@ -835,4 +835,3 @@ func PrintPacket(buf []byte, offset, length int) {
 		}
 	}
 }
-

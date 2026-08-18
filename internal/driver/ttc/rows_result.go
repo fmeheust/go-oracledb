@@ -492,4 +492,3 @@ func (r *ttcResult) RowsAffected() (int64, error) {
 func (r *ttcResult) LastInsertId() (int64, error) {
 	return 0, r.shelf.LocalizeError(common.NewOracleError(oracleErrors.UnsupportedFeature, nil, "LastInsertId"))
 }
-

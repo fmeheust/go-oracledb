@@ -1508,4 +1508,3 @@ func (s statementExecutorOperationNotSupported) QueryContext(_ context.Context, 
 	return nil, common.NewOracleError(oracleErrors.StatementExecutionFailed, nil,
 		s.kind.String(), "Query")
 }
-

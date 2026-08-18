@@ -248,4 +248,3 @@ func (p *ttiLobRpa) SetDefinition(lobDef *lobDefinition) error {
 	p.lobDefinition = lobDef
 	return nil
 }
-

@@ -217,4 +217,3 @@ func parseTimeZone(timezone string) (int, int) {
 	TZM, _ := strconv.Atoi(items[1])
 	return sign * TZH, sign * TZM
 }
-

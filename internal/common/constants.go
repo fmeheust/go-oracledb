@@ -126,4 +126,3 @@ func GetLogonModeFromString(strmode string) (LogonMode, error) {
 	}
 	return KpzLogonSysdba, NewOracleError(oracleErrors.InvalidConnectionParameter, nil, mode, "logonMode", _allLogonModeNames)
 }
-

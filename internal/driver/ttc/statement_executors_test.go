@@ -1190,4 +1190,3 @@ func TestStatementExecutor_Select_DoesNotReuseStaleBVCStateAcrossExecutions(t *t
 		}
 	}
 }
-

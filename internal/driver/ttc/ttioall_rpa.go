@@ -186,4 +186,3 @@ func (p *ttioallrpa) getTotalAffectedRowsCount() driverCommon.UB8 {
 	}
 	return total
 }
-

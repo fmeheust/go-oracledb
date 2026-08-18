@@ -73,4 +73,3 @@ const (
 	// variable-width character payloads, including space for the TTC length prefix.
 	MaxVarcharLength common.UB4 = 32768
 )
-

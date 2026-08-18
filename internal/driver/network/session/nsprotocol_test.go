@@ -1543,4 +1543,3 @@ func TestCheckInbandNotification(t *testing.T) {
 		})
 	}
 }
-

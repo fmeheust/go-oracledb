@@ -156,4 +156,3 @@ func (t *tTIoer14) _computeChecksum(localChecksum uint64) uint64 {
 	localChecksum = CRC64UpdateChecksum(localChecksum, uint64(t.checksum))
 	return localChecksum
 }
-

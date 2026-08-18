@@ -157,4 +157,3 @@ func isInsufficientPrivilegeError(err error) bool {
 	return err != nil && (strings.Contains(err.Error(), string(oracleErrors.InsufficientPrivilege)) ||
 		strings.Contains(err.Error(), "ORA-01031"))
 }
-

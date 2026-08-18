@@ -680,4 +680,3 @@ func validateNibbleBufferLength(array []byte, nibbles []byte) error {
 	}
 	return nil
 }
-

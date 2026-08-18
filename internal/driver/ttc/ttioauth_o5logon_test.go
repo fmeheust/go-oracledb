@@ -528,4 +528,3 @@ func TestEncryptPasswordBufferTooSmall(t *testing.T) {
 		t.Fatal("expected error for undersized encrypted password nibble buffer")
 	}
 }
-

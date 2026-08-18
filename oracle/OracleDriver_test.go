@@ -495,4 +495,3 @@ func TestDriver_InsertForeignKeyViolation(t *testing.T) {
 		t.Fatalf("expected returned child id to remain unset on foreign key violation, got %d", insertedChildID)
 	}
 }
-

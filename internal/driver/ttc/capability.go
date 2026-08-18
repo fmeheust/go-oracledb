@@ -483,4 +483,3 @@ func capabilitiesToMap(capabilities []byte, metadata map[string]capabilityMetada
 		}
 	}
 }
-

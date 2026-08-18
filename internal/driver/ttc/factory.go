@@ -235,4 +235,3 @@ func getBestImplementor(protocolVersion int8, candidates []RegisteredItem) *Regi
 
 	return bestCandidate
 }
-

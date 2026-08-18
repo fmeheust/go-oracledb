@@ -226,4 +226,3 @@ func (e _ctxTimeoutCauseError) GetValue() uint {
 func (e _ctxTimeoutCauseError) Error() string {
 	return fmt.Sprintf("timeout of %d set by %s", e.timeoutValueMS, e.source)
 }
-

@@ -109,4 +109,3 @@ func (c *Connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 
 	return tx, nil
 }
-

@@ -103,4 +103,3 @@ func (ci *ConnectionIterator) GetDNSErrors() []error {
 	return ci.dnsErrors
 }
 */
-

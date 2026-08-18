@@ -548,4 +548,3 @@ func (ns *NetworkSession) Flush(ctx context.Context) error {
 func (ns *NetworkSession) IsInBreakReset() bool {
 	return ns.IsBreak || ns.IsReset
 }
-

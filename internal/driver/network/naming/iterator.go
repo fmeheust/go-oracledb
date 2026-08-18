@@ -586,4 +586,3 @@ func (ci *ConnectionIterator) roundRobin(addresses []Address) {
 	copy(addresses[0:], addresses[1:])
 	addresses[len(addresses)-1] = first
 }
-

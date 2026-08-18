@@ -223,4 +223,3 @@ func writeAuthWarning(t *testing.T, ctx context.Context, buf *ArrayBasedDataBuff
 		t.Fatalf("write warning message failed: %v", err)
 	}
 }
-

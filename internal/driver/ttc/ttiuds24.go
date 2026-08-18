@@ -95,4 +95,3 @@ func (p *tTIuds24) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshalle
 	}
 	return nil
 }
-

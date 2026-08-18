@@ -169,4 +169,3 @@ func TestEnquoteIdentifier(t *testing.T) {
 		})
 	}
 }
-

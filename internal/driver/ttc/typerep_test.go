@@ -298,4 +298,3 @@ func TestTypeRep_Setters_Getters(t *testing.T) {
 		t.Error("After setRep, expected B1 to be Universal (true)")
 	}
 }
-

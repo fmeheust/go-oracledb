@@ -634,4 +634,3 @@ func GetScanTypeForCLOBColumn(_ ColumnContext) reflect.Type {
 func GetScanTypeForBLOBColumn(_ ColumnContext) reflect.Type {
 	return reflect.TypeFor[[]byte]()
 }
-

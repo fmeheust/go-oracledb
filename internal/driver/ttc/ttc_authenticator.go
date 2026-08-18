@@ -403,4 +403,3 @@ func logAuthenticationWarning(warning *tTIwrn) {
 func sanitizeInputCredential(credential string) string {
 	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(credential, "\""), "\""))
 }
-

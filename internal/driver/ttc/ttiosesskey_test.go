@@ -503,4 +503,3 @@ func TestOSesskeyRPAUnMarshalFrom_Golden(t *testing.T) {
 		t.Errorf("PBKDF2SderCount = %d, want 3", sder)
 	}
 }
-

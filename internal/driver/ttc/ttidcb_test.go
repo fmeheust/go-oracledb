@@ -279,4 +279,3 @@ func mutateBaseColumnNameFirstByte(u common.UnMarshallable, b byte) {
 		}
 	}
 }
-

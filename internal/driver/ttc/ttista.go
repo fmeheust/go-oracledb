@@ -113,4 +113,3 @@ func RegisterSTAWithCapability() {
 func (sta *ttiSTA) isBeingDrainned() bool {
 	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.connectionShouldBeDropped
 }
-

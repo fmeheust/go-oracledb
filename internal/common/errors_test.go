@@ -204,4 +204,3 @@ func TestNewOERMessageError(t *testing.T) {
 		t.Fatal("Unwrap - should return nil, no cause")
 	}
 }
-

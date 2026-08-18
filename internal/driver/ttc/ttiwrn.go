@@ -94,4 +94,3 @@ func (w *tTIwrn) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshaller)
 	w.warningMessage = driverCommon.B1ArrayToString(warningMessage)
 	return nil
 }
-

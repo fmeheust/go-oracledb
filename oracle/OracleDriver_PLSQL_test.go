@@ -271,4 +271,3 @@ func TestDriver_PLSQL_Prepared_Binds(t *testing.T) {
 		t.Fatalf("second row mismatch: got (id=%d,name=%q) want (1002,\"ps-ord\")", got[1].id, got[1].name)
 	}
 }
-

@@ -782,4 +782,3 @@ func (d *Description) GetPrimaryAddressList() *AddressList {
 	}
 	return nil
 }
-

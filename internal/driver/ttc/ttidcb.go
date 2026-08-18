@@ -279,4 +279,3 @@ func newTTIdcb24() driverCommon.Message[driverCommon.MessageType] {
 	common.Odl.Debug("tTIdcb24: newTTIdcb24 constructor", "struct", fmt.Sprintf("%+v", obj))
 	return obj
 }
-

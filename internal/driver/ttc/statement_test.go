@@ -400,4 +400,3 @@ func TestStatement_QueryContext_JSONConstructor_AdditionalNamedBindShapes(t *tes
 		})
 	}
 }
-

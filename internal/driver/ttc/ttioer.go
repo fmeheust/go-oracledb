@@ -590,4 +590,3 @@ func RegisterOerWithCapability() {
 		common.Odl.Debug("Failed to register message TTIOER version 1", "error", err)
 	}
 }
-

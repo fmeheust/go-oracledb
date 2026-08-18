@@ -202,4 +202,3 @@ func (c *Connection) runFunctionWithFunHeader(ctx context.Context, functiontype 
 	}
 	return nil
 }
-

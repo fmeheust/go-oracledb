@@ -159,4 +159,3 @@ func (s *Shelf[T]) LocalizeError(err error) error {
 func (s *Shelf[T]) GetCapabilities() map[string]Capability {
 	return s.capabilities
 }
-

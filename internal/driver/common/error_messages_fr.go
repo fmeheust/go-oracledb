@@ -59,4 +59,3 @@ func initMessagesFr() {
 	message.SetString(language.French, string(oracleErrors.MissingReadPrivilege), "privilège READ manquant")
 	message.SetString(language.French, string(oracleErrors.MissingLocalizationService), "service de localisation manquant sur la shelf")
 }
-

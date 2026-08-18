@@ -127,4 +127,3 @@ func (bvc *tTIbvc) SetBitVector(bitVec []byte, length int) {
 		bvc.bvcFound = true
 	}
 }
-

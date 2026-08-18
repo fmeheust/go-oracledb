@@ -322,4 +322,3 @@ func TestFloat_Encode_Specials(t *testing.T) {
 		}
 	}
 }
-

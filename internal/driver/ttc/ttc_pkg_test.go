@@ -1132,4 +1132,3 @@ func (m *mockAuthenticator) Authenticate(ctx context.Context) error {
 	m.authenticateCalled = true
 	return m.err
 }
-

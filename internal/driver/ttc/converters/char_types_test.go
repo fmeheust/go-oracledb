@@ -417,4 +417,3 @@ func TestDecodeUTF16BEToString_OddLength_ReturnsOracleError(t *testing.T) {
 		t.Fatalf("error message should mention invalid-length and expected even length, got: %q", msg)
 	}
 }
-

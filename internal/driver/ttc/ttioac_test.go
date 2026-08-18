@@ -322,4 +322,3 @@ func TestTTIoac_Setters(t *testing.T) {
 		t.Errorf("addFlagsContinuation failed: expected flagsContinuation=10, got %d", obj.flagsContinuation)
 	}
 }
-

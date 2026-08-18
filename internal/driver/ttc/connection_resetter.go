@@ -73,4 +73,3 @@ func (c *Connection) ResetSession(ctx context.Context) error {
 
 	return nil
 }
-

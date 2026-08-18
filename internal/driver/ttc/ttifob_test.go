@@ -73,4 +73,3 @@ func TestTTIFOB_MessageStreamerFlushesOnlyMessageCode(t *testing.T) {
 		t.Fatalf("TTIFOB wire mismatch: got % X want % X", got, want)
 	}
 }
-

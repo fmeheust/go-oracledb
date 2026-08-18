@@ -62,4 +62,3 @@ const (
 	// occa is the function code for close cursor/cancel,
 	occa common.FunctionType = 105
 )
-

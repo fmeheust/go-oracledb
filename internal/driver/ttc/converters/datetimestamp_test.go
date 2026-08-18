@@ -462,4 +462,3 @@ func TestTimestampWithLocalTimeZoneEncode(t *testing.T) {
 		t.Fatalf("TIMESTAMP WITH LOCAL TIME ZONE encode mismatch:\n got %v\nwant %v", got, want)
 	}
 }
-

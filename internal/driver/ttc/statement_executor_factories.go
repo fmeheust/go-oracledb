@@ -105,4 +105,3 @@ func getExecStatementExecutorFor(qQuery *qualifiedSQLStatement) ExecWithContext 
 		return newStatementExecutorOthers()
 	}
 }
-

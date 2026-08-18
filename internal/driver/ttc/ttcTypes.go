@@ -439,4 +439,3 @@ func GetKeyValueFromKeyword(nlsKeys [64]string, keyword keywordValuePair) (strin
 
 	return "", nil
 }
-

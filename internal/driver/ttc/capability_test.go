@@ -307,4 +307,3 @@ func TestCapability_toMap(t *testing.T) {
 		}
 	}
 }
-

@@ -87,4 +87,3 @@ func TestConnectionResetter_Reset(t *testing.T) {
 	}
 
 }
-

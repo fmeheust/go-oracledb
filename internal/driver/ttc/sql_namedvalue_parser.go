@@ -363,4 +363,3 @@ func extractInputBindValuesForPlSql(bindDetails *bindDetails, in []driver.NamedV
 	common.Odl.Debug("extractInputBindValues: validated input NamedValues:", "out", filledPlaceholders)
 	return filledPlaceholders, nil
 }
-

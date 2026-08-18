@@ -388,4 +388,3 @@ func TestTTIproUnmarshalFrom_FailUnmarshal(t *testing.T) {
 		})
 	}
 }
-

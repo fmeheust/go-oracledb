@@ -290,4 +290,3 @@ func TestInvalidTableNameSyntax_NegativeCase(t *testing.T) {
 	}
 	t.Logf("correctly received error for invalid syntax: %v", err)
 }
-

@@ -245,4 +245,3 @@ func TestTTIbvc_SetBitVector(t *testing.T) {
 		})
 	}
 }
-

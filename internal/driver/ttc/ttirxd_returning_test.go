@@ -439,4 +439,3 @@ func TestTTIrxd_ProcessDMLPlSqlIndicator_ReadError(t *testing.T) {
 		t.Errorf("error code: got %s, want %s", se.ErrorCode(), oracleErrors.FailUnmarshal)
 	}
 }
-

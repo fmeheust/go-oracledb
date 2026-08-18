@@ -460,4 +460,3 @@ func TestPrepareNonTCPSNoWalletLoad(t *testing.T) {
 		t.Fatalf("wallet should not be loaded for non-tcps")
 	}
 }
-

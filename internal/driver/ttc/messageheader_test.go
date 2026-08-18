@@ -74,4 +74,3 @@ func TestMessageHeader_UnMarshalFrom(t *testing.T) {
 		t.Errorf("Expected type %d, got %d", expectedType, mh.GetType())
 	}
 }
-

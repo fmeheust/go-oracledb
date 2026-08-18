@@ -838,4 +838,3 @@ func TestOAuthRPA_UnMarshalFrom_Failure(t *testing.T) {
 		t.Error("Expected error for invalid data")
 	}
 }
-

@@ -661,4 +661,3 @@ func TestCoverage_MissingFlags(t *testing.T) {
 		}
 	})
 }
-

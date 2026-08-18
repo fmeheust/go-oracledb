@@ -154,4 +154,3 @@ func TestQueryDictionaryViewWithoutPrivilege_NegativeCase(t *testing.T) {
 		t.Logf("correctly received privilege-related error: %v", err)
 	}
 }
-

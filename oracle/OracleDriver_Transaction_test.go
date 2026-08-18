@@ -367,4 +367,3 @@ func TestReadOnlyTransaction(t *testing.T) {
 		t.Fatal("INSERT in read-only tx should fail")
 	}
 }
-

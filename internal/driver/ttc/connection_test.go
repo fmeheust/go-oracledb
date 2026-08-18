@@ -443,4 +443,3 @@ func (m *connInvalidationMsg) UnMarshalFrom(ctx context.Context, engine driverCo
 func (m *connInvalidationMsg) isBeingDrainned() bool {
 	return m.connectionShouldBeDropped
 }
-

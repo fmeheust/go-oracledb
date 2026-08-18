@@ -215,4 +215,3 @@ func TestGetConnectionMissingLocalizationService(t *testing.T) {
 		t.Fatalf("expected error %q, got %q", expected, err.Error())
 	}
 }
-

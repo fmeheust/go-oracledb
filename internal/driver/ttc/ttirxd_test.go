@@ -635,4 +635,3 @@ func TestTTIrxd_BvcCarriedClobPreservesLobContext(t *testing.T) {
 		t.Fatalf("carried CLOB context = %#v, want %#v", got, previousLobContext)
 	}
 }
-

@@ -103,4 +103,3 @@ func (s *eventService) post(event eventType) {
 		listener.notify(event)
 	}
 }
-

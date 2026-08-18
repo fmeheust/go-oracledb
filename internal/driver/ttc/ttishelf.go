@@ -179,4 +179,3 @@ func (s *ttiShelf[T]) getServerTimeZoneOffset() int16 {
 func (s *ttiShelf[T]) getEventService() *eventService {
 	return s._eventService
 }
-

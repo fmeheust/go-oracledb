@@ -423,4 +423,3 @@ func (s *Statement) createSubContextWithCancelAfterfunction(ctx context.Context)
 	// return the subcontext, its cancel function, and after-function cleanup
 	return subContext, cancelSubContext, cleanup
 }
-

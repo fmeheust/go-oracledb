@@ -1671,4 +1671,3 @@ var clobTrimRPAGoldenPayload = []string{
 	`"00 00 00 00 00 00 00 00"`,
 	`"00"`,
 }
-

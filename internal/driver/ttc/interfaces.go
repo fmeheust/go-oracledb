@@ -73,4 +73,3 @@ type Negotiator interface {
 	Negotiate(context.Context) (*common.SessionContext,
 		*ttiShelf[common.MessageType], error)
 }
-

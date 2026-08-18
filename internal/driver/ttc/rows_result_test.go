@@ -311,4 +311,3 @@ func TestTTCRowsColumnTypeScanType(t *testing.T) {
 		})
 	}
 }
-

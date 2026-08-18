@@ -546,4 +546,3 @@ func TestCodecFactory_RegisterEncoderGeneric(t *testing.T) {
 		t.Fatalf("registered encoder function mismatch")
 	}
 }
-

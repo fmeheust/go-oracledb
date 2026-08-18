@@ -218,4 +218,3 @@ func TestInitLoggingWithConfigFileDestination(t *testing.T) {
 func TestConfigurationFlagDebugString(_ *testing.T) {
 	_ = fmt.Sprintf("")
 }
-

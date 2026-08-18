@@ -310,4 +310,3 @@ func (nt *NTTCP) Disconnect() error {
 	}
 	return nil
 }
-
