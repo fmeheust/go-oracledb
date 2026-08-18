@@ -11,7 +11,7 @@ on:
         type: string
 env:
   VALIDATION_USER_NAME: ogd_test_user
-  ORACLE_DRIVER_MODULE: "github.com/oracle/go-driver/oracle"
+  ORACLE_DRIVER_MODULE: "github.com/oracle/go-oracledb/oracle"
 
 
 concurrency:

@@ -1,4 +1,4 @@
-module github.com/oracle/go-driver
+module github.com/oracle/go-oracledb
 
 go 1.26.5
 
