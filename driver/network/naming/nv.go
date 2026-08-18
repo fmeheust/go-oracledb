@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // Node represents a single name-value pair where value can be string or nested nodes

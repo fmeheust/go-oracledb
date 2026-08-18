@@ -43,8 +43,8 @@ import (
 	"database/sql/driver"
 	"reflect"
 
-	"github.com/oracle/go-driver/v26/driver/common"
-	"github.com/oracle/go-driver/v26/driver/ttc/converters"
+	"github.com/oracle/go-oracledb/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/ttc/converters"
 )
 
 const (

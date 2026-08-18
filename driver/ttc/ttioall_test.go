@@ -43,8 +43,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/v26/driver/common"
-	"github.com/oracle/go-driver/v26/driver/network/session"
+	"github.com/oracle/go-oracledb/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/network/session"
 )
 
 // oall8GoldenPayload extracts the TTC OALL8 function payload (post-header) from hex dump

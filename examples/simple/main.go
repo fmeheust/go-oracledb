@@ -48,7 +48,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/oracle/go-driver/v26/oracle"
+	"github.com/oracle/go-oracledb/v26/oracle"
 )
 
 func main() {

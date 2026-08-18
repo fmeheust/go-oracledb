@@ -41,7 +41,7 @@ package transport
 import (
 	"context"
 
-	"github.com/oracle/go-driver/v26/driver/network/naming"
+	"github.com/oracle/go-oracledb/v26/driver/network/naming"
 )
 
 type NTAdapter interface {

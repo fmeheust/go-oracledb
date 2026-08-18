@@ -44,7 +44,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // TestTransactionCommitSuccess create a transaction and commits with different

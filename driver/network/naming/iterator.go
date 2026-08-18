@@ -44,7 +44,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // ConnectionOption represents a single connection attempt with all necessary information

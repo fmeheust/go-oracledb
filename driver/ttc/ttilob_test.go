@@ -45,8 +45,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/v26/driver/common"
-	"github.com/oracle/go-driver/v26/driver/network/session"
+	"github.com/oracle/go-oracledb/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/network/session"
 )
 
 // TestTTIlob_New verifies that newTTIlob configures the TTIFUN header correctly.

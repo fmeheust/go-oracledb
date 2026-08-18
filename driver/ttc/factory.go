@@ -43,7 +43,7 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // Factory is an interface for creating and retrieving TTC message implementations.

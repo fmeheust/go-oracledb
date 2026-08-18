@@ -41,7 +41,7 @@ package ttc
 import (
 	"testing"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // Dummy message structs for testing

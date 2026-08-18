@@ -46,8 +46,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oracle/go-driver/v26/driver/common"
-	"github.com/oracle/go-driver/v26/driver/network/naming"
+	"github.com/oracle/go-oracledb/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/network/naming"
 )
 
 // Driver is exported to make the driver directly accessible.

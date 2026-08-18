@@ -48,7 +48,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // TestDriver_Authentication_TTIWRN verifies that an Oracle warning emitted

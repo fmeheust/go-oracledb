@@ -44,7 +44,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // ConnectionContext represents the extracted business-level connection information

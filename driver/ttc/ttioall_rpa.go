@@ -42,7 +42,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // ttioallrpa represents the OALL8 RPA (Response Parameters) block as decoded from the wire.

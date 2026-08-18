@@ -41,7 +41,7 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // AssumedSrvRtCaps is Server's Run time capability for 23.4 which clients should assume.

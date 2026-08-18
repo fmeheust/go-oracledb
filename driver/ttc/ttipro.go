@@ -41,7 +41,7 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 // tTIpro represents a TTIPRO protocol message exchanged for feature and charset negotiation.

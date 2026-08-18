@@ -44,7 +44,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-oracledb/v26/driver/common"
 )
 
 const (

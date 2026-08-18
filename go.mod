@@ -1,4 +1,4 @@
-module github.com/oracle/go-driver/v26
+module github.com/oracle/go-oracledb/v26
 
 go 1.26.5
 
