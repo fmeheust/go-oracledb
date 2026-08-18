@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-driver/internal/driver/common"
+import "github.com/oracle/go-oracledb/internal/driver/common"
 
 const (
 	// logOff (OLOGOFF) is used to close a connection
@@ -62,3 +62,4 @@ const (
 	// occa is the function code for close cursor/cancel,
 	occa common.FunctionType = 105
 )
+

@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 )
 
 const (
@@ -564,3 +564,4 @@ func clamp(value, min, max int) int {
 	}
 	return value
 }
+

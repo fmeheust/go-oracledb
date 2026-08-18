@@ -41,7 +41,7 @@ package transport
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/driver/network/naming"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
 )
 
 type NTAdapter interface {
@@ -79,3 +79,4 @@ type NTattributes struct {
 	WalletLocation          string
 	UseSystemTrust          bool
 }
+

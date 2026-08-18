@@ -46,9 +46,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // Tests that a marshal engine can be created and that it implements the
@@ -2200,3 +2200,4 @@ func checkSQLErrorCodeContains(t *testing.T, err error, code, contains string) {
 		t.Fatalf("Error should be instance of SQLError")
 	}
 }
+

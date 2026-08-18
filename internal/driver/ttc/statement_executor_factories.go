@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-driver/internal/common"
+import "github.com/oracle/go-oracledb/internal/common"
 
 // getQueryStatementExecutor returns a concrete executor that implements
 // common.QueryWithContext for SELECT-like statements.
@@ -105,3 +105,4 @@ func getExecStatementExecutorFor(qQuery *qualifiedSQLStatement) ExecWithContext 
 		return newStatementExecutorOthers()
 	}
 }
+

@@ -46,9 +46,9 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -810,3 +810,4 @@ func addDigitToMantissa(current uint64, digit int) (uint64, error) {
 	}
 	return next, nil
 }
+

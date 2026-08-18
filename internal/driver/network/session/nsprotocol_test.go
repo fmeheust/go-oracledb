@@ -47,10 +47,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/naming"
-	"github.com/oracle/go-driver/internal/driver/network/transport"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
+	"github.com/oracle/go-oracledb/internal/driver/network/transport"
 )
 
 type mockNTAdapter struct {
@@ -1543,3 +1543,4 @@ func TestCheckInbandNotification(t *testing.T) {
 		})
 	}
 }
+

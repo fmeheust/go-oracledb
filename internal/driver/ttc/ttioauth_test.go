@@ -45,8 +45,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // TestNewOAuth_Success tests the NewOAuth constructor.
@@ -838,3 +838,4 @@ func TestOAuthRPA_UnMarshalFrom_Failure(t *testing.T) {
 		t.Error("Expected error for invalid data")
 	}
 }
+

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
-	oracleutils "github.com/oracle/go-driver/oracle/utils"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleutils "github.com/oracle/go-oracledb/oracle/utils"
 )
 
 func TestEnquoteLiteral(t *testing.T) {
@@ -138,3 +138,4 @@ func TestEnquoteIdentifier(t *testing.T) {
 		})
 	}
 }
+

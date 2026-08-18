@@ -44,8 +44,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestDriver_PLSQL_AnonymousBlock_Sanity
@@ -271,3 +271,4 @@ func TestDriver_PLSQL_Prepared_Binds(t *testing.T) {
 		t.Fatalf("second row mismatch: got (id=%d,name=%q) want (1002,\"ps-ord\")", got[1].id, got[1].name)
 	}
 }
+

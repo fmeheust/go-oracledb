@@ -39,10 +39,10 @@
 package driver
 
 import (
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	"github.com/oracle/go-driver/internal/driver/ttc"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/ttc"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
 )
 
 // GetConnectionInstantiator returns the correct connection instantiator
@@ -51,3 +51,4 @@ func GetConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *sess
 	// Get the correct connection instantiator depending on the configuration. For now we only support TTC
 	return ttc.NewTTCConnectionInstantiator(config, ns)
 }
+

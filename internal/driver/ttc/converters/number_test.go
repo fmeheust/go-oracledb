@@ -46,8 +46,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 /*
@@ -803,3 +803,4 @@ func TestEncodeBinary_ReturnsSameBytes(t *testing.T) {
 		t.Fatalf("EncodeBinary should not copy: got points to different backing array")
 	}
 }
+

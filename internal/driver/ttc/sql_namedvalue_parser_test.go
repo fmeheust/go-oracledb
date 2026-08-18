@@ -44,7 +44,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // helper to extract OracleError code
@@ -426,3 +426,4 @@ func bindListStatement(n int) string {
 	b.WriteString("); end;")
 	return b.String()
 }
+

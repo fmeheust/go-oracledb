@@ -39,9 +39,9 @@
 package ttc
 
 import (
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // bytesPerUTF16CodeUnit is the number of bytes consumed by a single UTF-16 code unit.
@@ -156,3 +156,4 @@ func (p lobAmtPolicy) Translate(isNCLOB bool, codeUnits, codePoints int) (int, b
 		return 0, false, nil
 	}
 }
+

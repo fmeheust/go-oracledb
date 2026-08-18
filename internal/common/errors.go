@@ -45,7 +45,7 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 var messageLanguages = []language.Tag{
@@ -226,3 +226,4 @@ func (e _ctxTimeoutCauseError) GetValue() uint {
 func (e _ctxTimeoutCauseError) Error() string {
 	return fmt.Sprintf("timeout of %d set by %s", e.timeoutValueMS, e.source)
 }
+

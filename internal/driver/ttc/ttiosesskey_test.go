@@ -45,8 +45,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // TestOSesskeyNew asserts that NewOSesskey returns a valid, non-nil object.
@@ -503,3 +503,4 @@ func TestOSesskeyRPAUnMarshalFrom_Golden(t *testing.T) {
 		t.Errorf("PBKDF2SderCount = %d, want 3", sder)
 	}
 }
+

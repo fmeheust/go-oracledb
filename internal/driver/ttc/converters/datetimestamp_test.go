@@ -43,7 +43,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // signedDate is the first 7 bytes from the reference payload used in the
@@ -462,3 +462,4 @@ func TestTimestampWithLocalTimeZoneEncode(t *testing.T) {
 		t.Fatalf("TIMESTAMP WITH LOCAL TIME ZONE encode mismatch:\n got %v\nwant %v", got, want)
 	}
 }
+

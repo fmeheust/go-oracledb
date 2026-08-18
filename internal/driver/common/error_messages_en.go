@@ -42,7 +42,7 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // initMessagesEn Initialises error messages for English language.
@@ -502,3 +502,4 @@ func initMessagesEn() {
 	message.SetString(language.English, string(oracleErrors.ServerTimeZoneError), "Failed to %s server timezone")
 
 }
+

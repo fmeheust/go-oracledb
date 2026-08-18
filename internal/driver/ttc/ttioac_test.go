@@ -43,8 +43,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // TestTTIoac_NewTTIoac checks correct field setup for different input types.
@@ -322,3 +322,4 @@ func TestTTIoac_Setters(t *testing.T) {
 		t.Errorf("addFlagsContinuation failed: expected flagsContinuation=10, got %d", obj.flagsContinuation)
 	}
 }
+

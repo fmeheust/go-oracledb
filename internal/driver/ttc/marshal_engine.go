@@ -43,10 +43,10 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // unmarshalTypes lists the concrete TTC numeric wrapper types supported by the
@@ -1331,3 +1331,4 @@ func _wrapError(err error, dataType string) error {
 	}
 	return err
 }
+

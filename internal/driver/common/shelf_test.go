@@ -43,7 +43,7 @@ import (
 	"errors"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -310,3 +310,4 @@ func (t *testLocalizationService) Format(code oracleErrors.ErrorCode, args ...in
 func (t *testLocalizationService) LocalizeError(err error) error {
 	return err
 }
+

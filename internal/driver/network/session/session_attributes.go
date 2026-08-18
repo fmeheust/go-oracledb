@@ -45,10 +45,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/naming"
-	"github.com/oracle/go-driver/internal/driver/network/transport"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
+	"github.com/oracle/go-oracledb/internal/driver/network/transport"
 )
 
 // TODO: The first can be deleted, underscore is a better standard
@@ -256,3 +256,4 @@ func (sa *SessionAtts) Prepare(protocol driverCommon.Protocol) error {
 	//sa.NT.Atts = sa // Set the reference back to SessionAtts
 	return nil
 }
+

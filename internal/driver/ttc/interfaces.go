@@ -41,7 +41,7 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // Authenticator implementors authenticate against a remote database
@@ -73,3 +73,4 @@ type Negotiator interface {
 	Negotiate(context.Context) (*common.SessionContext,
 		*ttiShelf[common.MessageType], error)
 }
+

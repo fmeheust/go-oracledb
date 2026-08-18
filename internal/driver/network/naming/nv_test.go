@@ -42,7 +42,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 func assertErrorCode(t *testing.T, err error, want oracleErrors.ErrorCode) {
@@ -565,3 +565,4 @@ func TestParseIterative_NoTokens(t *testing.T) {
 	_, err := parseIterative([]string{})
 	assertErrorCode(t, err, oracleErrors.NamingParseFailed)
 }
+

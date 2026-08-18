@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 	"golang.org/x/text/language"
 )
 
@@ -218,3 +218,4 @@ func TestInitLoggingWithConfigFileDestination(t *testing.T) {
 func TestConfigurationFlagDebugString(_ *testing.T) {
 	_ = fmt.Sprintf("")
 }
+

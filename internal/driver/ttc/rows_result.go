@@ -44,9 +44,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 /*
@@ -492,3 +492,4 @@ func (r *ttcResult) RowsAffected() (int64, error) {
 func (r *ttcResult) LastInsertId() (int64, error) {
 	return 0, r.shelf.LocalizeError(common.NewOracleError(oracleErrors.UnsupportedFeature, nil, "LastInsertId"))
 }
+

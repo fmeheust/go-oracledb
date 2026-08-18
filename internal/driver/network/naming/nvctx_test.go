@@ -42,8 +42,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 /* Test helpers */
@@ -661,3 +661,4 @@ func TestCoverage_MissingFlags(t *testing.T) {
 		}
 	})
 }
+

@@ -43,7 +43,7 @@ import (
 	"math"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // float64TestCase defines a single table-driven case for NUMBER/BINARY_* tests.
@@ -322,3 +322,4 @@ func TestFloat_Encode_Specials(t *testing.T) {
 		}
 	}
 }
+

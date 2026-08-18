@@ -43,10 +43,10 @@ import (
 	"database/sql/driver"
 	"reflect"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/ttc/converters"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/ttc/converters"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -619,3 +619,4 @@ func (f *CodecFactoryImpl) GetDefineOac(
 
 	return newTTIOacScalarDefine(columnContext)
 }
+

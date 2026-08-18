@@ -43,9 +43,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // tTIoer14 represents the Oracle error (OER) structure for version 14 and above.
@@ -156,3 +156,4 @@ func (t *tTIoer14) _computeChecksum(localChecksum uint64) uint64 {
 	localChecksum = CRC64UpdateChecksum(localChecksum, uint64(t.checksum))
 	return localChecksum
 }
+

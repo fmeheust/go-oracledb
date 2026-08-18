@@ -42,8 +42,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // Marshals and unmarshals a keywordValueArray and checks that the sizes and values match
@@ -381,3 +381,4 @@ func TestMarshalKeyValue(t *testing.T) {
 		})
 	}
 }
+

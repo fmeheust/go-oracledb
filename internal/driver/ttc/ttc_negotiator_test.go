@@ -45,7 +45,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 var WriteCount int = 0
@@ -360,3 +360,4 @@ func TestConnectionNegotiator_Negotiate_Success(t *testing.T) {
 		})
 	}
 }
+

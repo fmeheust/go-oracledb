@@ -43,11 +43,11 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 type connectionInstantiator struct {
@@ -176,3 +176,4 @@ func GetNegotiator(transport driverCommon.DataBuffer) Negotiator {
 	n.SetDataBuffer(transport)
 	return n
 }
+

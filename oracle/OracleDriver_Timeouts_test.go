@@ -44,7 +44,7 @@ import (
 	"testing"
 	"time"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // ************************** NOTE ************************** //
@@ -561,3 +561,4 @@ func TestTimeoutConnectTimeoutPrecedence4(t *testing.T) {
 	checkErrorRaised(t, err, oracleErrors.ConnectFailed, oracleErrors.ConnectTimeout)
 	checkAcceptableTimeShift(t, 2*time.Second, start, stop)
 }
+

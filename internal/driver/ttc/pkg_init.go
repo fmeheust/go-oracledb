@@ -48,9 +48,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/ttc/converters"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/ttc/converters"
 )
 
 const MinTTCProtocolVersion = 12 // 19.1
@@ -1015,3 +1015,4 @@ func init() {
 	_sqlKindMap["flashback"] = other
 
 }
+

@@ -43,9 +43,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // The max password bytes length supported is 1024 bytes as per
@@ -403,3 +403,4 @@ func logAuthenticationWarning(warning *tTIwrn) {
 func sanitizeInputCredential(credential string) string {
 	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSuffix(credential, "\""), "\""))
 }
+

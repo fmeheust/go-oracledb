@@ -43,8 +43,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // Helper functions for capabilities test data
@@ -307,3 +307,4 @@ func TestCapability_toMap(t *testing.T) {
 		}
 	}
 }
+

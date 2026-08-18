@@ -44,9 +44,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // -----------------------------------------------------------------------------
@@ -534,3 +534,4 @@ func TestTTILobRpa_SetDefinition_NilDefinition(t *testing.T) {
 		t.Fatalf("expected error message to mention missing definition, got %q", err.Error())
 	}
 }
+

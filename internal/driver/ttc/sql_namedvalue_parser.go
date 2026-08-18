@@ -44,8 +44,8 @@ import (
 	"math"
 	"unicode"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // bindDetails holds metadata about SQL bind placeholders extracted by parsePlaceholders.
@@ -363,3 +363,4 @@ func extractInputBindValuesForPlSql(bindDetails *bindDetails, in []driver.NamedV
 	common.Odl.Debug("extractInputBindValues: validated input NamedValues:", "out", filledPlaceholders)
 	return filledPlaceholders, nil
 }
+

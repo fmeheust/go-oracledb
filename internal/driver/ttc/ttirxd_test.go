@@ -45,9 +45,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 var validRow1Dump = []string{
@@ -635,3 +635,4 @@ func TestTTIrxd_BvcCarriedClobPreservesLobContext(t *testing.T) {
 		t.Fatalf("carried CLOB context = %#v, want %#v", got, previousLobContext)
 	}
 }
+

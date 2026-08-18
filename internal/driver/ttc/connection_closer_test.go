@@ -42,7 +42,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 func TestConnectionCloser_Close(t *testing.T) {
@@ -153,3 +153,4 @@ func TestConnectionCloser_CloseWithTimeout(t *testing.T) {
 	}
 
 }
+

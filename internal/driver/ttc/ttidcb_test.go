@@ -43,7 +43,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // TestTTIdcb24Constructor verifies that the newTTIdcb24 constructor properly initializes
@@ -279,3 +279,4 @@ func mutateBaseColumnNameFirstByte(u common.UnMarshallable, b byte) {
 		}
 	}
 }
+

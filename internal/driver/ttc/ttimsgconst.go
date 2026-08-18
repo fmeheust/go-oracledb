@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-driver/internal/driver/common"
+import "github.com/oracle/go-oracledb/internal/driver/common"
 
 // All TTC message code that must be kept ordered
 const (
@@ -226,3 +226,4 @@ const (
 	ldiRegIDSet              = byte(0x40) // base offset applied to hour when region id present
 	ldiMaxTimeField          = byte(60)   // base offset applied to hour/minute when region id not present
 )
+

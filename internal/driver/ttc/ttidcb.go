@@ -43,9 +43,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -279,3 +279,4 @@ func newTTIdcb24() driverCommon.Message[driverCommon.MessageType] {
 	common.Odl.Debug("tTIdcb24: newTTIdcb24 constructor", "struct", fmt.Sprintf("%+v", obj))
 	return obj
 }
+

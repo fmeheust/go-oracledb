@@ -42,8 +42,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // authPacketDump is the decoded, comparison-oriented representation of an
@@ -305,3 +305,4 @@ func skipKeySet(keys ...string) map[string]struct{} {
 	}
 	return set
 }
+

@@ -42,10 +42,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // ConnectionNegotiator implements the Negotiator interface for TTC connections.
@@ -302,3 +302,4 @@ func _createAndRegisterMarshaller(
 	shelf.RegisterMarshaller(mar)
 	common.Odl.Debug("ConnectionNegotiator: Marshaller created/updated and registered")
 }
+

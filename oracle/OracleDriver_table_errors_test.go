@@ -43,7 +43,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestQueryNonExistentTable_NegativeCase validates that querying a non-existent table
@@ -290,3 +290,4 @@ func TestInvalidTableNameSyntax_NegativeCase(t *testing.T) {
 	}
 	t.Logf("correctly received error for invalid syntax: %v", err)
 }
+

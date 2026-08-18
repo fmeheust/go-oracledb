@@ -42,7 +42,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 func TestConnectionResetter_Reset(t *testing.T) {
@@ -87,3 +87,4 @@ func TestConnectionResetter_Reset(t *testing.T) {
 	}
 
 }
+

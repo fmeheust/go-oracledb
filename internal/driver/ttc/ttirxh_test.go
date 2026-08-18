@@ -43,7 +43,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // TestTTIrxhConstructor verifies that NewTTIrxh constructs a non-nil tTIrxh instance
@@ -137,3 +137,4 @@ func TestTTIrxhUnMarshalFrom_Fail(t *testing.T) {
 		})
 	}
 }
+

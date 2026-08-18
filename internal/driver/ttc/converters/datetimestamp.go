@@ -43,9 +43,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -309,3 +309,4 @@ func DecodeTimestampWithLocalTimeZone(value driverCommon.B1Array, serverTimeZone
 	utc = utc.Add(time.Second * time.Duration(-1*serverTimeZoneOffset))
 	return utc.In(time.Local), nil
 }
+

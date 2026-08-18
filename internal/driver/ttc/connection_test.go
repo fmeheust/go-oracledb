@@ -44,10 +44,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -443,3 +443,4 @@ func (m *connInvalidationMsg) UnMarshalFrom(ctx context.Context, engine driverCo
 func (m *connInvalidationMsg) isBeingDrainned() bool {
 	return m.connectionShouldBeDropped
 }
+

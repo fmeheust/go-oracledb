@@ -46,10 +46,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oracle/go-driver/internal/common"
-	"github.com/oracle/go-driver/internal/driver/network/naming"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // Driver is exported to make the driver directly accessible.
@@ -242,3 +242,4 @@ func (drv *Driver) openConnector(dsn string) (driver.Connector, error) {
 
 	return buildOracleConnector(drv, parsed, confToUse), nil
 }
+

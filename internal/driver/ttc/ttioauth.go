@@ -48,10 +48,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
-	oracleutils "github.com/oracle/go-driver/oracle/utils"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleutils "github.com/oracle/go-oracledb/oracle/utils"
 )
 
 // Package ttc provides TTC (Two-Task Common) protocol message implementations
@@ -711,3 +711,4 @@ func (rpa *OAuthRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Mars
 	common.Odl.Debug("unmarshal OAUTH RPA complete")
 	return nil
 }
+

@@ -43,10 +43,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 )
 
@@ -215,3 +215,4 @@ func TestGetConnectionMissingLocalizationService(t *testing.T) {
 		t.Fatalf("expected error %q, got %q", expected, err.Error())
 	}
 }
+

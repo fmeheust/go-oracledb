@@ -43,8 +43,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 var simpleIdentifierPattern = regexp.MustCompile(`^[\p{L}][\p{L}\p{N}_]*$`)
@@ -92,3 +92,4 @@ func EnquoteIdentifier(identifier string) (string, error) {
 
 	return `"` + unquoted + `"`, nil
 }
+

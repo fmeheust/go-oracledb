@@ -45,11 +45,11 @@ import (
 	"io"
 	"testing"
 
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/naming"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	"github.com/oracle/go-driver/internal/driver/network/transport"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/network/transport"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
 )
 
 type mockConnectorNTAdapter struct {
@@ -281,3 +281,4 @@ func TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess(t *test
 		t.Fatal("did not expect connector to disconnect session after later successful attempt")
 	}
 }
+

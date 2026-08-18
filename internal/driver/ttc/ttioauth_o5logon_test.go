@@ -41,7 +41,7 @@ package ttc
 import (
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 func TestNewO5Logon(t *testing.T) {
@@ -528,3 +528,4 @@ func TestEncryptPasswordBufferTooSmall(t *testing.T) {
 		t.Fatal("expected error for undersized encrypted password nibble buffer")
 	}
 }
+

@@ -43,7 +43,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestQuerySystemTableWithoutPrivilege_NegativeCase validates that querying a system table
@@ -154,3 +154,4 @@ func TestQueryDictionaryViewWithoutPrivilege_NegativeCase(t *testing.T) {
 		t.Logf("correctly received privilege-related error: %v", err)
 	}
 }
+

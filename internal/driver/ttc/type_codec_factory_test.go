@@ -45,8 +45,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 func dummyEncoderA(driver.Value) (common.B1Array, error) { return nil, nil }
@@ -546,3 +546,4 @@ func TestCodecFactory_RegisterEncoderGeneric(t *testing.T) {
 		t.Fatalf("registered encoder function mismatch")
 	}
 }
+

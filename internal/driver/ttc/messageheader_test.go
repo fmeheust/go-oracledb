@@ -42,8 +42,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 func TestMessageHeader_UnMarshalFrom(t *testing.T) {
@@ -74,3 +74,4 @@ func TestMessageHeader_UnMarshalFrom(t *testing.T) {
 		t.Errorf("Expected type %d, got %d", expectedType, mh.GetType())
 	}
 }
+

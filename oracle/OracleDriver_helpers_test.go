@@ -50,8 +50,8 @@ import (
 	"testing"
 	"time"
 
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -217,3 +217,4 @@ func parseTimeZone(timezone string) (int, int) {
 	TZM, _ := strconv.Atoi(items[1])
 	return sign * TZH, sign * TZM
 }
+

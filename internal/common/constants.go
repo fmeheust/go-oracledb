@@ -43,7 +43,7 @@ import (
 	"slices"
 	"strings"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // The driver vesrion has to be sent to the server as a number, the
@@ -126,3 +126,4 @@ func GetLogonModeFromString(strmode string) (LogonMode, error) {
 	}
 	return KpzLogonSysdba, NewOracleError(oracleErrors.InvalidConnectionParameter, nil, mode, "logonMode", _allLogonModeNames)
 }
+

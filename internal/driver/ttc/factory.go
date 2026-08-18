@@ -43,9 +43,9 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // Factory is an interface for creating and retrieving TTC message implementations.
@@ -235,3 +235,4 @@ func getBestImplementor(protocolVersion int8, candidates []RegisteredItem) *Regi
 
 	return bestCandidate
 }
+

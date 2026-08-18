@@ -44,7 +44,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 )
 
 // ConnectionOption represents a single connection attempt with all necessary information
@@ -586,3 +586,4 @@ func (ci *ConnectionIterator) roundRobin(addresses []Address) {
 	copy(addresses[0:], addresses[1:])
 	addresses[len(addresses)-1] = first
 }
+

@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 func TestServerError(t *testing.T) {
@@ -128,3 +128,4 @@ func TestServerError(t *testing.T) {
 		checkErrorRaised(t, err, oracleErrors.ConnectFailed, oracleErrors.NoListenerAvailable) // ORA-12541
 	})
 }
+

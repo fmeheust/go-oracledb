@@ -42,8 +42,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 func TestTTIFunNoPayload_MarshalTo(t *testing.T) {
@@ -147,3 +147,4 @@ func TestNewLogOff18(t *testing.T) {
 		t.Errorf("Marshalled token should be 0 but was %d", dataBuffer.bytes[2])
 	}
 }
+

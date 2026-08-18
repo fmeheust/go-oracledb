@@ -43,10 +43,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/ttc/converters"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/ttc/converters"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -634,3 +634,4 @@ func GetScanTypeForCLOBColumn(_ ColumnContext) reflect.Type {
 func GetScanTypeForBLOBColumn(_ ColumnContext) reflect.Type {
 	return reflect.TypeFor[[]byte]()
 }
+

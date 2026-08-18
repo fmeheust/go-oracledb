@@ -44,8 +44,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 func TestTypeRep_NewTypeRep(t *testing.T) {
@@ -298,3 +298,4 @@ func TestTypeRep_Setters_Getters(t *testing.T) {
 		t.Error("After setRep, expected B1 to be Universal (true)")
 	}
 }
+

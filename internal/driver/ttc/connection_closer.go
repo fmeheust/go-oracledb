@@ -42,8 +42,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -108,3 +108,4 @@ func (c *Connection) Close() error {
 func (c *Connection) _closeTTCConnection(ctx context.Context) error {
 	return c.runFunctionWithFunHeader(ctx, logOff)
 }
+

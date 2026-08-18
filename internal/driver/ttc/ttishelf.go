@@ -44,7 +44,7 @@ import (
 	"maps"
 	"weak"
 
-	common "github.com/oracle/go-driver/internal/driver/common"
+	common "github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // ttiShelfUser declares a dependency on a TTC shelf.
@@ -179,3 +179,4 @@ func (s *ttiShelf[T]) getServerTimeZoneOffset() int16 {
 func (s *ttiShelf[T]) getEventService() *eventService {
 	return s._eventService
 }
+

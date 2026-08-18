@@ -41,7 +41,7 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // tTIfob represents the TTC Flush Out Bind message.
@@ -65,3 +65,4 @@ func (fob *tTIfob) MarshalTo(context.Context, common.Marshaller) error {
 func (fob *tTIfob) UnMarshalFrom(context.Context, common.Marshaller) error {
 	return nil
 }
+

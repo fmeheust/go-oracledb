@@ -44,7 +44,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 )
 
 // NSChannel interface defines methods for network communication
@@ -548,3 +548,4 @@ func (ns *NetworkSession) Flush(ctx context.Context) error {
 func (ns *NetworkSession) IsInBreakReset() bool {
 	return ns.IsBreak || ns.IsReset
 }
+

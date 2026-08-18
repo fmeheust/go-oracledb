@@ -45,8 +45,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
 )
 
 func TestInitLoggingWithConfigFileDestination(t *testing.T) {
@@ -70,3 +70,4 @@ func TestInitLoggingWithConfigFileDestination(t *testing.T) {
 		t.Fatalf("expected log file to contain message, got %q", string(data))
 	}
 }
+

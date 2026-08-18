@@ -38,7 +38,7 @@
 
 package common
 
-import "github.com/oracle/go-driver/internal/common"
+import "github.com/oracle/go-oracledb/internal/common"
 
 type DriverProperties interface {
 	IsStrictNullValueHandling() bool
@@ -159,3 +159,4 @@ func (s *Shelf[T]) LocalizeError(err error) error {
 func (s *Shelf[T]) GetCapabilities() map[string]Capability {
 	return s.capabilities
 }
+

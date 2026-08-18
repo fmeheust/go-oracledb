@@ -45,9 +45,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // ---------------------------------------------------------------------------
@@ -439,3 +439,4 @@ func TestTTIrxd_ProcessDMLPlSqlIndicator_ReadError(t *testing.T) {
 		t.Errorf("error code: got %s, want %s", se.ErrorCode(), oracleErrors.FailUnmarshal)
 	}
 }
+

@@ -46,7 +46,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestDriver_SimpleConnection executes a simple connection.
@@ -495,3 +495,4 @@ func TestDriver_InsertForeignKeyViolation(t *testing.T) {
 		t.Fatalf("expected returned child id to remain unset on foreign key violation, got %d", insertedChildID)
 	}
 }
+

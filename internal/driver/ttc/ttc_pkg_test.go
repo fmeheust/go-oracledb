@@ -53,8 +53,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // TestCategory category of tests to be un
@@ -1132,3 +1132,4 @@ func (m *mockAuthenticator) Authenticate(ctx context.Context) error {
 	m.authenticateCalled = true
 	return m.err
 }
+

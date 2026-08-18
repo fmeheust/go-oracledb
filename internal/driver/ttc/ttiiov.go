@@ -41,9 +41,9 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // tTIiov represents the TTC IOV (input/output vector) message.
@@ -106,3 +106,4 @@ func (p *tTIiov) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshaller)
 	common.Odl.Debug("TTIiov: unmarshal complete")
 	return nil
 }
+

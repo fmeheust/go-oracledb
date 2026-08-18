@@ -50,10 +50,10 @@ import (
 	"hash"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -680,3 +680,4 @@ func validateNibbleBufferLength(array []byte, nibbles []byte) error {
 	}
 	return nil
 }
+

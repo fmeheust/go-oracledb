@@ -42,7 +42,7 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 )
 
 // ResetSession implements driver.SessionResetter.
@@ -73,3 +73,4 @@ func (c *Connection) ResetSession(ctx context.Context) error {
 
 	return nil
 }
+

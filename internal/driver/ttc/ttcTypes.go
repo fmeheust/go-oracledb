@@ -45,9 +45,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // KeyValueList Key-Value pair list. a list.List of *common.KeyValue
@@ -439,3 +439,4 @@ func GetKeyValueFromKeyword(nlsKeys [64]string, keyword keywordValuePair) (strin
 
 	return "", nil
 }
+

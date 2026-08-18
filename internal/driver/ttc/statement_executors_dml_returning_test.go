@@ -57,7 +57,7 @@ import (
 	sqldriver "database/sql/driver"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // ---------------------------------------------------------------------------
@@ -555,3 +555,4 @@ func TestHandleRXDRow_RawBytes_AssignedToByteSlice(t *testing.T) {
 		t.Errorf("dest: got %v, want [0xDE 0xAD 0xBE 0xEF]", dest)
 	}
 }
+

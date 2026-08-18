@@ -48,9 +48,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/ttc/converters"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/ttc/converters"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // registerTestCodecs registers encoders, decoders and OAC makers used by statementProcessor
@@ -500,3 +500,4 @@ func TestPrepareBindsAndOAC_OAC_Errors(t *testing.T) {
 		t.Fatalf("expected type encode error containing 'bind-type', got %v", err)
 	}
 }
+

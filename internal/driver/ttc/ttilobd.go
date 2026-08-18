@@ -42,9 +42,9 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // tTIlobd represents the TTC LOB data message used to stream LOB chunks in
@@ -138,3 +138,4 @@ func (p *tTIlobd) setBuffer(buf driverCommon.B1Array) {
 func (p *tTIlobd) getLastBytesRead() driverCommon.UB8 {
 	return p.lastBytesRead
 }
+

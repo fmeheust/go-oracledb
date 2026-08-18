@@ -43,8 +43,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // Overview
@@ -417,3 +417,4 @@ func TestDecodeUTF16BEToString_OddLength_ReturnsOracleError(t *testing.T) {
 		t.Fatalf("error message should mention invalid-length and expected even length, got: %q", msg)
 	}
 }
+

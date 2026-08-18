@@ -41,9 +41,9 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -420,3 +420,4 @@ func (m *tTIOall) _marshalPtr(ctx context.Context, engine driverCommon.Marshalle
 	}
 	return nil
 }
+

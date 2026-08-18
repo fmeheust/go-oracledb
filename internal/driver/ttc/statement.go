@@ -44,9 +44,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -423,3 +423,4 @@ func (s *Statement) createSubContextWithCancelAfterfunction(ctx context.Context)
 	// return the subcontext, its cancel function, and after-function cleanup
 	return subContext, cancelSubContext, cleanup
 }
+

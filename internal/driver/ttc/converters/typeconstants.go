@@ -38,7 +38,7 @@
 
 package converters
 
-import "github.com/oracle/go-driver/internal/driver/common"
+import "github.com/oracle/go-oracledb/internal/driver/common"
 
 // Maximum TTC byte lengths for encodings produced by this package.
 // Values reflect Oracle's wire representations to prevent truncation when
@@ -73,3 +73,4 @@ const (
 	// variable-width character payloads, including space for the TTC length prefix.
 	MaxVarcharLength common.UB4 = 32768
 )
+

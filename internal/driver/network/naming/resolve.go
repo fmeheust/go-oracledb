@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/oracle/go-driver/internal/common"
+	"github.com/oracle/go-oracledb/internal/common"
 )
 
 type lookupIPAddrFunc func(context.Context, string) ([]net.IPAddr, error)
@@ -103,3 +103,4 @@ func (ci *ConnectionIterator) GetDNSErrors() []error {
 	return ci.dnsErrors
 }
 */
+

@@ -43,8 +43,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 func TestTTIFOB_MessageStreamerFlushesOnlyMessageCode(t *testing.T) {
@@ -73,3 +73,4 @@ func TestTTIFOB_MessageStreamerFlushesOnlyMessageCode(t *testing.T) {
 		t.Fatalf("TTIFOB wire mismatch: got % X want % X", got, want)
 	}
 }
+

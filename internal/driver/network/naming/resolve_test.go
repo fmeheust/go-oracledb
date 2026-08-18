@@ -46,7 +46,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -165,3 +165,4 @@ func TestResolveAddresses_HostClassification(t *testing.T) {
 		})
 	}
 }
+

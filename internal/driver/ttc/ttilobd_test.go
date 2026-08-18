@@ -46,9 +46,9 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestTTILobd_UnMarshalFrom_Fail exercises the defensive paths of UnMarshalFrom
@@ -1490,3 +1490,4 @@ var expectedPayload = common.B1Array{254, 2, 4, 176,
 	0, 104, 0, 105, 0, 115, 0, 32, 0, 105, 0, 115, 0, 32, 0, 97, 0, 32, 0, 108, 0, 97, 0, 114,
 	0, 103, 0, 101, 0, 32, 0, 116, 0, 101, 0, 120, 0, 116, 0, 32, 0, 101, 0, 120, 0, 97, 0, 109,
 	0, 112, 0, 108, 0, 101, 0, 46, 0, 32, 0}
+

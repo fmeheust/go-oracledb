@@ -47,8 +47,8 @@ import (
 	"strings"
 	"testing"
 
-	common "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/naming"
+	common "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
 )
 
 func TestGenUUID(t *testing.T) {
@@ -460,3 +460,4 @@ func TestPrepareNonTCPSNoWalletLoad(t *testing.T) {
 		t.Fatalf("wallet should not be loaded for non-tcps")
 	}
 }
+

@@ -43,9 +43,9 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 )
 
@@ -213,3 +213,4 @@ func TestTTIShelf_StatementDrain(t *testing.T) {
 		t.Fatalf("statements in the shelf should not have been drained")
 	}
 }
+

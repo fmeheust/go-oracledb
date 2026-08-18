@@ -45,8 +45,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	oracleconfig "github.com/oracle/go-driver/oracle/config"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
 )
 
 // Test_defaultNumericValue verifies numeric defaults for NULL values across
@@ -311,3 +311,4 @@ func TestTTCRowsColumnTypeScanType(t *testing.T) {
 		})
 	}
 }
+

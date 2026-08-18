@@ -46,11 +46,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/naming"
-	"github.com/oracle/go-driver/internal/driver/network/transport"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/naming"
+	"github.com/oracle/go-oracledb/internal/driver/network/transport"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // NetworkSession represents a network session for communication with the server
@@ -835,3 +835,4 @@ func PrintPacket(buf []byte, offset, length int) {
 		}
 	}
 }
+

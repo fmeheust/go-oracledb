@@ -42,7 +42,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 func TestEnquoteLiteral(t *testing.T) {
@@ -169,3 +169,4 @@ func TestEnquoteIdentifier(t *testing.T) {
 		})
 	}
 }
+

@@ -41,9 +41,9 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // tTIbvc encapsulates Bit Vector Column (BVC) logic for presence-tracking of columns
@@ -127,3 +127,4 @@ func (bvc *tTIbvc) SetBitVector(bitVec []byte, length int) {
 		bvc.bvcFound = true
 	}
 }
+

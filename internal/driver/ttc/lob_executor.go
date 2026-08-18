@@ -41,9 +41,9 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // lobExecutor provides the base TTC RPC implementation that every LOB executor builds
@@ -734,3 +734,4 @@ func (e *lobExecutor) _consumeLobResponses(ctx context.Context) error {
 
 // 	return nil
 // }
+

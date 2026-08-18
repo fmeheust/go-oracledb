@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-driver/internal/common"
+import "github.com/oracle/go-oracledb/internal/common"
 
 type eventType int
 
@@ -103,3 +103,4 @@ func (s *eventService) post(event eventType) {
 		listener.notify(event)
 	}
 }
+

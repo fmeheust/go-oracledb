@@ -46,7 +46,7 @@ import (
 	"testing"
 	"time"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestCommit checks that changes are not available to other transactions before
@@ -367,3 +367,4 @@ func TestReadOnlyTransaction(t *testing.T) {
 		t.Fatal("INSERT in read-only tx should fail")
 	}
 }
+

@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 )
 
@@ -204,3 +204,4 @@ func TestNewOERMessageError(t *testing.T) {
 		t.Fatal("Unwrap - should return nil, no cause")
 	}
 }
+

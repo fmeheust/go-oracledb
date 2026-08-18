@@ -44,9 +44,9 @@ import (
 	"encoding/binary"
 	"unicode/utf16"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // EncodeVarchar encodes a Go string into an Oracle VARCHAR2 payload.
@@ -243,3 +243,4 @@ func DecodeUTF16BEToString(value driverCommon.B1Array) (string, error) {
 	runes := utf16.Decode(units)
 	return string(runes), nil
 }
+

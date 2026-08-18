@@ -44,9 +44,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // StreamerPreUnmarshallCallback incoming message pre-unmarshal callback signature.
@@ -385,3 +385,4 @@ func (ms *MessageStreamer) getMessageForHeader(header *messageHeader) (driverCom
 	}
 	return ms.shelf.GetMessageFactory().GetMessage(header.messageType)
 }
+

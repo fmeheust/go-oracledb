@@ -43,8 +43,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // helper: slice off TTC header and return payload
@@ -351,3 +351,4 @@ func TestTTIOallRPA_Unmarshal_TransactionContext_Fail_Bytes(t *testing.T) {
 		t.Fatalf("expected failure for transaction context bytes, got err=%v", err)
 	}
 }
+

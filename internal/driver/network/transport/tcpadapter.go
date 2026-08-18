@@ -47,8 +47,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -310,3 +310,4 @@ func (nt *NTTCP) Disconnect() error {
 	}
 	return nil
 }
+

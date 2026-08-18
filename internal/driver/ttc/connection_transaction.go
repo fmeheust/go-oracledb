@@ -43,8 +43,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -109,3 +109,4 @@ func (c *Connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 
 	return tx, nil
 }
+

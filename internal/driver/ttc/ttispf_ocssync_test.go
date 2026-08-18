@@ -42,8 +42,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 func TestTTISPF_New(t *testing.T) {
@@ -359,3 +359,4 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+

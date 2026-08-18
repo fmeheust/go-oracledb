@@ -42,8 +42,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 type ttiSTA struct {
@@ -113,3 +113,4 @@ func RegisterSTAWithCapability() {
 func (sta *ttiSTA) isBeingDrainned() bool {
 	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.connectionShouldBeDropped
 }
+

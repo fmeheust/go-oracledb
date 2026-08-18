@@ -45,10 +45,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestTTIlob_New verifies that newTTIlob configures the TTIFUN header correctly.
@@ -272,3 +272,4 @@ func TestTTIlob_MarshalTo_Fail(t *testing.T) {
 		})
 	}
 }
+

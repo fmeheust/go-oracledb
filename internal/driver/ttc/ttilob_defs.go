@@ -41,7 +41,7 @@ package ttc
 import (
 	"fmt"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // lobOperationCode enumerates TTC OLOBOPS operation codes.
@@ -609,3 +609,4 @@ func (l *locator) clearAccessState() {
 	}
 	l.locatorBytes[koll4FlagOffset] &^= (kolblOpenFlagByte | kolblReadWriteFlagByte)
 }
+

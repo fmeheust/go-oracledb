@@ -44,8 +44,8 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestTransactionCommitSuccess create a transaction and commits with different
@@ -311,3 +311,4 @@ func TestCallBeginTxTwice(t *testing.T) {
 	}
 
 }
+

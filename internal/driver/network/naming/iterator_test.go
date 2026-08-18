@@ -44,7 +44,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // ============================================================================
@@ -2177,3 +2177,4 @@ func TestConnectionIterator_RoundRobin(t *testing.T) {
 		}
 	})
 }
+

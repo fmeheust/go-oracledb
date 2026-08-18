@@ -42,8 +42,8 @@ import (
 	"strings"
 	"testing"
 
-	common "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	common "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // TestParseEzConnect_SimpleHostAndService tests basic host:port/service format
@@ -880,3 +880,4 @@ func TestSplitAndParseExtendedParams_ParensBeforeParams(t *testing.T) {
 		t.Errorf("expected recognized HTTPS_PROXY=proxy.corp, got %v", recognized)
 	}
 }
+

@@ -46,9 +46,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 const (
@@ -602,3 +602,4 @@ func EncodeIntervalDayToSecond(v driver.Value) (driverCommon.B1Array, error) {
 	binary.BigEndian.PutUint32(encoded[_dsFracStart:_dsFracStart+_dsFracLen], rawFrac)
 	return encoded, nil
 }
+

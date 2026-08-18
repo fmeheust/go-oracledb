@@ -46,10 +46,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // newAuthTestShelf wires a Shelf with:
@@ -223,3 +223,4 @@ func writeAuthWarning(t *testing.T, ctx context.Context, buf *ArrayBasedDataBuff
 		t.Fatalf("write warning message failed: %v", err)
 	}
 }
+

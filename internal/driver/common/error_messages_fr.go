@@ -39,7 +39,7 @@
 package common
 
 import (
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -59,3 +59,4 @@ func initMessagesFr() {
 	message.SetString(language.French, string(oracleErrors.MissingReadPrivilege), "privilège READ manquant")
 	message.SetString(language.French, string(oracleErrors.MissingLocalizationService), "service de localisation manquant sur la shelf")
 }
+

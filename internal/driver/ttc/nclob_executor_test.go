@@ -47,8 +47,8 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 const (
@@ -443,3 +443,4 @@ var nclobWriteLocator = driverCommon.B1Array{
 	0, 64, 0, 0, 0, 1, 7, 208, 0, 10, 0, 0, 0, 1, 0, 0,
 	53, 214, 149, 245, 0, 0, 0, 1, 0, 0,
 }
+

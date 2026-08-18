@@ -41,9 +41,9 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // tTIpro represents a TTIPRO protocol message exchanged for feature and charset negotiation.
@@ -246,3 +246,4 @@ func (p *tTIpro) GetFlags() byte { return p.svrFlags }
 
 // GetSvrPortDescription returns the raw server description/version string.
 func (p *tTIpro) GetSvrPortDescription() driverCommon.B1Array { return p.svrPortDescription }
+

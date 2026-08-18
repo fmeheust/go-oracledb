@@ -50,8 +50,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 	"golang.org/x/text/language"
 )
 
@@ -1215,3 +1215,4 @@ func validateBooleanValue(value reflect.Value, valueName string) (any, error) {
 		[]string{"true", "false"},
 	)
 }
+

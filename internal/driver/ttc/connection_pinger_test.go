@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 func TestConnectionPinger_Ping(t *testing.T) {
@@ -158,3 +158,4 @@ func TestConnectionPinger_IsValidWithInband(t *testing.T) {
 	}
 
 }
+

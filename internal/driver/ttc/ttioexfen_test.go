@@ -44,8 +44,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
-	"github.com/oracle/go-driver/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/network/session"
 )
 
 // oexfenGoldenPayload extracts the TTC OEXFEN function payload (post header)
@@ -255,3 +255,4 @@ func TestOexfen_MarshalTo_Failures(t *testing.T) {
 		})
 	}
 }
+

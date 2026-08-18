@@ -43,9 +43,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/internal/common"
-	driverCommon "github.com/oracle/go-driver/internal/driver/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 /*
@@ -95,3 +95,4 @@ func (p *tTIuds24) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshalle
 	}
 	return nil
 }
+

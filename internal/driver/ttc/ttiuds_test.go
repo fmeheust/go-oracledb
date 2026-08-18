@@ -43,7 +43,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 /*
@@ -197,3 +197,4 @@ func TestTTIuds_GetUdsArrayAndColCount(t *testing.T) {
 		}
 	}
 }
+

@@ -43,8 +43,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/oracle/go-driver/internal/common"
-	oracleErrors "github.com/oracle/go-driver/oracle/errors"
+	"github.com/oracle/go-oracledb/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
 )
 
 // Node represents a single name-value pair where value can be string or nested nodes
@@ -480,3 +480,4 @@ cond= desc.cond
 
 cond.tostring()
 */
+

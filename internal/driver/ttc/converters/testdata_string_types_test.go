@@ -41,7 +41,7 @@ package converters
 import (
 	"testing"
 
-	"github.com/oracle/go-driver/internal/driver/common"
+	"github.com/oracle/go-oracledb/internal/driver/common"
 )
 
 // assertEqBytes is a small helper to compare two B1Array values with a
@@ -119,3 +119,4 @@ var ncharRows = []struct {
 	{"FR", common.B1Array{0x46, 0x52}, common.B1Array{0x00, 0x46, 0x00, 0x52, 0x00, 0x20}},
 	{"EG", common.B1Array{0x45, 0x47}, common.B1Array{0x00, 0x45, 0x00, 0x47, 0x00, 0x20}},
 }
+
