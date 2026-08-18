@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // tTIOerIface defines an interface for Oracle error data protocol unmarshalling and processing.

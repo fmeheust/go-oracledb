@@ -43,8 +43,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/session"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/network/session"
 )
 
 // Helper functions for capabilities test data

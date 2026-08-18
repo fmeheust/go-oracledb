@@ -41,7 +41,7 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // tTIfob represents the TTC Flush Out Bind message.

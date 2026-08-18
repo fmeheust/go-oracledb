@@ -42,7 +42,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // tTIlob is the TTIFUN wrapper emitted for OLOBOPS requests.

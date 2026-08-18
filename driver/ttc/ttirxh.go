@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // tTIrxh represents the RXH (Receive Header) structure used in the TTC protocol.

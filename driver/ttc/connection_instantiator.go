@@ -43,8 +43,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/session"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/network/session"
 )
 
 type connectionInstantiator struct {

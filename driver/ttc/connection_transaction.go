@@ -43,7 +43,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 const (

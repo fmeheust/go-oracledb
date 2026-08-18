@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-driver/driver/common"
+import "github.com/oracle/go-driver/v26/driver/common"
 
 type eventType int
 

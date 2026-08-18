@@ -38,7 +38,7 @@
 
 package converters
 
-import "github.com/oracle/go-driver/driver/common"
+import "github.com/oracle/go-driver/v26/driver/common"
 
 // Maximum TTC byte lengths for encodings produced by this package.
 // Values reflect Oracle's wire representations to prevent truncation when

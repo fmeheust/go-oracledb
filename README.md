@@ -75,8 +75,8 @@ myuser/mypassword@(DESCRIPTION=(ADDRESS=(HOST=my_host)(PORT=1521))(CONNECT_DATA=
 
 #### Public API contract
 
-Application code should import and depend on `github.com/oracle/go-driver/oracle`.
-Packages under `github.com/oracle/go-driver/driver/...` are implementation details
+Application code should import and depend on `github.com/oracle/go-driver/v26/oracle`.
+Packages under `github.com/oracle/go-driver/v26/driver/...` are implementation details
 and may change without compatibility guarantees.
 
 The driver supports several sources of configuration. They apply in the following order of precedence:

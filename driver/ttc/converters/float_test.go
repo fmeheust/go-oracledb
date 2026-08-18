@@ -43,7 +43,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // float64TestCase defines a single table-driven case for NUMBER/BINARY_* tests.

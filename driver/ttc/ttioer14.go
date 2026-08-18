@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // tTIoer14 represents the Oracle error (OER) structure for version 14 and above.

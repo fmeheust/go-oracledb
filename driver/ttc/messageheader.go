@@ -42,7 +42,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 type messageHeader struct { // we can argue of the need for interface as messageType is quite fix

@@ -45,7 +45,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // ClobExecutor orchestrates CLOB operations on top of the shared lobExecutor while capturing

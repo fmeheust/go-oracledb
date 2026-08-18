@@ -46,7 +46,7 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // Internal AL8I4 flags used in oall8Options[9]

@@ -43,7 +43,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // The max password bytes length supported is 1024 bytes as per

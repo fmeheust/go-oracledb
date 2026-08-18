@@ -42,7 +42,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // This message type will be used for all TTI functions that do not contain any

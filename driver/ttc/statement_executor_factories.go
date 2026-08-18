@@ -39,7 +39,7 @@
 package ttc
 
 import (
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // getQueryStatementExecutor returns a concrete executor that implements

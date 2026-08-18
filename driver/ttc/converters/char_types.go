@@ -44,7 +44,7 @@ import (
 	"encoding/binary"
 	"unicode/utf16"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // EncodeVarchar encodes a Go string into an Oracle VARCHAR2 payload.

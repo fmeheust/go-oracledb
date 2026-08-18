@@ -43,8 +43,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/ttc/converters"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/ttc/converters"
 )
 
 const (

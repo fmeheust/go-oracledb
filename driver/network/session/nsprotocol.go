@@ -46,9 +46,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/naming"
-	"github.com/oracle/go-driver/driver/network/transport"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/network/naming"
+	"github.com/oracle/go-driver/v26/driver/network/transport"
 )
 
 // NetworkSession represents a network session for communication with the server

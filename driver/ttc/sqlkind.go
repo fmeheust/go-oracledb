@@ -41,7 +41,7 @@ package ttc
 import (
 	"strings"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 /*

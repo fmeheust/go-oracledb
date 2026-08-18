@@ -38,7 +38,7 @@
 
 package oracle
 
-import "github.com/oracle/go-driver/driver/common"
+import "github.com/oracle/go-driver/v26/driver/common"
 
 // EnquoteLiteral wraps common.EnquoteLiteral for oracle package consumers.
 func EnquoteLiteral(val string) string {

@@ -42,8 +42,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/session"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/network/session"
 )
 
 // authPacketDump is the decoded, comparison-oriented representation of an

@@ -49,7 +49,7 @@ import (
 
 	"reflect"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 // Connection implements database/sql/driver.Conn and holds negotiated session

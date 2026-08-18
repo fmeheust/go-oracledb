@@ -44,8 +44,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/session"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/network/session"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )

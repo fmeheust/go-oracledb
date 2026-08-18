@@ -45,7 +45,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-driver/driver/common"
+	"github.com/oracle/go-driver/v26/driver/common"
 )
 
 type intervalCase struct {

@@ -45,9 +45,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/naming"
-	"github.com/oracle/go-driver/driver/network/transport"
+	"github.com/oracle/go-driver/v26/driver/common"
+	"github.com/oracle/go-driver/v26/driver/network/naming"
+	"github.com/oracle/go-driver/v26/driver/network/transport"
 )
 
 // TODO: The first can be deleted, underscore is a better standard
