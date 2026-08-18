@@ -62,7 +62,12 @@ var testCases = []struct {
 	categories string
 	exclusive  bool
 	f          func(t *testing.T)
-}{}
+}{
+	{"TestEnquoteLiteral", "unitary", false, TestEnquoteLiteral},
+	{"TestEnquoteNCharLiteral", "unitary", false, TestEnquoteNCharLiteral},
+	{"TestIsSimpleIdentifier", "unitary", false, TestIsSimpleIdentifier},
+	{"TestEnquoteIdentifier", "unitary", false, TestEnquoteIdentifier},
+}
 
 func TestCategoryExecutor(t *testing.T) {
 	var regularCases, exclusiveCases []struct {
