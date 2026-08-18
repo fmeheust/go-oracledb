@@ -132,10 +132,10 @@ func TestVarchar_AL32UTF8_Encode_Output(t *testing.T) {
 		s   string
 		exp common.B1Array
 	}{
-		{"â‚¬", common.B1Array{0xE2, 0x82, 0xAC}},        // U+20AC EURO SIGN
-		{"Ã©", common.B1Array{0xC3, 0xA9}},               // U+00E9 LATIN SMALL LETTER E WITH ACUTE
-		{"ð·", common.B1Array{0xF0, 0x90, 0x90, 0xB7}}, // U+10437 DESERET CAPITAL LETTER H
-		{"Ø§", common.B1Array{0xD8, 0xA7}},               // U+0627 ARABIC LETTER ALEF
+		{"€", common.B1Array{0xE2, 0x82, 0xAC}},       // U+20AC EURO SIGN
+		{"é", common.B1Array{0xC3, 0xA9}},             // U+00E9 LATIN SMALL LETTER E WITH ACUTE
+		{"𐐷", common.B1Array{0xF0, 0x90, 0x90, 0xB7}}, // U+10437 DESERET CAPITAL LETTER H
+		{"ا", common.B1Array{0xD8, 0xA7}},             // U+0627 ARABIC LETTER ALEF
 	}
 	for _, c := range cases {
 		got, _ := EncodeVarchar(c.s)
@@ -205,10 +205,10 @@ func TestChar_AL32UTF8_Encode_Output(t *testing.T) {
 		s   string
 		exp common.B1Array
 	}{
-		{"â‚¬", common.B1Array{0xE2, 0x82, 0xAC}},        // U+20AC
-		{"Ã©", common.B1Array{0xC3, 0xA9}},               // U+00E9
-		{"ð·", common.B1Array{0xF0, 0x90, 0x90, 0xB7}}, // U+10437
-		{"Ø§", common.B1Array{0xD8, 0xA7}},               // U+0627
+		{"€", common.B1Array{0xE2, 0x82, 0xAC}},       // U+20AC
+		{"é", common.B1Array{0xC3, 0xA9}},             // U+00E9
+		{"𐐷", common.B1Array{0xF0, 0x90, 0x90, 0xB7}}, // U+10437
+		{"ا", common.B1Array{0xD8, 0xA7}},             // U+0627
 	}
 	for _, c := range cases {
 		got, _ := EncodeChar(c.s)
