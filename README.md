@@ -20,7 +20,7 @@ Oracle Database Driver for Go is a native Go driver for Go's [database/sql](http
 ## Installation
 Run:
 ```
-go get github.com/oracle/go-oracledb/v26@v26.0.0-beta
+go get github.com/oracle/go-oracledb/v26@latest
 ```
 
 ## Examples
