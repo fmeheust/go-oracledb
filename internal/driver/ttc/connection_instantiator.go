@@ -43,42 +43,25 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-<<<<<<< HEAD:driver/ttc/connection_instantiator.go
-	"github.com/oracle/go-driver/driver/common"
-=======
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
->>>>>>> restructure:internal/driver/ttc/connection_instantiator.go
 )
 
 type connectionInstantiator struct {
 	negotiator           Negotiator
 	authenticator        Authenticator
-<<<<<<< HEAD:driver/ttc/connection_instantiator.go
-	dataBuffer           common.DataBuffer
-	ns                   common.NetworkSession
-	connectionProperties *common.OracleDriverProperties
-	newConnection        func(context.Context, *ttiShelf[common.MessageType], *common.SessionContext, common.NetworkSession) (*connection, error)
-=======
 	dataBuffer           driverCommon.DataBuffer
 	ns                   driverCommon.NetworkSession
 	connectionProperties *oracleconfig.OracleDriverProperties
-	newConnection        func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*Connection, error)
->>>>>>> restructure:internal/driver/ttc/connection_instantiator.go
+	newConnectionFunc    func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*connection, error)
 	localizationService  common.LocalizationService
 }
 
 // NewTTCConnectionInstantiator creates a new TTC connection instantiator
-<<<<<<< HEAD:driver/ttc/connection_instantiator.go
-func NewTTCConnectionInstantiator(config *common.OracleDriverConfig, ns common.NetworkSession) (common.ConnectionInstantiator, error) {
-	dataBuffer := ns.(common.DataBuffer)
-=======
-func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
-	dataBuffer := driverCommon.DataBuffer(ns)
->>>>>>> restructure:internal/driver/ttc/connection_instantiator.go
+func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns driverCommon.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
+	dataBuffer := ns.(driverCommon.DataBuffer)
 	negotiator := GetNegotiator(dataBuffer)
 	localizationService := common.NewLocalizationService(config.Locale.ClientLanguage)
 
@@ -92,7 +75,7 @@ func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *s
 		dataBuffer:           dataBuffer,
 		ns:                   ns,
 		connectionProperties: &config.DriverProperties,
-		newConnection:        newConnection,
+		newConnectionFunc:    newConnection,
 		localizationService:  localizationService,
 	}, nil
 }
@@ -135,11 +118,7 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 
 	// conn = drv.newConnection(ctx, *c.config, sessCtx, shelf)
 	common.Odl.Debug("Connect end")
-	newConnection := connInstantiator.newConnection
-	if newConnection == nil {
-		newConnection = newConnection
-	}
-	return newConnection(ctx, shelf, sessCtx, connInstantiator.ns)
+	return connInstantiator.newConnectionFunc(ctx, shelf, sessCtx, connInstantiator.ns)
 }
 
 // *** Authenticator Factory ***

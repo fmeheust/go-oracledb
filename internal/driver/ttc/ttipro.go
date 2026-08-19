@@ -49,17 +49,6 @@ import (
 // tTIpro represents a TTIPRO protocol message exchanged for feature and charset negotiation.
 // It stores protocol and server compatibility metadata as received from the database server.
 type tTIpro struct {
-<<<<<<< HEAD:driver/ttc/ttipro.go
-	svrCharSet         common.UB2     // Database server charset (TTC response)
-	svrCharSetElem     common.UB2     // Charset element value from server (TTC response)
-	svrFlags           byte           // DB charset flags (TTC response)
-	svrPortDescription common.B1Array // Server description/version string (e.g. "x86_64/Linux. 2.4.xx")
-	proSvrVer          common.UB2     // Server protocol version
-	oVersion           common.UB2     // Oracle server version
-	NCharCharset       common.UB2     // Server NCHAR charset (TTC response)
-	ServerCaps         *capability    // Negotiated server runtime and compile-time capabilities
-	ClientCaps         *capability    // Client capabilities updated based on server capabilities
-=======
 	svrCharSet         driverCommon.UB2     // Database server charset (TTC response)
 	svrCharSetElem     driverCommon.UB2     // Charset element value from server (TTC response)
 	svrFlags           byte                 // DB charset flags (TTC response)
@@ -67,9 +56,8 @@ type tTIpro struct {
 	proSvrVer          driverCommon.UB2     // Server protocol version
 	oVersion           driverCommon.UB2     // Oracle server version
 	NCharCharset       driverCommon.UB2     // Server NCHAR charset (TTC response)
-	ServerCaps         *Capability          // Negotiated server runtime and compile-time capabilities
-	ClientCaps         *Capability          // Client capabilities updated based on server capabilities
->>>>>>> restructure:internal/driver/ttc/ttipro.go
+	ServerCaps         *capability          // Negotiated server runtime and compile-time capabilities
+	ClientCaps         *capability          // Client capabilities updated based on server capabilities
 }
 
 var (

@@ -69,11 +69,7 @@ type clobExecutor struct {
 //
 // Errors:
 //   - None.
-<<<<<<< HEAD:driver/ttc/clob_executor.go
-func newClobExecutor(shelf *common.Shelf[common.MessageType], sessionCtx *common.SessionContext) *clobExecutor {
-=======
-func NewClobExecutor(shelf *driverCommon.Shelf[driverCommon.MessageType], sessionCtx *driverCommon.SessionContext) *ClobExecutor {
->>>>>>> restructure:internal/driver/ttc/clob_executor.go
+func newClobExecutor(shelf *driverCommon.Shelf[driverCommon.MessageType], sessionCtx *driverCommon.SessionContext) *clobExecutor {
 	base := newLobExecutor()
 	base.SetShelf(shelf)
 
@@ -138,11 +134,7 @@ func (c *clobExecutor) close(ctx context.Context, lobLocator *locator) error {
 //
 // Errors:
 //   - Propagates failures from the underlying lobExecutor.
-<<<<<<< HEAD:driver/ttc/clob_executor.go
-func (c *clobExecutor) getChunkSize(ctx context.Context, lobLocator *locator) (common.UB8, error) {
-=======
-func (c *ClobExecutor) GetChunkSize(ctx context.Context, lobLocator *locator) (driverCommon.UB8, error) {
->>>>>>> restructure:internal/driver/ttc/clob_executor.go
+func (c *clobExecutor) getChunkSize(ctx context.Context, lobLocator *locator) (driverCommon.UB8, error) {
 	return c.lobExecutor.GetChunkSize(ctx, lobLocator)
 }
 
@@ -158,11 +150,7 @@ func (c *ClobExecutor) GetChunkSize(ctx context.Context, lobLocator *locator) (d
 //
 // Errors:
 //   - Propagates failures from the underlying lobExecutor.
-<<<<<<< HEAD:driver/ttc/clob_executor.go
-func (c *clobExecutor) getLength(ctx context.Context, lobLocator *locator) (common.UB8, error) {
-=======
-func (c *ClobExecutor) GetLength(ctx context.Context, lobLocator *locator) (driverCommon.UB8, error) {
->>>>>>> restructure:internal/driver/ttc/clob_executor.go
+func (c *clobExecutor) getLength(ctx context.Context, lobLocator *locator) (driverCommon.UB8, error) {
 	return c.lobExecutor.GetLength(ctx, lobLocator)
 }
 
@@ -178,13 +166,8 @@ func (c *ClobExecutor) GetLength(ctx context.Context, lobLocator *locator) (driv
 //   - error: nil on success.
 //
 // Errors:
-<<<<<<< HEAD:driver/ttc/clob_executor.go
 //   - Propagates failures from the underlying lobExecutor trim call.
-func (c *clobExecutor) trim(ctx context.Context, lobLocator *locator, newLength common.UB8) (common.UB8, error) {
-=======
-//   - Propagates failures from the underlying lobExecutor Trim call.
-func (c *ClobExecutor) Trim(ctx context.Context, lobLocator *locator, newLength driverCommon.UB8) (driverCommon.UB8, error) {
->>>>>>> restructure:internal/driver/ttc/clob_executor.go
+func (c *clobExecutor) trim(ctx context.Context, lobLocator *locator, newLength driverCommon.UB8) (driverCommon.UB8, error) {
 	return c.lobExecutor.Trim(ctx, lobLocator, newLength)
 }
 
@@ -222,11 +205,7 @@ func (c *clobExecutor) isOpen(ctx context.Context, lobLocator *locator) (bool, e
 // Note:
 //   - Temporary CLOBs are always created first and then assigned to table columns, at which point
 //     the database promotes them to persistent LOBs.
-<<<<<<< HEAD:driver/ttc/clob_executor.go
-func (c *clobExecutor) createTemporaryLob(ctx context.Context, cache bool, duration common.UB4, formOfUse common.UB2) (common.B1Array, error) {
-=======
-func (c *ClobExecutor) CreateTemporaryLob(ctx context.Context, cache bool, duration driverCommon.UB4, formOfUse driverCommon.UB2) (driverCommon.B1Array, error) {
->>>>>>> restructure:internal/driver/ttc/clob_executor.go
+func (c *clobExecutor) createTemporaryLob(ctx context.Context, cache bool, duration driverCommon.UB4, formOfUse driverCommon.UB2) (driverCommon.B1Array, error) {
 	tempSize := kolllTempWithSignature
 
 	// FormChar LOBs inherit the session database character set advertised by the driver

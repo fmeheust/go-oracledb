@@ -368,11 +368,7 @@ func newDefaultCapability() *capability {
 }
 
 // UnMarshalFrom reads server capabilities from the marshal engine.
-<<<<<<< HEAD:driver/ttc/capability.go
-func (cap *capability) UnMarshalFrom(ctx context.Context, mar common.Marshaller) error {
-=======
-func (cap *Capability) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshaller) error {
->>>>>>> restructure:internal/driver/ttc/capability.go
+func (cap *capability) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshaller) error {
 	// Read server's compile time capabilities
 	length, err := mar.UnmarshalUB1(ctx)
 	if err != nil {
@@ -410,13 +406,8 @@ func (cap *Capability) UnMarshalFrom(ctx context.Context, mar driverCommon.Marsh
 }
 
 // MarshalTo writes capabilities to the marshal engine.
-<<<<<<< HEAD:driver/ttc/capability.go
-func (cap *capability) MarshalTo(ctx context.Context, mar common.Marshaller) error {
-	if err := mar.MarshalUB1(ctx, common.UB1(len(cap.compileTimeCapabilities))); err != nil {
-=======
-func (cap *Capability) MarshalTo(ctx context.Context, mar driverCommon.Marshaller) error {
+func (cap *capability) MarshalTo(ctx context.Context, mar driverCommon.Marshaller) error {
 	if err := mar.MarshalUB1(ctx, driverCommon.UB1(len(cap.compileTimeCapabilities))); err != nil {
->>>>>>> restructure:internal/driver/ttc/capability.go
 		common.Odl.Warn("Failed to marshal compile time capabilities", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, "Capability")
 	}
@@ -465,11 +456,7 @@ func (cap *capability) adjustCapabilityFrom(serverCap *capability) {
 	}
 }
 
-<<<<<<< HEAD:driver/ttc/capability.go
-func (cap *capability) toMap() map[string]common.Capability {
-=======
-func (cap *Capability) toMap() map[string]driverCommon.Capability {
->>>>>>> restructure:internal/driver/ttc/capability.go
+func (cap *capability) toMap() map[string]driverCommon.Capability {
 	totalCount := len(cap.knownUsedCompileTimeCapabilities) + len(cap.knownUsedRuntimeCapabilities)
 	var capabilityMap = make(map[string]driverCommon.Capability, totalCount)
 	capabilitiesToMap(cap.compileTimeCapabilities, cap.knownUsedCompileTimeCapabilities, capabilityMap)

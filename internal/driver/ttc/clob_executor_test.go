@@ -225,11 +225,7 @@ func TestClobExecutor_Write(t *testing.T) {
 	inputText := strings.Repeat("This is a large text example. ", 20)
 	inputRunes := []rune(inputText)
 
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-	written, err := lobExec.write(ctx, newLocator(locator, common.UB8(1)), false, inputRunes, len(inputRunes))
-=======
-	written, err := lobExec.Write(ctx, newLocator(locator, driverCommon.UB8(1)), false, inputRunes, len(inputRunes))
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+	written, err := lobExec.write(ctx, newLocator(locator, driverCommon.UB8(1)), false, inputRunes, len(inputRunes))
 	if err != nil {
 		t.Fatalf("Write failed: %v", err)
 	}
@@ -409,15 +405,9 @@ func TestClobExecutor_Trim(t *testing.T) {
 		t.Fatalf("failed to build expected marshal payload: %v", err)
 	}
 
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
 	lobExec := newClobExecutor(shelf, newTestSessionContext())
-	const newLength common.UB8 = 30
-	trimmedLength, err := lobExec.trim(ctx, newLocator(locator, 0), newLength)
-=======
-	lobExec := NewClobExecutor(shelf, newTestSessionContext())
 	const newLength driverCommon.UB8 = 30
-	trimmedLength, err := lobExec.Trim(ctx, newLocator(locator, 0), newLength)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+	trimmedLength, err := lobExec.trim(ctx, newLocator(locator, 0), newLength)
 	if err != nil {
 		t.Fatalf("Trim failed: %v", err)
 	}
@@ -441,21 +431,13 @@ func TestClobExecutor_ReadErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, common.B1Array, common.UB8, common.UB8, bool, []rune, int)
-=======
-		setup             func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, driverCommon.UB8, bool, []rune, int)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, driverCommon.UB8, bool, []rune, int)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "base read push error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8, common.UB8, bool, []rune, int) {
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, driverCommon.UB8, bool, []rune, int) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, driverCommon.UB8, bool, []rune, int) {
 				ts := newClobExecutorWithStub(lobExecutorScenario{pushErr: errors.New("push failed")})
 				return ts.clob, clobReadLocator, 0, 1, false, make([]rune, 1), 0
 			},
@@ -463,13 +445,8 @@ func TestClobExecutor_ReadErrors(t *testing.T) {
 		},
 		{
 			name: "decode error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8, common.UB8, bool, []rune, int) {
-				numChars := common.UB8(1)
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, driverCommon.UB8, bool, []rune, int) {
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, driverCommon.UB8, bool, []rune, int) {
 				numChars := driverCommon.UB8(1)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
 				locator := newTestLocator(true)
 				ts := newClobExecutorWithStub(lobExecutorScenario{
 					locator: locator,
@@ -509,23 +486,14 @@ func TestClobExecutor_WriteErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, common.B1Array, common.UB8, bool, []rune, int, int)
-=======
-		setup             func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "value based locator",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8, bool, []rune, int, int) {
-				exec := newClobExecutor(&common.Shelf[common.MessageType]{}, newTestSessionContext())
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int) {
-				exec := NewClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int) {
+				exec := newClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
 				locator := newTestLocator(false)
 				locator[koll1FlagOffset] = kolblValueBasedLocatorFlag
 				return exec, locator, 1, false, []rune("a"), 0, 1
@@ -535,13 +503,8 @@ func TestClobExecutor_WriteErrors(t *testing.T) {
 		},
 		{
 			name: "read only locator",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8, bool, []rune, int, int) {
-				exec := newClobExecutor(&common.Shelf[common.MessageType]{}, newTestSessionContext())
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int) {
-				exec := NewClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int) {
+				exec := newClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
 				locator := newTestLocator(false)
 				locator[koll3FlagOffset] = kolblReadOnlyFlag
 				return exec, locator, 1, false, []rune("a"), 0, 1
@@ -551,11 +514,7 @@ func TestClobExecutor_WriteErrors(t *testing.T) {
 		},
 		{
 			name: "base execute error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8, bool, []rune, int, int) {
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8, bool, []rune, int, int) {
 				scenario := lobExecutorScenario{flushErr: errors.New("flush failed")}
 				ts := newClobExecutorWithStub(scenario)
 				locator := newTestLocator(false)
@@ -591,21 +550,13 @@ func TestClobExecutor_CreateTemporaryLobErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, bool, common.UB4, common.UB2)
-=======
-		setup             func() (*ClobExecutor, bool, driverCommon.UB4, driverCommon.UB2)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, bool, driverCommon.UB4, driverCommon.UB2)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "base execute error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, bool, common.UB4, common.UB2) {
-=======
-			setup: func() (*ClobExecutor, bool, driverCommon.UB4, driverCommon.UB2) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, bool, driverCommon.UB4, driverCommon.UB2) {
 				ts := newClobExecutorWithStub(lobExecutorScenario{flushErr: errors.New("flush failed")})
 				return ts.clob, true, 5, 1
 			},
@@ -637,21 +588,13 @@ func TestClobExecutor_GetLengthErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, common.B1Array)
-=======
-		setup             func() (*ClobExecutor, driverCommon.B1Array)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, driverCommon.B1Array)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "base execute error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array) {
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array) {
 				ts := newClobExecutorWithStub(lobExecutorScenario{flushErr: errors.New("flush failed")})
 				return ts.clob, newTestLocator(false)
 			},
@@ -683,21 +626,13 @@ func TestClobExecutor_IsOpenErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, common.B1Array)
-=======
-		setup             func() (*ClobExecutor, driverCommon.B1Array)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, driverCommon.B1Array)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "base execute error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array) {
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array) {
 				locator := newTestLocator(false)
 				ts := newClobExecutorWithStub(lobExecutorScenario{flushErr: errors.New("flush failed")})
 				return ts.clob, locator
@@ -730,23 +665,14 @@ func TestClobExecutor_TrimErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, common.B1Array, common.UB8)
-=======
-		setup             func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "value based locator",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8) {
-				exec := newClobExecutor(&common.Shelf[common.MessageType]{}, newTestSessionContext())
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8) {
-				exec := NewClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8) {
+				exec := newClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
 				locator := newTestLocator(false)
 				locator[koll1FlagOffset] = kolblValueBasedLocatorFlag
 				return exec, locator, 1
@@ -756,13 +682,8 @@ func TestClobExecutor_TrimErrors(t *testing.T) {
 		},
 		{
 			name: "read only locator",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8) {
-				exec := newClobExecutor(&common.Shelf[common.MessageType]{}, newTestSessionContext())
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8) {
-				exec := NewClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8) {
+				exec := newClobExecutor(&driverCommon.Shelf[driverCommon.MessageType]{}, newTestSessionContext())
 				locator := newTestLocator(false)
 				locator[koll3FlagOffset] = kolblReadOnlyFlag
 				return exec, locator, 1
@@ -772,11 +693,7 @@ func TestClobExecutor_TrimErrors(t *testing.T) {
 		},
 		{
 			name: "base execute error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array, common.UB8) {
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array, driverCommon.UB8) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array, driverCommon.UB8) {
 				ts := newClobExecutorWithStub(lobExecutorScenario{flushErr: errors.New("flush failed")})
 				locator := newTestLocator(false)
 				return ts.clob, locator, 5
@@ -809,21 +726,13 @@ func TestClobExecutor_GetChunkSizeErrors(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name              string
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-		setup             func() (*clobExecutor, common.B1Array)
-=======
-		setup             func() (*ClobExecutor, driverCommon.B1Array)
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+		setup             func() (*clobExecutor, driverCommon.B1Array)
 		expectErrContains string
 		expectErrCode     string
 	}{
 		{
 			name: "base execute error",
-<<<<<<< HEAD:driver/ttc/clob_executor_test.go
-			setup: func() (*clobExecutor, common.B1Array) {
-=======
-			setup: func() (*ClobExecutor, driverCommon.B1Array) {
->>>>>>> restructure:internal/driver/ttc/clob_executor_test.go
+			setup: func() (*clobExecutor, driverCommon.B1Array) {
 				ts := newClobExecutorWithStub(lobExecutorScenario{flushErr: errors.New("flush failed")})
 				return ts.clob, newTestLocator(false)
 			},

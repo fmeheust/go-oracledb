@@ -110,11 +110,7 @@ func TestNewConnectionReturnsServerTimezoneError(t *testing.T) {
 	})
 	shelf.RegisterLocalizationService(common.NewLocalizationService(language.English))
 
-<<<<<<< HEAD:driver/ttc/connection_test.go
-	conn, err := newConnection(context.Background(), shelf, common.NewSessionContext(), &mockNetworkSession{})
-=======
-	conn, err := NewConnection(context.Background(), shelf, driverCommon.NewSessionContext(), &mockNetworkSession{})
->>>>>>> restructure:internal/driver/ttc/connection_test.go
+	conn, err := newConnection(context.Background(), shelf, driverCommon.NewSessionContext(), &mockNetworkSession{})
 	if err == nil {
 		t.Fatal("expected server timezone initialization error")
 	}
@@ -182,13 +178,8 @@ func TestConnection_QueryContext_LocalizesError(t *testing.T) {
 
 func TestConnection_LocalizationStaysBoundToEachShelf(t *testing.T) {
 	t.Parallel()
-<<<<<<< HEAD:driver/ttc/connection_test.go
 	newConn := func(lang language.Tag) *connection {
-		shelf := newShelf[common.MessageType]()
-=======
-	newConn := func(lang language.Tag) *Connection {
 		shelf := newShelf[driverCommon.MessageType]()
->>>>>>> restructure:internal/driver/ttc/connection_test.go
 		shelf.RegisterMessageFactory(&mockFactory{returnMsg: NewOall18()})
 		shelf.RegisterMessageStreamer(&mockStreamer{pullMsg: &mockOer{err: nil}})
 		shelf.RegisterLocalizationService(common.NewLocalizationService(lang))
@@ -446,7 +437,7 @@ type connInvalidationMsg struct {
 }
 
 func (m *connInvalidationMsg) GetMsgCode() driverCommon.MessageType { return m.msgType }
-func (m *connInvalidationMsg) UnMarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
+func (m *connInvalidationMsg) UnMarshalFrom(_ context.Context, _ driverCommon.Marshaller) error {
 	return nil
 }
 func (m *connInvalidationMsg) isBeingDrainned() bool {

@@ -61,17 +61,10 @@ var _emptyTimeZoneBytes = []byte{0, 0, 0, 0}
 
 // tTIdty represents the type and data representation negotiation protocol for a database session.
 type tTIdty struct {
-<<<<<<< HEAD:driver/ttc/ttidty.go
-	cliRIN                common.UB2 // Input character set code
-	cliROUT               common.UB2 // Output character set code
-	negotiatedCaps        *capability
-	negotiatedCapsMap     map[string]common.Capability
-=======
 	cliRIN                driverCommon.UB2 // Input character set code
 	cliROUT               driverCommon.UB2 // Output character set code
-	negotiatedCaps        *Capability
+	negotiatedCaps        *capability
 	negotiatedCapsMap     map[string]driverCommon.Capability
->>>>>>> restructure:internal/driver/ttc/ttidty.go
 	timeZoneVersionNumber byte
 }
 

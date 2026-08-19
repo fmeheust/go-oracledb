@@ -66,23 +66,6 @@ var testCases = []struct {
 	{"TestClearAllAndLength", "unitary", false, TestClearAllAndLength},
 	{"TestStringFormat", "unitary", false, TestStringFormat},
 	{"TestSetBytes_OutOfBounds", "unitary", false, TestSetBytes_OutOfBounds},
-<<<<<<< HEAD:driver/common/common_pkg_test.go
-	{"TestGet_OutOfBounds", "unitary", false, TestGet_OutOfBounds},
-	{"TestConstants_Protocol", "unitary", false, TestConstants_Protocol},
-	{"TestErrorUnknownCode", "unitary", false, TestErrorUnknownCode},
-	{"TestErrorBasic3113", "unitary", false, TestErrorBasic3113},
-	{"TestErrorBasic3113Fr", "unitary", false, TestErrorBasic3113Fr},
-	{"TestError3113", "unitary", false, TestError3113},
-	{"TestError3113Fr", "unitary", false, TestError3113Fr},
-	{"TestError3113pt", "unitary", false, TestError3113pt},
-	{"TestError3113NoLanguage", "unitary", false, TestError3113NoLanguage},
-	{"TestErrorUnwrap", "unitary", false, TestErrorUnwrap},
-	{"TestError3113InvalidLanguage", "unitary", false, TestError3113InvalidLanguage},
-	{"TestNewOERMessageError", "unitary", false, TestNewOERMessageError},
-=======
-	{"TestGetSet_OutOfBounds", "unitary", false, TestGetSet_OutOfBounds},
-	{"TestNewBitSetFromBytes", "unitary", false, TestNewBitSetFromBytes},
->>>>>>> restructure:internal/driver/common/common_pkg_test.go
 	{"TestShelf_NewShelfTest", "unitary", false, TestShelf_NewShelfTest},
 	{"TestShelf_GetMarshaller", "unitary", false, TestShelf_GetMarshaller},
 	{"TestShelf_GetMessageFactory", "unitary", false, TestShelf_GetMessageFactory},

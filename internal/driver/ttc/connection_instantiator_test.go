@@ -136,11 +136,7 @@ func TestGetConnection(t *testing.T) {
 				ns:                   ns,
 				connectionProperties: ciConnectionProps,
 				localizationService:  common.NewLocalizationService(language.English),
-<<<<<<< HEAD:driver/ttc/connection_instantiator_test.go
-				newConnection: func(_ context.Context, shelf *ttiShelf[common.MessageType], sessCtx *common.SessionContext, ns common.NetworkSession) (*connection, error) {
-=======
-				newConnection: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*Connection, error) {
->>>>>>> restructure:internal/driver/ttc/connection_instantiator_test.go
+				newConnectionFunc: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*connection, error) {
 					return newTestConnection(shelf, sessCtx, ns), nil
 				},
 			}
@@ -193,13 +189,8 @@ func TestGetConnectionMissingLocalizationService(t *testing.T) {
 		},
 		authenticator:        &mockAuthenticator{},
 		ns:                   &mockNetworkSession{},
-<<<<<<< HEAD:driver/ttc/connection_instantiator_test.go
-		connectionProperties: &common.OracleDriverProperties{},
-		newConnection: func(_ context.Context, shelf *ttiShelf[common.MessageType], sessCtx *common.SessionContext, ns common.NetworkSession) (*connection, error) {
-=======
 		connectionProperties: &oracleconfig.OracleDriverProperties{},
-		newConnection: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*Connection, error) {
->>>>>>> restructure:internal/driver/ttc/connection_instantiator_test.go
+		newConnectionFunc: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*connection, error) {
 			return newTestConnection(shelf, sessCtx, ns), nil
 		},
 		localizationService: nil,

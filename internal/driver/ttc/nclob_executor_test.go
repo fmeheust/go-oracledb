@@ -130,11 +130,7 @@ func TestClobExecutor_WriteNCLOB(t *testing.T) {
 	lobExec := newClobExecutor(shelf, newTestSessionContext())
 	inputRunes := []rune(nclobExpectedString)
 
-<<<<<<< HEAD:driver/ttc/nclob_executor_test.go
-	written, err := lobExec.write(ctx, newLocator(locator, common.UB8(1)), true, inputRunes, len(inputRunes))
-=======
-	written, err := lobExec.Write(ctx, newLocator(locator, driverCommon.UB8(1)), true, inputRunes, len(inputRunes))
->>>>>>> restructure:internal/driver/ttc/nclob_executor_test.go
+	written, err := lobExec.write(ctx, newLocator(locator, driverCommon.UB8(1)), true, inputRunes, len(inputRunes))
 	if err != nil {
 		t.Fatalf("Write failed: %v", err)
 	}

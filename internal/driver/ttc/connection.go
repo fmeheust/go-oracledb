@@ -56,17 +56,10 @@ import (
 
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
-<<<<<<< HEAD:driver/ttc/connection.go
 type connection struct {
-	shelf   *ttiShelf[common.MessageType]
-	sessCtx *common.SessionContext
-	ns      common.NetworkSession
-=======
-type Connection struct {
 	shelf   *ttiShelf[driverCommon.MessageType]
 	sessCtx *driverCommon.SessionContext
 	ns      driverCommon.NetworkSession
->>>>>>> restructure:internal/driver/ttc/connection.go
 	// _isClosed is used to know if the connection has been closed. If _isClosed
 	// is set to true the connection cannot be used.
 	_isClosed bool
@@ -82,19 +75,11 @@ type Connection struct {
 // It returns an error when the server timezone cannot be initialized.
 func newConnection(
 	ctx context.Context,
-<<<<<<< HEAD:driver/ttc/connection.go
-	shelf *ttiShelf[common.MessageType],
-	sessCtx *common.SessionContext,
-	ns common.NetworkSession,
-) (*connection, error) {
-	conn := &connection{
-=======
 	shelf *ttiShelf[driverCommon.MessageType],
 	sessCtx *driverCommon.SessionContext,
 	ns driverCommon.NetworkSession,
-) (*Connection, error) {
-	conn := &Connection{
->>>>>>> restructure:internal/driver/ttc/connection.go
+) (*connection, error) {
+	conn := &connection{
 		shelf:     shelf,
 		sessCtx:   sessCtx,
 		ns:        ns,
@@ -146,7 +131,7 @@ Returns:
 - driver.Stmt: Prepared statement bound to this connection and query.
 - error: Non-nil if the connection is closed/invalid.
 */
-func (c *connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (c *connection) PrepareContext(_ context.Context, query string) (driver.Stmt, error) {
 	common.Odl.Debug("Connection.PrepareContext: creating statement...")
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
@@ -206,11 +191,7 @@ type connectionStatusProvider interface {
 
 // _registerHandleConnectionShouldBeDropped registers post unmarshal callbacks
 // that invalidates connections that should be dropped due to a planned-down
-<<<<<<< HEAD:driver/ttc/connection.go
-func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[common.MessageType], connection *connection) {
-=======
-func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[driverCommon.MessageType], connection *Connection) {
->>>>>>> restructure:internal/driver/ttc/connection.go
+func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[driverCommon.MessageType], connection *connection) {
 	messageStreamer := shelf.GetMessageStreamer().(MessageStreamerInterface)
 	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, connection._handleConnectionShouldBeDropped)
 	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, connection._handleConnectionShouldBeDropped)
@@ -219,11 +200,7 @@ func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[driverCommon.Messa
 // _handleConnectionShouldBeDropped post unmarshal callback that invalidates
 // connections that should be dropped. Messages are kept in the queue to be
 // handled by the caller
-<<<<<<< HEAD:driver/ttc/connection.go
-func (c *connection) _handleConnectionShouldBeDropped(msg common.Message[common.MessageType], e error) (bool, error) {
-=======
-func (c *Connection) _handleConnectionShouldBeDropped(msg driverCommon.Message[driverCommon.MessageType], e error) (bool, error) {
->>>>>>> restructure:internal/driver/ttc/connection.go
+func (c *connection) _handleConnectionShouldBeDropped(msg driverCommon.Message[driverCommon.MessageType], _ error) (bool, error) {
 	// if connectionSouldBeDropped flag was received in TTISTA or TTIOER, it means
 	// that the connection is being drainned and it should be closed and not
 	// released to the connection pool
@@ -252,6 +229,8 @@ func (c *connection) notify(event eventType) {
 	case streamerOverFlowEvent:
 		common.Odl.Debug("Connection.notify: streamer overflow received")
 		c._isValid = false
+	default:
+		common.Odl.Debug("Connection.notify: received", "evt", event)
 	}
 	if wasValid == true && c._isValid == false {
 		c.shelf.getEventService().post(connectionInvalidatedEvent)
