@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	"golang.org/x/text/language"
 )
 

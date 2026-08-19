@@ -48,9 +48,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/ttc/converters"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/ttc/converters"
 )
 
 const MinTTCProtocolVersion = 12 // 19.1

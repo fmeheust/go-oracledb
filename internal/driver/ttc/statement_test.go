@@ -45,9 +45,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	drvierCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	drvierCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"golang.org/x/text/language"
 )
 

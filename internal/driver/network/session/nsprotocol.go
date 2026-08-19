@@ -46,11 +46,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/naming"
-	"github.com/oracle/go-oracledb/internal/driver/network/transport"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/naming"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/transport"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // NetworkSession represents a network session for communication with the server

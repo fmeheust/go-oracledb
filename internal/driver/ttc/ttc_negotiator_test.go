@@ -45,7 +45,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 )
 
 var WriteCount int = 0

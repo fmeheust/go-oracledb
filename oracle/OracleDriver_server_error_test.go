@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 func TestServerError(t *testing.T) {

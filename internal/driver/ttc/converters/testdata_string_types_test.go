@@ -41,7 +41,7 @@ package converters
 import (
 	"testing"
 
-	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 )
 
 // assertEqBytes is a small helper to compare two B1Array values with a

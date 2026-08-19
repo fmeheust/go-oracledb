@@ -45,8 +45,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 )
 
 // TestOSesskeyNew asserts that NewOSesskey returns a valid, non-nil object.

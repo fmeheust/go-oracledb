@@ -39,7 +39,7 @@
 package common
 
 import (
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )

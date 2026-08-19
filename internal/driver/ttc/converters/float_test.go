@@ -43,7 +43,7 @@ import (
 	"math"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // float64TestCase defines a single table-driven case for NUMBER/BINARY_* tests.

@@ -47,8 +47,8 @@ import (
 	"strings"
 	"testing"
 
-	common "github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/naming"
+	common "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/naming"
 )
 
 func TestGenUUID(t *testing.T) {

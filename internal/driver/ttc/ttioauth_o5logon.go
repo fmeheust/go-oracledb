@@ -50,10 +50,10 @@ import (
 	"hash"
 	"strings"
 
-	"github.com/oracle/go-oracledb/internal/common"
+	"github.com/oracle/go-oracledb/v26/internal/common"
 
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"golang.org/x/crypto/pbkdf2"
 )
 

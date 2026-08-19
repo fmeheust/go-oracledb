@@ -44,7 +44,7 @@ import (
 	"testing"
 	"time"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // ************************** NOTE ************************** //

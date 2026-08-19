@@ -42,7 +42,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 func assertErrorCode(t *testing.T, err error, want oracleErrors.ErrorCode) {

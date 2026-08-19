@@ -48,10 +48,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // makeLobPayloadFromDump converts a TTC hex dump emitted in tests into a raw

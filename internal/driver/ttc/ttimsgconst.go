@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-oracledb/internal/driver/common"
+import "github.com/oracle/go-oracledb/v26/internal/driver/common"
 
 // All TTC message code that must be kept ordered
 const (

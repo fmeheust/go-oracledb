@@ -43,9 +43,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // tTIoer14 represents the Oracle error (OER) structure for version 14 and above.

@@ -46,7 +46,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // TestDriver_SimpleConnection executes a simple connection.

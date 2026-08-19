@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
-	oracleutils "github.com/oracle/go-oracledb/oracle/utils"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	oracleutils "github.com/oracle/go-oracledb/v26/oracle/utils"
 )
 
 func TestEnquoteLiteral(t *testing.T) {

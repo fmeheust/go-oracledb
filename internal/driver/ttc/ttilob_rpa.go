@@ -41,9 +41,9 @@ package ttc
 import (
 	"context"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // ttiLobRpa represents the TTC LOB RPA message used to exchange locator metadata between client and server.

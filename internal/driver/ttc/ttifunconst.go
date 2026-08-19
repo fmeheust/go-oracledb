@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-oracledb/internal/driver/common"
+import "github.com/oracle/go-oracledb/v26/internal/driver/common"
 
 const (
 	// logOff (OLOGOFF) is used to close a connection

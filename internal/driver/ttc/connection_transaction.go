@@ -43,8 +43,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 const (

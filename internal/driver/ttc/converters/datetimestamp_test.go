@@ -43,7 +43,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-oracledb/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 )
 
 // signedDate is the first 7 bytes from the reference payload used in the

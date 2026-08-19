@@ -46,9 +46,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // Oall8Payload extracts TTC OALL8 payload (post header) from dump, same convention as ttioall_test.go

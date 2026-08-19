@@ -44,7 +44,7 @@ import (
 	"maps"
 	"weak"
 
-	common "github.com/oracle/go-oracledb/internal/driver/common"
+	common "github.com/oracle/go-oracledb/v26/internal/driver/common"
 )
 
 // ttiShelfUser declares a dependency on a TTC shelf.

@@ -43,7 +43,7 @@ import (
 	"strings"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // TestQueryNonExistentTable_NegativeCase validates that querying a non-existent table

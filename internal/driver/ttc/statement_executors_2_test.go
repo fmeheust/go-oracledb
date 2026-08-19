@@ -48,9 +48,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/ttc/converters"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/ttc/converters"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // registerTestCodecs registers encoders, decoders and OAC makers used by statementProcessor

@@ -39,10 +39,10 @@
 package driver
 
 import (
-	"github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/session"
-	"github.com/oracle/go-oracledb/internal/driver/ttc"
-	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/v26/internal/driver/ttc"
+	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 )
 
 // GetConnectionInstantiator returns the correct connection instantiator

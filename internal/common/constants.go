@@ -43,7 +43,7 @@ import (
 	"slices"
 	"strings"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // The driver vesrion has to be sent to the server as a number, the

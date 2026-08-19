@@ -42,8 +42,8 @@ import (
 	"strings"
 	"testing"
 
-	common "github.com/oracle/go-oracledb/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	common "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // TestParseEzConnect_SimpleHostAndService tests basic host:port/service format

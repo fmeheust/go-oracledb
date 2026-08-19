@@ -45,7 +45,7 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 var messageLanguages = []language.Tag{

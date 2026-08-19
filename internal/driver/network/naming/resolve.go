@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/oracle/go-oracledb/internal/common"
+	"github.com/oracle/go-oracledb/v26/internal/common"
 )
 
 type lookupIPAddrFunc func(context.Context, string) ([]net.IPAddr, error)

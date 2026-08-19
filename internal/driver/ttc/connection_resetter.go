@@ -42,7 +42,7 @@ import (
 	"context"
 	"database/sql/driver"
 
-	"github.com/oracle/go-oracledb/internal/common"
+	"github.com/oracle/go-oracledb/v26/internal/common"
 )
 
 // ResetSession implements driver.SessionResetter.

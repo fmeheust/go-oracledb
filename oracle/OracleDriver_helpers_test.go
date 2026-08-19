@@ -50,8 +50,8 @@ import (
 	"testing"
 	"time"
 
-	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 const (

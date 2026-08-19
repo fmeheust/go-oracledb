@@ -44,9 +44,9 @@ import (
 	"errors"
 	"testing"
 
-	driverCommon "github.com/oracle/go-oracledb/internal/driver/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/session"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 type occaHeaderStub struct {

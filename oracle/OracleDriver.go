@@ -46,10 +46,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oracle/go-oracledb/internal/common"
-	"github.com/oracle/go-oracledb/internal/driver/network/naming"
-	oracleconfig "github.com/oracle/go-oracledb/oracle/config"
-	oracleErrors "github.com/oracle/go-oracledb/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	"github.com/oracle/go-oracledb/v26/internal/driver/network/naming"
+	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // Driver is exported to make the driver directly accessible.

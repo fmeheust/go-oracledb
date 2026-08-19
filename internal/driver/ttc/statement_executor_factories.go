@@ -38,7 +38,7 @@
 
 package ttc
 
-import "github.com/oracle/go-oracledb/internal/common"
+import "github.com/oracle/go-oracledb/v26/internal/common"
 
 // getQueryStatementExecutor returns a concrete executor that implements
 // common.QueryWithContext for SELECT-like statements.

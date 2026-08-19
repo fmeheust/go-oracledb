@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/oracle/go-oracledb/internal/common"
+	"github.com/oracle/go-oracledb/v26/internal/common"
 )
 
 const (
