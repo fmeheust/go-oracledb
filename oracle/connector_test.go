@@ -113,7 +113,7 @@ func newConnectorTestConfigWithConnectString(t *testing.T, connectString string)
 	return cfg
 }
 
-func newConnectorTestSession(t *testing.T, adapter transport.NTAdapter) *session.NetworkSession {
+func newConnectorTestSession(t *testing.T, adapter transport.NTAdapter) common.NetworkSession {
 	t.Helper()
 
 	ns := session.NewNetworkSession()
@@ -136,10 +136,10 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenInstantiatorFails(t *testi
 	connector, err := newOracleConnector(
 		newConnectorTestConfig(t),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (common.NetworkSession, error) {
 			return ns, nil
 		},
-		func(drvConfig *common.OracleDriverConfig, connectedNS *session.NetworkSession) (common.ConnectionInstantiator, error) {
+		func(drvConfig *common.OracleDriverConfig, connectedNS common.NetworkSession) (common.ConnectionInstantiator, error) {
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
 			}
@@ -175,10 +175,10 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenGetConnectionFails(t *test
 	connector, err := newOracleConnector(
 		newConnectorTestConfig(t),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (common.NetworkSession, error) {
 			return ns, nil
 		},
-		func(drvConfig *common.OracleDriverConfig, connectedNS *session.NetworkSession) (common.ConnectionInstantiator, error) {
+		func(drvConfig *common.OracleDriverConfig, connectedNS common.NetworkSession) (common.ConnectionInstantiator, error) {
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
 			}
@@ -214,10 +214,10 @@ func TestConnectorConnectLeavesNetworkSessionOpenAfterSuccess(t *testing.T) {
 	connector, err := newOracleConnector(
 		newConnectorTestConfig(t),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (common.NetworkSession, error) {
 			return ns, nil
 		},
-		func(drvConfig *common.OracleDriverConfig, connectedNS *session.NetworkSession) (common.ConnectionInstantiator, error) {
+		func(drvConfig *common.OracleDriverConfig, connectedNS common.NetworkSession) (common.ConnectionInstantiator, error) {
 			return mockConnectorConnectionInstantiator{conn: mockConnectorDriverConn{}}, nil
 		},
 	)
@@ -248,14 +248,14 @@ func TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess(t *test
 	connector, err := newOracleConnector(
 		newConnectorTestConfigWithConnectString(t, "(DESCRIPTION=(FAILOVER=ON)(LOAD_BALANCE=OFF)(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.2)(PORT=1522)))(CONNECT_DATA=(SERVICE_NAME=test)))"),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (common.NetworkSession, error) {
 			attempts++
 			if attempts == 1 {
 				return nil, errors.New("first address failed")
 			}
 			return ns, nil
 		},
-		func(drvConfig *common.OracleDriverConfig, connectedNS *session.NetworkSession) (common.ConnectionInstantiator, error) {
+		func(drvConfig *common.OracleDriverConfig, connectedNS common.NetworkSession) (common.ConnectionInstantiator, error) {
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
 			}

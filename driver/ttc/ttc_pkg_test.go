@@ -1075,8 +1075,8 @@ func newTestConnection(
 	shelf *ttiShelf[common.MessageType],
 	sessCtx *common.SessionContext,
 	ns common.NetworkSession,
-) *Connection {
-	conn := &Connection{
+) *connection {
+	conn := &connection{
 		shelf:     shelf,
 		sessCtx:   sessCtx,
 		ns:        ns,

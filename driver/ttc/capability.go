@@ -44,14 +44,14 @@ import (
 	"github.com/oracle/go-driver/driver/common"
 )
 
-// AssumedSrvRtCaps is Server's Run time capability for 23.4 which clients should assume.
-var AssumedSrvRtCaps = []byte{
+// assumedSrvRtCaps is Server's Run time capability for 23.4 which clients should assume.
+var assumedSrvRtCaps = []byte{
 	0x02, 0x01, 0x00, 0x01, 0x18, 0x00,
 	0x7f, 0x01, 0x00, 0x00, 0x00, 0x00,
 }
 
-// AssumedSrvCtCaps is Server's Compile time capability for 23.4 which clients should assume
-var AssumedSrvCtCaps = []byte{
+// assumedSrvCtCaps is Server's Compile time capability for 23.4 which clients should assume
+var assumedSrvCtCaps = []byte{
 	0x06, 0x01, 0x01, 0x01, 0xef, 0x0f, 0x01,
 	ttcFldVsn231, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
 	0x01, 0x7f, 0xff, 0x03, 0x10, 0x03, 0x03,
@@ -200,8 +200,8 @@ const (
 	sqlidLength byte = 13 // support SQL ID
 )
 
-// Capability encodes both server and client-side negotiation state across compile and runtime capabilities.
-type Capability struct {
+// capability encodes both server and client-side negotiation state across compile and runtime capabilities.
+type capability struct {
 	runTimeCapabilities              []byte
 	compileTimeCapabilities          []byte
 	knownUsedCompileTimeCapabilities map[string]capabilityMetadata
@@ -212,8 +212,8 @@ var clientRuntimeCapabilites []byte
 var clientCompileTimeCapabilities []byte
 
 // newCapabilityMetadata Creates capabilities metadata
-func newCapabilityMetadata() *Capability {
-	return &Capability{
+func newCapabilityMetadata() *capability {
+	return &capability{
 		// Compile time capabilities
 		knownUsedCompileTimeCapabilities: map[string]capabilityMetadata{
 			kpccapCtSQLVersion:             {index: 0, value: kpulmaxl, isFlag: false, isDefault: true},     // Not used default value
@@ -337,16 +337,16 @@ func newCapabilityMetadata() *Capability {
 	}
 }
 
-// NewCapability creates and initializes a new Capability instance with default client capabilities.
-func NewCapability() *Capability {
+// newCapability creates and initializes a new capability instance with default client capabilities.
+func newCapability() *capability {
 	capability := newCapabilityMetadata()
-	capability.runTimeCapabilities = AssumedSrvRtCaps
-	capability.compileTimeCapabilities = AssumedSrvCtCaps
+	capability.runTimeCapabilities = assumedSrvRtCaps
+	capability.compileTimeCapabilities = assumedSrvCtCaps
 	return capability
 }
 
-// NewDefaultCapability creates and initializes a new Capability instance with default client capabilities.
-func NewDefaultCapability() *Capability {
+// newDefaultCapability creates and initializes a new capability instance with default client capabilities.
+func newDefaultCapability() *capability {
 	capability := newCapabilityMetadata()
 	capability.compileTimeCapabilities = make([]byte, len(capability.knownUsedCompileTimeCapabilities))
 	// build compile time capabilities from metadata
@@ -366,7 +366,7 @@ func NewDefaultCapability() *Capability {
 }
 
 // UnMarshalFrom reads server capabilities from the marshal engine.
-func (cap *Capability) UnMarshalFrom(ctx context.Context, mar common.Marshaller) error {
+func (cap *capability) UnMarshalFrom(ctx context.Context, mar common.Marshaller) error {
 	// Read server's compile time capabilities
 	length, err := mar.UnmarshalUB1(ctx)
 	if err != nil {
@@ -404,7 +404,7 @@ func (cap *Capability) UnMarshalFrom(ctx context.Context, mar common.Marshaller)
 }
 
 // MarshalTo writes capabilities to the marshal engine.
-func (cap *Capability) MarshalTo(ctx context.Context, mar common.Marshaller) error {
+func (cap *capability) MarshalTo(ctx context.Context, mar common.Marshaller) error {
 	if err := mar.MarshalUB1(ctx, common.UB1(len(cap.compileTimeCapabilities))); err != nil {
 		common.Odl.Warn("Failed to marshal compile time capabilities", "error", err)
 		return common.NewOracleError(common.FailMarshal, err, "Capability")
@@ -427,12 +427,12 @@ func (cap *Capability) MarshalTo(ctx context.Context, mar common.Marshaller) err
 	return nil
 }
 
-// AdjustCapabilityFrom updates the client's capability fields to align with those presented by the server.
+// adjustCapabilityFrom updates the client's capability fields to align with those presented by the server.
 // This ensures compatibility during TTC protocol negotiation by adapting client compile-time and
 // runtime capability settings according to server support and restrictions.
 // It is typically called after server capabilities have been unmarshalled,
 // so that the client can disable or enable features as needed before further negotiation.
-func (cap *Capability) AdjustCapabilityFrom(serverCap *Capability) {
+func (cap *capability) adjustCapabilityFrom(serverCap *capability) {
 	kpccapCtUb2DtyIndex := int(cap.knownUsedCompileTimeCapabilities[kpccapCtUb2dty].index)
 	if len(serverCap.compileTimeCapabilities) > kpccapCtUb2DtyIndex && serverCap.compileTimeCapabilities[kpccapCtUb2DtyIndex] == 0 {
 		cap.compileTimeCapabilities[kpccapCtUb2DtyIndex] = 0
@@ -454,7 +454,7 @@ func (cap *Capability) AdjustCapabilityFrom(serverCap *Capability) {
 	}
 }
 
-func (cap *Capability) toMap() map[string]common.Capability {
+func (cap *capability) toMap() map[string]common.Capability {
 	totalCount := len(cap.knownUsedCompileTimeCapabilities) + len(cap.knownUsedRuntimeCapabilities)
 	var capabilityMap = make(map[string]common.Capability, totalCount)
 	capabilitiesToMap(cap.compileTimeCapabilities, cap.knownUsedCompileTimeCapabilities, capabilityMap)

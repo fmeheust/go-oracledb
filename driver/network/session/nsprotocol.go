@@ -51,8 +51,8 @@ import (
 	"github.com/oracle/go-driver/driver/network/transport"
 )
 
-// NetworkSession represents a network session for communication with the server
-type NetworkSession struct {
+// networkSession represents a network session for communication with the server
+type networkSession struct {
 	Connected           bool
 	IsBreak             bool
 	IsReset             bool
@@ -81,9 +81,9 @@ const (
 	maxResendCount   = 4
 )
 
-// NewNetworkSession creates a new NetworkSession instance
-func NewNetworkSession() *NetworkSession {
-	return &NetworkSession{
+// NewNetworkSession creates a new networkSession instance
+func NewNetworkSession() *networkSession {
+	return &networkSession{
 		Connected:          false,
 		IsBreak:            false,
 		IsReset:            false,
@@ -97,7 +97,7 @@ func NewNetworkSession() *NetworkSession {
 }
 
 // transportConnect establishes the transport-level connection
-func (ns *NetworkSession) transportConnect(ctx context.Context, address transport.Address) error {
+func (ns *networkSession) transportConnect(ctx context.Context, address transport.Address) error {
 	if address.Protocol == common.ProtocolTCP && address.HTTPSProxy != "" {
 		return fmt.Errorf("https proxy requires protocol as tcps")
 	}
@@ -123,7 +123,7 @@ func (ns *NetworkSession) transportConnect(ctx context.Context, address transpor
 	ns.RcvDatapkt = &DataPacket{}
 	return nil
 }
-func (ns *NetworkSession) handleAccept(ctx context.Context, p *AcceptPacket) error {
+func (ns *networkSession) handleAccept(ctx context.Context, p *AcceptPacket) error {
 	if ns.SAtts.Version < TNS_VERSION_MINIMUM {
 		err := ns.Disconnect(ctx, 0)
 		if err != nil {
@@ -166,7 +166,7 @@ func (ns *NetworkSession) handleAccept(ctx context.Context, p *AcceptPacket) err
 
 // refuseArgs collects the placeholder values needed to format the
 // localized message for a specific ORA code.
-func (ns *NetworkSession) refuseArgs(errCode string, address transport.Address) ([]any, error) {
+func (ns *networkSession) refuseArgs(errCode string, address transport.Address) ([]any, error) {
 	// Parse ns.CData to extract service_name, host, port
 	cDataStr := string(ns.CData)
 	cDataNode, err := naming.Parse(cDataStr)
@@ -210,7 +210,7 @@ func (ns *NetworkSession) refuseArgs(errCode string, address transport.Address) 
 		return nil, nil
 	}
 }
-func (ns *NetworkSession) handleRefuse(ctx context.Context, p *RefusePacket, address transport.Address) error {
+func (ns *networkSession) handleRefuse(ctx context.Context, p *RefusePacket, address transport.Address) error {
 	if p.Overflow {
 		_, err := ns.recvPacket(ctx)
 		if err != nil {
@@ -239,7 +239,7 @@ func (ns *NetworkSession) handleRefuse(ctx context.Context, p *RefusePacket, add
 	return common.NewOracleError(mappedCode, nil, args...)
 }
 
-func (ns *NetworkSession) handleRedirect(ctx context.Context, p *RedirectPacket, address transport.Address) error {
+func (ns *networkSession) handleRedirect(ctx context.Context, p *RedirectPacket, address transport.Address) error {
 	ns.RedirectCount++
 	if ns.RedirectCount > maxRedirectCount {
 		return fmt.Errorf("too many redirects: exceeded maximum of %d", maxRedirectCount)
@@ -313,7 +313,7 @@ func (ns *NetworkSession) handleRedirect(ctx context.Context, p *RedirectPacket,
 	return fmt.Errorf("no redirect option available")
 }
 
-func (ns *NetworkSession) handleResend(ctx context.Context, p *ResendPacket, connectPkt *ConnectPacket) error {
+func (ns *networkSession) handleResend(ctx context.Context, p *ResendPacket, connectPkt *ConnectPacket) error {
 	if p.hdr.Flags&NSPFSRN != 0 {
 		tlsAdapter, ok := ns.NTAdapter.(interface{ TLSReneg() })
 		/*
@@ -337,7 +337,7 @@ func (ns *NetworkSession) handleResend(ctx context.Context, p *ResendPacket, con
 	return nil // continue the loop
 }
 
-func (ns *NetworkSession) connect(ctx context.Context, address transport.Address) error {
+func (ns *networkSession) connect(ctx context.Context, address transport.Address) error {
 	var err error
 	err = ns.transportConnect(ctx, address)
 	if err != nil {
@@ -407,10 +407,10 @@ func (ns *NetworkSession) connect(ctx context.Context, address transport.Address
 		}
 	}
 }
-func ConnectToOption(ctx context.Context, option *naming.ConnectionOption) (*NetworkSession, error) {
+func ConnectToOption(ctx context.Context, option *naming.ConnectionOption) (common.NetworkSession, error) {
 	return ConnectToOptionWithConnectionID(ctx, option, "")
 }
-func ConnectToOptionWithConnectionID(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*NetworkSession, error) {
+func ConnectToOptionWithConnectionID(ctx context.Context, option *naming.ConnectionOption, connectionID string) (common.NetworkSession, error) {
 	ns := NewNetworkSession()
 
 	portToBeUsed := option.Address.Port
@@ -465,7 +465,7 @@ func ConnectToOptionWithConnectionID(ctx context.Context, option *naming.Connect
 }
 
 // SendConnect sends the NSPTCN connect packet
-func (ns *NetworkSession) sendConnect(ctx context.Context, connectPkt *ConnectPacket) error {
+func (ns *networkSession) sendConnect(ctx context.Context, connectPkt *ConnectPacket) error {
 
 	err := ns.SendPacket(ctx, connectPkt.Buf)
 	if err != nil {
@@ -481,7 +481,7 @@ func (ns *NetworkSession) sendConnect(ctx context.Context, connectPkt *ConnectPa
 }
 
 // recvPacket receives a packet from the network and returns its unmarshaled struct
-func (ns *NetworkSession) recvPacket(ctx context.Context) (any, error) {
+func (ns *networkSession) recvPacket(ctx context.Context) (any, error) {
 	// Handle pending packet from inband notification check
 	if ns.pendingPacket != nil {
 		buf := ns.pendingPacket
@@ -564,7 +564,7 @@ func (ns *NetworkSession) recvPacket(ctx context.Context) (any, error) {
 }
 
 // processPacket processes a packet and returns its unmarshaled struct
-func (ns *NetworkSession) processPacket(buf []byte, hdr *Header) (any, error) {
+func (ns *networkSession) processPacket(buf []byte, hdr *Header) (any, error) {
 	var packet Packet
 	switch hdr.Type {
 	case NSPTAC:
@@ -605,7 +605,7 @@ func (ns *NetworkSession) processPacket(buf []byte, hdr *Header) (any, error) {
 }
 
 // SendPacket sends a packet with optional compression
-func (ns *NetworkSession) SendPacket(ctx context.Context, buf []byte) error {
+func (ns *networkSession) SendPacket(ctx context.Context, buf []byte) error {
 	PrintPacket(buf, 0, len(buf))
 	if len(buf) < PACKET_HEADER_SIZE {
 		return fmt.Errorf("buffer too short: %d bytes, need at least %d", len(buf), PACKET_HEADER_SIZE)
@@ -615,7 +615,7 @@ func (ns *NetworkSession) SendPacket(ctx context.Context, buf []byte) error {
 
 // Send transmits the provided user data (userBuf) starting from the given offset for the specified length.
 // It handles breaking the data into packets if necessary, using the send data packet (SndDatapkt) for buffering.
-func (ns *NetworkSession) Send(ctx context.Context, userBuf []byte, offset, len int) error {
+func (ns *networkSession) Send(ctx context.Context, userBuf []byte, offset, len int) error {
 	if ns.IsBreak {
 		return nil
 	}
@@ -652,7 +652,7 @@ func (ns *NetworkSession) Send(ctx context.Context, userBuf []byte, offset, len 
 }
 
 // Reset resets the connection
-func (ns *NetworkSession) Reset(ctx context.Context) error {
+func (ns *networkSession) Reset(ctx context.Context) error {
 	if ns.resetInProgress {
 		return nil
 	}
@@ -703,7 +703,7 @@ func (ns *NetworkSession) Reset(ctx context.Context) error {
 }
 
 // Disconnect
-func (ns *NetworkSession) Disconnect(ctx context.Context, flags int) error {
+func (ns *networkSession) Disconnect(ctx context.Context, flags int) error {
 	if !ns.Connected {
 		if ns.NTAdapter != nil {
 			if cleaner, ok := ns.NTAdapter.(interface{ Clear() }); ok {
@@ -734,11 +734,11 @@ func (ns *NetworkSession) Disconnect(ctx context.Context, flags int) error {
 	}
 	return disconnectErr
 }
-func (ns *NetworkSession) IsLittleEndian() bool {
+func (ns *networkSession) IsLittleEndian() bool {
 	return ns.byteOrder == LITTLE_ENDIAN
 }
 
-func (ns *NetworkSession) CheckInbandNotification() bool {
+func (ns *networkSession) CheckInbandNotification() bool {
 	// Control packet already read
 	if ns.ControlPkt.Errno != 0 {
 		if ns.ControlPkt.IsNotification {

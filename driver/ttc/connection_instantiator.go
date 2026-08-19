@@ -44,7 +44,6 @@ import (
 	"fmt"
 
 	"github.com/oracle/go-driver/driver/common"
-	"github.com/oracle/go-driver/driver/network/session"
 )
 
 type connectionInstantiator struct {
@@ -53,13 +52,13 @@ type connectionInstantiator struct {
 	dataBuffer           common.DataBuffer
 	ns                   common.NetworkSession
 	connectionProperties *common.OracleDriverProperties
-	newConnection        func(context.Context, *ttiShelf[common.MessageType], *common.SessionContext, common.NetworkSession) (*Connection, error)
+	newConnection        func(context.Context, *ttiShelf[common.MessageType], *common.SessionContext, common.NetworkSession) (*connection, error)
 	localizationService  common.LocalizationService
 }
 
 // NewTTCConnectionInstantiator creates a new TTC connection instantiator
-func NewTTCConnectionInstantiator(config *common.OracleDriverConfig, ns *session.NetworkSession) (common.ConnectionInstantiator, error) {
-	dataBuffer := common.DataBuffer(ns)
+func NewTTCConnectionInstantiator(config *common.OracleDriverConfig, ns common.NetworkSession) (common.ConnectionInstantiator, error) {
+	dataBuffer := ns.(common.DataBuffer)
 	negotiator := GetNegotiator(dataBuffer)
 	localizationService := common.NewLocalizationService(config.Locale.ClientLanguage)
 
@@ -73,7 +72,7 @@ func NewTTCConnectionInstantiator(config *common.OracleDriverConfig, ns *session
 		dataBuffer:           dataBuffer,
 		ns:                   ns,
 		connectionProperties: &config.DriverProperties,
-		newConnection:        NewConnection,
+		newConnection:        newConnection,
 		localizationService:  localizationService,
 	}, nil
 }
@@ -114,11 +113,11 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 	// snapshot session
 	sessCtx.GetSessionProperties().Snapshot()
 
-	// conn = drv.NewConnection(ctx, *c.config, sessCtx, shelf)
+	// conn = drv.newConnection(ctx, *c.config, sessCtx, shelf)
 	common.Odl.Debug("Connect end")
 	newConnection := connInstantiator.newConnection
 	if newConnection == nil {
-		newConnection = NewConnection
+		newConnection = newConnection
 	}
 	return newConnection(ctx, shelf, sessCtx, connInstantiator.ns)
 }

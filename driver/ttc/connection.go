@@ -52,9 +52,9 @@ import (
 	"github.com/oracle/go-driver/driver/common"
 )
 
-// Connection implements database/sql/driver.Conn and holds negotiated session
+// connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
-type Connection struct {
+type connection struct {
 	shelf   *ttiShelf[common.MessageType]
 	sessCtx *common.SessionContext
 	ns      common.NetworkSession
@@ -69,15 +69,15 @@ type Connection struct {
 	_isValid bool
 }
 
-// NewConnection constructs a new Oracle Connection wrapping negotiated state.
+// newConnection constructs a new Oracle connection wrapping negotiated state.
 // It returns an error when the server timezone cannot be initialized.
-func NewConnection(
+func newConnection(
 	ctx context.Context,
 	shelf *ttiShelf[common.MessageType],
 	sessCtx *common.SessionContext,
 	ns common.NetworkSession,
-) (*Connection, error) {
-	conn := &Connection{
+) (*connection, error) {
+	conn := &connection{
 		shelf:     shelf,
 		sessCtx:   sessCtx,
 		ns:        ns,
@@ -109,7 +109,7 @@ Output:
   - error: Non-nil if the connection is closed/invalid or statement creation fails
     (propagated from PrepareContext).
 */
-func (c *Connection) Prepare(query string) (driver.Stmt, error) {
+func (c *connection) Prepare(query string) (driver.Stmt, error) {
 	return c.PrepareContext(common.BackgroundContext, query)
 }
 
@@ -129,7 +129,7 @@ Returns:
 - driver.Stmt: Prepared statement bound to this connection and query.
 - error: Non-nil if the connection is closed/invalid.
 */
-func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (c *connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	common.Odl.Debug("Connection.PrepareContext: creating statement...")
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
@@ -140,7 +140,7 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 
 // ExecContext implements driver.ExecerContext.
 // It creates a TTC Statement and delegates the execution.
-func (c *Connection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (c *connection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	common.Odl.Debug("Connection.ExecContext: creating statement...")
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
@@ -153,7 +153,7 @@ func (c *Connection) ExecContext(ctx context.Context, query string, args []drive
 
 // QueryContext implements driver.QueryerContext.
 // It creates a TTC Statement and delegates the query.
-func (c *Connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)
@@ -165,7 +165,7 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 
 // cancelCurrentExecution sends a request to the database to cancel the current
 // operation
-func (c *Connection) cancelCurrentExecution(ctx context.Context) error {
+func (c *connection) cancelCurrentExecution(ctx context.Context) error {
 	if err := c.ns.CancelOperation(ctx); err != nil {
 		// If an error occurs during cancellation, mark the connection as invalid so that
 		// it will be dropped form the pool
@@ -189,7 +189,7 @@ type connectionStatusProvider interface {
 
 // _registerHandleConnectionShouldBeDropped registers post unmarshal callbacks
 // that invalidates connections that should be dropped due to a planned-down
-func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[common.MessageType], connection *Connection) {
+func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[common.MessageType], connection *connection) {
 	messageStreamer := shelf.GetMessageStreamer().(MessageStreamerInterface)
 	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, connection._handleConnectionShouldBeDropped)
 	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, connection._handleConnectionShouldBeDropped)
@@ -198,7 +198,7 @@ func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[common.MessageType
 // _handleConnectionShouldBeDropped post unmarshal callback that invalidates
 // connections that should be dropped. Messages are kept in the queue to be
 // handled by the caller
-func (c *Connection) _handleConnectionShouldBeDropped(msg common.Message[common.MessageType], e error) (bool, error) {
+func (c *connection) _handleConnectionShouldBeDropped(msg common.Message[common.MessageType], e error) (bool, error) {
 	// if connectionSouldBeDropped flag was received in TTISTA or TTIOER, it means
 	// that the connection is being drainned and it should be closed and not
 	// released to the connection pool
@@ -208,17 +208,17 @@ func (c *Connection) _handleConnectionShouldBeDropped(msg common.Message[common.
 }
 
 // String implements the Stringer interface
-func (c *Connection) String() string {
+func (c *connection) String() string {
 	return fmt.Sprintf("Connection { isOpen: %v, isValid: %v }", !c._isClosed, c._isValid)
 }
 
-func (c *Connection) registerEventListeners(service *eventService) {
+func (c *connection) registerEventListeners(service *eventService) {
 	service.register(c, streamerStaleEvent)
 	service.register(c, streamerOverFlowEvent)
 }
 
 // notify implements EventListener interface
-func (c *Connection) notify(event eventType) {
+func (c *connection) notify(event eventType) {
 	var wasValid = c._isValid == true
 	switch event {
 	case streamerStaleEvent:
@@ -235,7 +235,7 @@ func (c *Connection) notify(event eventType) {
 
 // CheckNamedValue allows sql.Out binds to pass through database/sql conversion.
 // For all other values, we delegate back to database/sql default conversion.
-func (c *Connection) CheckNamedValue(nv *driver.NamedValue) error {
+func (c *connection) CheckNamedValue(nv *driver.NamedValue) error {
 	return c.shelf.LocalizeError(checkNamedValue(nv))
 }
 
@@ -271,7 +271,7 @@ func checkNamedValue(nv *driver.NamedValue) error {
 	return driver.ErrSkip
 }
 
-func (c *Connection) _registerServerTimezoneOffset(ctx context.Context) error {
+func (c *connection) _registerServerTimezoneOffset(ctx context.Context) error {
 	// DBTIMEZONE can return either a region name or an offset; TZ_OFFSET normalizes
 	// both forms to the +/-HH:MM format expected by parseTimeZone.
 	rows, err := c.QueryContext(ctx, "SELECT TZ_OFFSET(DBTIMEZONE) FROM SYS.DUAL", nil)

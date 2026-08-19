@@ -736,7 +736,7 @@ func TestSend(t *testing.T) {
 // TestReset tests the Reset function
 func TestReset(t *testing.T) {
 	t.Parallel()
-	setup := func() (*NetworkSession, *mockNTAdapter) {
+	setup := func() (*networkSession, *mockNTAdapter) {
 		ns := NewNetworkSession()
 		ns.Connected = true
 		mock := &mockNTAdapter{}
@@ -1245,7 +1245,7 @@ func TestProcessPacket(t *testing.T) {
 }
 
 func TestRecvPacket(t *testing.T) {
-	setupNS := func(largeSDU bool) (*NetworkSession, *mockNTAdapter) {
+	setupNS := func(largeSDU bool) (*networkSession, *mockNTAdapter) {
 		ns := NewNetworkSession()
 		mock := &mockNTAdapter{}
 		ns.NTAdapter = mock
@@ -1395,7 +1395,7 @@ func TestRefuseArgs(t *testing.T) {
 // TestHandleRefuse tests the handleRefuse function
 func TestHandleRefuse(t *testing.T) {
 	t.Parallel()
-	setup := func() (*NetworkSession, *mockNTAdapter) {
+	setup := func() (*networkSession, *mockNTAdapter) {
 		ns := NewNetworkSession()
 		ns.SAtts = &SessionAtts{NT: transport.NTattributes{Connectionid: "testconnid"}}
 		mock := &mockNTAdapter{}

@@ -60,14 +60,13 @@ var testCases = []struct {
 	f          func(t *testing.T)
 }{
 	{"TestNewBitSet_SizeAlignment", "unitary", false, TestNewBitSet_SizeAlignment},
-	{"TestSetAndGet", "unitary", false, TestSetAndGet},
-	{"TestSetBytesAndSetByte", "unitary", false, TestSetBytesAndSetByte},
+	{"TestGet", "unitary", false, TestGet},
+	{"TestSetBytes", "unitary", false, TestSetBytes},
 	{"TestCardinality", "unitary", false, TestCardinality},
 	{"TestClearAllAndLength", "unitary", false, TestClearAllAndLength},
 	{"TestStringFormat", "unitary", false, TestStringFormat},
 	{"TestSetBytes_OutOfBounds", "unitary", false, TestSetBytes_OutOfBounds},
-	{"TestGetSet_OutOfBounds", "unitary", false, TestGetSet_OutOfBounds},
-	{"TestNewBitSetFromBytes", "unitary", false, TestNewBitSetFromBytes},
+	{"TestGet_OutOfBounds", "unitary", false, TestGet_OutOfBounds},
 	{"TestConstants_Protocol", "unitary", false, TestConstants_Protocol},
 	{"TestErrorUnknownCode", "unitary", false, TestErrorUnknownCode},
 	{"TestErrorBasic3113", "unitary", false, TestErrorBasic3113},

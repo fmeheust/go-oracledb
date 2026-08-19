@@ -193,8 +193,7 @@ func TestTTIrxd_BvcOnFirstRow_ReturnsError(t *testing.T) {
 	rxd.SetRowCount(0)
 	rxd.setColumnContexts([]ColumnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 	bitset := common.NewBitSet(2)
-	bitset.Set(0, true)
-	bitset.Set(1, true)
+	bitset.SetBytes(0, []byte{0x03})
 	rxd.SetBvcState(bitset, true)
 	// This is a valid two-column payload, so only the missing previous row can reject it.
 	mar := createMarshaller([]byte{1, 'a', 1, 'b'}, 0, 0)
@@ -524,7 +523,7 @@ func TestTTIrxd_BvcPresentColumn_UnmarshalError(t *testing.T) {
 	rxd.SetRowCount(2) // not first row
 	rxd.SetPrevRow([]common.B1Array{{0x11}, {0x22}})
 	bitset := common.NewBitSet(numCols)
-	bitset.Set(0, true) // Only column 0 marked present
+	bitset.SetBytes(0, []byte{0x01}) // Only column 0 marked present
 	rxd.SetBvcState(bitset, true)
 	rxd.setColumnContexts([]ColumnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 
@@ -561,7 +560,7 @@ func TestTTIrxd_BvcCarriedNullKeepsLobContextAligned(t *testing.T) {
 	// Only column 0 is present in this row. Column 1 is SQL NULL and must be
 	// carried from the previous row without consuming any bytes from the wire.
 	bitset := common.NewBitSet(numCols)
-	bitset.Set(0, true)
+	bitset.SetBytes(0, []byte{0x01})
 	rxd.SetBvcState(bitset, true)
 
 	mar := createMarshaller([]byte{1, 0x22}, 0, 0)
@@ -610,7 +609,7 @@ func TestTTIrxd_BvcCarriedClobPreservesLobContext(t *testing.T) {
 	// Only column 0 is sent for the next row. Column 1 must carry both its CLOB
 	// bytes and the previous row's LOB metadata.
 	bitset := common.NewBitSet(numCols)
-	bitset.Set(0, true)
+	bitset.SetBytes(0, []byte{0x01})
 	state.bvcColSent = bitset
 	state.bvcFound = true
 

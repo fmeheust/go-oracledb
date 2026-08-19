@@ -163,7 +163,7 @@ func (msg *ttiFunHeader18) MarshalTo(ctx context.Context, engine common.Marshall
 // runFunctionWithFunHeader runs a function with no token that expects TTIOER as response.
 //
 // Returns: error if an error occurs otherwise nil
-func (c *Connection) runFunctionWithFunHeader(ctx context.Context, functiontype common.FunctionType) error {
+func (c *connection) runFunctionWithFunHeader(ctx context.Context, functiontype common.FunctionType) error {
 	common.Odl.Debug("Running function of type", "function type", functiontype)
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIFUN, functiontype)
 	if err != nil {

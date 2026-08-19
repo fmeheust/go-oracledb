@@ -108,7 +108,7 @@ func TestNewConnectionReturnsServerTimezoneError(t *testing.T) {
 	})
 	shelf.RegisterLocalizationService(common.NewLocalizationService(language.English))
 
-	conn, err := NewConnection(context.Background(), shelf, common.NewSessionContext(), &mockNetworkSession{})
+	conn, err := newConnection(context.Background(), shelf, common.NewSessionContext(), &mockNetworkSession{})
 	if err == nil {
 		t.Fatal("expected server timezone initialization error")
 	}
@@ -176,7 +176,7 @@ func TestConnection_QueryContext_LocalizesError(t *testing.T) {
 
 func TestConnection_LocalizationStaysBoundToEachShelf(t *testing.T) {
 	t.Parallel()
-	newConn := func(lang language.Tag) *Connection {
+	newConn := func(lang language.Tag) *connection {
 		shelf := newShelf[common.MessageType]()
 		shelf.RegisterMessageFactory(&mockFactory{returnMsg: NewOall18()})
 		shelf.RegisterMessageStreamer(&mockStreamer{pullMsg: &mockOer{err: nil}})

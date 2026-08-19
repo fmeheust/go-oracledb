@@ -509,7 +509,7 @@ func unmarshalEndOfCallStatus(ctx context.Context, mar common.Marshaller) (*endO
 	return retVal, nil
 }
 
-// SetEocsCap sets End Of Call Status Capability
+// SetEocsCap sets End Of Call Status capability
 func (o *tTIoer) setSupportsEndOfCallStatus(supportsEndOfCallStatus bool) {
 	o._supportsEndOfCallStatus = supportsEndOfCallStatus
 }

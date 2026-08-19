@@ -54,8 +54,8 @@ type tTIpro struct {
 	proSvrVer          common.UB2     // Server protocol version
 	oVersion           common.UB2     // Oracle server version
 	NCharCharset       common.UB2     // Server NCHAR charset (TTC response)
-	ServerCaps         *Capability    // Negotiated server runtime and compile-time capabilities
-	ClientCaps         *Capability    // Client capabilities updated based on server capabilities
+	ServerCaps         *capability    // Negotiated server runtime and compile-time capabilities
+	ClientCaps         *capability    // Client capabilities updated based on server capabilities
 }
 
 var (
@@ -70,8 +70,8 @@ func NewTTIpro() common.Message[common.MessageType] {
 	common.Odl.Debug("tTIpro.NewTTIpro: Creating tTIpro message")
 	return &tTIpro{
 		NCharCharset: 0,
-		ServerCaps:   NewCapability(),
-		ClientCaps:   NewDefaultCapability(),
+		ServerCaps:   newCapability(),
+		ClientCaps:   newDefaultCapability(),
 	}
 }
 
@@ -194,7 +194,7 @@ func (p *tTIpro) UnMarshalFrom(ctx context.Context, mar common.Marshaller) error
 		common.Odl.Warn("Failed to unmarshal server caps", "error", err)
 		return common.NewOracleError(common.FailUnmarshal, err, TTCMsgTypeDescription[p.GetMsgCode()])
 	}
-	p.ClientCaps.AdjustCapabilityFrom(p.ServerCaps)
+	p.ClientCaps.adjustCapabilityFrom(p.ServerCaps)
 
 	// too verbose, do not print this by default
 	// logging.Odl.Debug("tTIpro.UnMarshalFrom: Completed unmarshalling protocol message", "serverCaps", p.ServerCaps, "clientCaps", p.ClientCaps)

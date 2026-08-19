@@ -51,8 +51,8 @@ import (
 	"github.com/oracle/go-driver/driver/network/session"
 )
 
-type ConnInstantiatorFactory func(config *common.OracleDriverConfig, ns *session.NetworkSession) (common.ConnectionInstantiator, error)
-type ConnCreator func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error)
+type ConnInstantiatorFactory func(config *common.OracleDriverConfig, ns common.NetworkSession) (common.ConnectionInstantiator, error)
+type ConnCreator func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (common.NetworkSession, error)
 
 // connector implements the database/sql/driver.connector interface for Oracle databases,
 // allowing connections to Oracle via Go's standard database/sql package.
@@ -92,7 +92,7 @@ func newOracleConnector(cfg *naming.ParsedConfig, drvConfig *common.OracleDriver
 // It opens a wire-level Oracle connection, performs authentication, and configures the session.
 func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	var err error
-	var ns *session.NetworkSession
+	var ns common.NetworkSession
 	var savedErr error                       // last error raised during attempt loop
 	var savedOption *naming.ConnectionOption // last option tried during attempt loop
 	isNsConnected := false
@@ -149,7 +149,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		ns, err = c.connCreator(tctxToBeUsed, option, sessionUid)
 		if err == nil {
 			// the network session has successfully connected, it should be
-			// disconnected the the connection establishment fails.
+			// disconnected the connection establishment fails.
 			isNsConnected = true
 			savedErr = nil
 			savedOption = nil

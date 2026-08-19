@@ -131,8 +131,8 @@ func TestTTIproGetters(t *testing.T) {
 	p := &tTIpro{
 		oVersion:           123,
 		proSvrVer:          456,
-		ClientCaps:         &Capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
-		ServerCaps:         &Capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
+		ClientCaps:         &capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
+		ServerCaps:         &capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
 		svrCharSet:         871,
 		NCharCharset:       775,
 		svrFlags:           1,

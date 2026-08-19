@@ -263,7 +263,7 @@ func TestConnectionNegotiator_Negotiate_Fail(t *testing.T) {
 				if tc.failWhere == whereGet {
 					pro = nil
 				} else {
-					pro = &tTIpro{ClientCaps: &Capability{}}
+					pro = &tTIpro{ClientCaps: &capability{}}
 					pro.svrCharSet = al32Utf8CharSet
 				}
 				_, err = negotiator._negotiateDatatype(ctx, streamer, factory, pro)

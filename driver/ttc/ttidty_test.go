@@ -72,7 +72,7 @@ func TestTTIdtyMarshalTo_Success(t *testing.T) {
 		cliROUT = 0x5678
 	)
 	// Initialize with the correct sizes
-	caps := NewDefaultCapability()
+	caps := newDefaultCapability()
 	// Overwrite a few known bytes (at the front of the slices) for test
 	caps.compileTimeCapabilities[0] = 0xDE
 	caps.runTimeCapabilities[0] = 0xAC
@@ -114,7 +114,7 @@ func TestTTIdtyMarshalTo_Success(t *testing.T) {
 }
 
 func newTTIdtyWithCaps() *tTIdty {
-	caps := NewCapability()
+	caps := newCapability()
 	ttidty := NewTTIdty().(*tTIdty)
 	ttidty.SetNegotiatedCapabilities(caps)
 	ttidty.cliRIN = al32Utf8CharSet
@@ -187,7 +187,7 @@ func TestTTIdtyMarshalTo_Fail(t *testing.T) {
 func TestTTIdtyGetters(t *testing.T) {
 	t.Parallel()
 	// Use real capability initialization to prevent slice out of range errors
-	caps := NewCapability()
+	caps := newCapability()
 	const ttcVer byte = 42
 	index := caps.knownUsedCompileTimeCapabilities[kpccapCtTtcFldVsn].index
 	caps.compileTimeCapabilities[index] = ttcVer
@@ -216,7 +216,7 @@ func TestTTIdtyUnmarshalFrom_Success(t *testing.T) {
 	ctx := context.Background()
 	buf := NewArrayDataBuffer(16)
 	u := &tTIdty{}
-	cap := NewCapability()
+	cap := newCapability()
 	// This test only works with kpccapRtTzEx not set
 	cap.runTimeCapabilities[cap.knownUsedRuntimeCapabilities[kpccapRtTzEx].index] = 0
 	u.SetNegotiatedCapabilities(cap) // Ensure capabilities are set before unmarshalling
@@ -258,7 +258,7 @@ func TestTTIdtyUnmarshalFrom_Failure(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			u := &tTIdty{}
 			if tc.setCaps {
-				u.SetNegotiatedCapabilities(NewCapability())
+				u.SetNegotiatedCapabilities(newCapability())
 			}
 
 			var buf common.DataBuffer
