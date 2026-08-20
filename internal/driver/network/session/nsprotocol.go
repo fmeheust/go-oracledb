@@ -146,7 +146,10 @@ func (ns *networkSession) handleAccept(ctx context.Context, p *acceptPacket) err
 		ns.supportsFastAuth = (acceptFlag2&TNS_ACCEPT_FLAG_FAST_AUTH != 0)
 	}
 
-	tlsadapter, ok := ns.ntAdapter.(*transport.NTTCPS)
+	tlsadapter, ok := ns.ntAdapter.(interface {
+		VerifyPostAcceptDNMatch() error
+		Clear()
+	})
 	if ok {
 		if err := tlsadapter.VerifyPostAcceptDNMatch(); err != nil {
 			return err

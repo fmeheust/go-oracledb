@@ -2086,7 +2086,7 @@ func TestUnmarshalCLRReadLessThatTotalLengthNoSpace(t *testing.T) {
 // Creates a marshal ending for testing
 func newMarshalEngine(byteOrder common.ByteOrder, typ byte, rep byte, bufSize int) (*ArrayBasedDataBuffer, *MarshalEngine) {
 	dataBuffer := NewArrayDataBuffer(bufSize)
-	typeRep := NewTypeRep()
+	typeRep := newTypeRep()
 	typeRep.setRep(typ, rep)
 	engine := NewMarshalEngine(dataBuffer, byteOrder, [5]byte{rep, rep, rep, rep, rep})
 	return dataBuffer, engine

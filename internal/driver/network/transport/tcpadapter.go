@@ -56,8 +56,8 @@ const (
 	TCPCHA                   = 1<<1 | 1<<2 | 1<<3 | 1<<8 | 1<<9 | 1<<12
 )
 
-// NTTCP represents a TCP network transport adapter
-type NTTCP struct {
+// nttcp represents a TCP network transport adapter
+type nttcp struct {
 	Cha        int
 	Connected  bool
 	Secure     bool
@@ -71,8 +71,8 @@ type NTTCP struct {
 	_readerWG  sync.WaitGroup
 }
 
-func NewNTTCP(atts NTattributes, port uint16) *NTTCP {
-	return &NTTCP{
+func NewNTTCP(atts NTattributes, port uint16) *nttcp {
+	return &nttcp{
 		Cha:       TCPCHA,
 		Connected: false,
 		Secure:    false,
@@ -93,7 +93,7 @@ type ioOperationResult struct {
 //
 // returns :
 //   - error raised during read operation
-func (nt *NTTCP) Send(ctx context.Context, buf []byte) error {
+func (nt *nttcp) Send(ctx context.Context, buf []byte) error {
 
 	var ctxToBeUsed context.Context
 	var cancel context.CancelFunc
@@ -148,7 +148,7 @@ func (nt *NTTCP) Send(ctx context.Context, buf []byte) error {
 // returns :
 //   - read bytes count
 //   - error raised during read operation
-func (nt *NTTCP) Receive(ctx context.Context, buf []byte, bytes2Read int) (int, error) {
+func (nt *nttcp) Receive(ctx context.Context, buf []byte, bytes2Read int) (int, error) {
 
 	if bytes2Read > len(buf) {
 		return 0, fmt.Errorf("buffer too small: have %d want %d", len(buf), bytes2Read)
@@ -200,8 +200,8 @@ func (nt *NTTCP) Receive(ctx context.Context, buf []byte, bytes2Read int) (int, 
 	}
 }
 
-// NTConnect establishes a TCP connection
-func (nt *NTTCP) NTConnect(ctx context.Context, address Address) error {
+// nTConnect establishes a TCP connection
+func (nt *nttcp) nTConnect(ctx context.Context, address Address) error {
 
 	var httpsProxy string
 	var httpsProxyPort int
@@ -263,13 +263,13 @@ func (nt *NTTCP) NTConnect(ctx context.Context, address Address) error {
 }
 
 // Connect establishes a network transport connection
-func (nt *NTTCP) Connect(ctx context.Context, address Address) error {
+func (nt *nttcp) Connect(ctx context.Context, address Address) error {
 	nt.OriginHost = address.OriginHost
 	nt.Host = address.Host
 	nt.Hostname = address.Hostname
 	nt.Port = address.Port
 
-	if err := nt.NTConnect(ctx, address); err != nil {
+	if err := nt.nTConnect(ctx, address); err != nil {
 		return err
 	}
 	cleanupOnError := func(err error) error {
@@ -301,7 +301,7 @@ func (nt *NTTCP) Connect(ctx context.Context, address Address) error {
 	return nil
 }
 
-func (nt *NTTCP) Disconnect() error {
+func (nt *nttcp) Disconnect() error {
 	nt.Connected = false
 	if nt.Stream != nil {
 		err := nt.Stream.Close()

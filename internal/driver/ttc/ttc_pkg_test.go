@@ -751,7 +751,7 @@ func (f *FaultyArrayBasedDataBuffer) ReadByteWithContext(ctx context.Context) (b
 // NewMarshalEngineTest creates a new MarshalEngine for testing purposes.
 func NewMarshalEngineTest(byteOrder common.ByteOrder, typ byte, rep byte, bufSize int) (*ArrayBasedDataBuffer, *MarshalEngine) {
 	dataBuffer := NewArrayDataBuffer(bufSize)
-	typeRep := NewTypeRep()
+	typeRep := newTypeRep()
 	typeRep.setRep(typ, rep)
 	engine := NewMarshalEngine(dataBuffer, byteOrder, [5]byte{rep, rep, rep, rep, rep})
 	return dataBuffer, engine

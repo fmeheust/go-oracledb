@@ -62,7 +62,7 @@ func (bs *BitSet) SetBytes(start int, data []byte) {
 
 // Get returns true if the bit at the given index is set.
 func (bs *BitSet) Get(index int) bool {
-	byteIdx, bitMask := index/8, byte(1 << (index % 8))
+	byteIdx, bitMask := index/8, byte(1<<(index%8))
 	return bs.bits[byteIdx]&bitMask != 0
 }
 

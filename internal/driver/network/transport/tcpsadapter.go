@@ -51,9 +51,9 @@ import (
 	"unicode/utf8"
 )
 
-// NTTCPS represents a TCPS network transport adapter
-type NTTCPS struct {
-	NTTCP
+// nttcps represents a TCPS network transport adapter
+type nttcps struct {
+	nttcp
 	config          *tls.Config
 	tcpStream       net.Conn
 	doDNMatch       bool
@@ -62,16 +62,16 @@ type NTTCPS struct {
 	rootCAs         *x509.CertPool
 }
 
-func NewNTTCPS(atts NTattributes) *NTTCPS {
-	return &NTTCPS{
-		NTTCP: NTTCP{Atts: atts},
+func NewNTTCPS(atts NTattributes) *nttcps {
+	return &nttcps{
+		nttcp: nttcp{Atts: atts},
 	}
 }
 
 // Connect establishes a TLS connection
-func (nt *NTTCPS) Connect(ctx context.Context, address Address) error {
+func (nt *nttcps) Connect(ctx context.Context, address Address) error {
 	nt.OriginHost = address.OriginHost
-	if err := nt.NTTCP.Connect(ctx, address); err != nil { // Establish a TCP connection
+	if err := nt.nttcp.Connect(ctx, address); err != nil { // Establish a TCP connection
 		return err
 	}
 	nt.tcpStream = nt.Stream
@@ -154,7 +154,7 @@ func (nt *NTTCPS) Connect(ctx context.Context, address Address) error {
 	return nil
 }
 
-func (nt *NTTCPS) VerifyPostAcceptDNMatch() error {
+func (nt *nttcps) VerifyPostAcceptDNMatch() error {
 	if !nt.Atts.SSLServerDNMatch || !nt.Atts.SSLAllowWeakDNMatch || nt.doDNMatch {
 		return nil
 	}
@@ -178,7 +178,7 @@ func (nt *NTTCPS) VerifyPostAcceptDNMatch() error {
 	return nil
 }
 
-func (nt *NTTCPS) verifyServerDN(cert *x509.Certificate) error {
+func (nt *nttcps) verifyServerDN(cert *x509.Certificate) error {
 	if nt.Atts.SSLServerCertDN != "" {
 		return verifyDN(cert, nt.Atts.SSLServerCertDN)
 	}
@@ -194,12 +194,12 @@ func (nt *NTTCPS) verifyServerDN(cert *x509.Certificate) error {
 }
 
 // Perform TLS Handshake to establish a TLS connection
-func (nt *NTTCPS) TLSReneg() {
+func (nt *nttcps) TLSReneg() {
 	nt.Stream = tls.Client(nt.tcpStream, nt.config)
 }
 
 // Clear out sensitive data
-func (nt *NTTCPS) Clear() {
+func (nt *nttcps) Clear() {
 	if nt.config != nil && len(nt.config.Certificates) > 0 {
 		nt.config.Certificates[0].PrivateKey = nil
 		nt.config.Certificates = nil
@@ -213,14 +213,14 @@ func (nt *NTTCPS) Clear() {
 	nt.rootCAs = nil
 }
 
-func (nt *NTTCPS) Disconnect() error {
-	err := nt.NTTCP.Disconnect()
+func (nt *nttcps) Disconnect() error {
+	err := nt.nttcp.Disconnect()
 	nt.tcpStream = nil
 	return err
 }
 
 // Process the PEM wallet
-func (nt *NTTCPS) processWallet() error {
+func (nt *nttcps) processWallet() error {
 	if nt.walletProcessed {
 		return nil
 	}
