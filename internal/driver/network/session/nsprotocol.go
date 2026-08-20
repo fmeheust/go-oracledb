@@ -321,7 +321,7 @@ func (ns *NetworkSession) handleResend(ctx context.Context, p *ResendPacket, con
 		/*
 			Oracle uses that flag on resend packets (NSPTRS) to tell the client
 			"please renegotiate the TLS session" essentially a server-side TLS renegotiation request.
-			In normal operation it should only come back when youâ€™re connected over TCPS, because thereâ€™s
+			In normal operation it should only come back when you're connected over TCPS, because there's
 			nothing to renegotiate on plain TCP. However, since the packet header is remote-controlled,
 			a hostile listener could flip the bit even on a TCP session, which is why we now treat it as
 			an error when there's no TLS-capable adapter behind the session.
