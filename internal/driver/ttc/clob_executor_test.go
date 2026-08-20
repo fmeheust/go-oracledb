@@ -50,7 +50,6 @@ import (
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
@@ -65,7 +64,7 @@ func makeLobPayloadFromDump(dump []string) []byte {
 // streamer so tests exercise the same marshaling logic as production executors.
 func newLobTestShelf(bufSize int) (*driverCommon.Shelf[driverCommon.MessageType], *MessageStreamer, *ArrayBasedDataBuffer) {
 	buf := NewArrayDataBuffer(bufSize)
-	mar := NewMarshalEngine(buf, session.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
+	mar := NewMarshalEngine(buf, driverCommon.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
 
 	ttiShelf := newShelf[driverCommon.MessageType]()
 	shelf := ttiShelf.Shelf
@@ -77,7 +76,7 @@ func newLobTestShelf(bufSize int) (*driverCommon.Shelf[driverCommon.MessageType]
 
 	msgReg := NewRegistry[driverCommon.MessageType]()
 	_ = msgReg.Register(TTILOBD, 1, newTTIlobd)
-	_ = msgReg.Register(TTIOER, 14, NewTTIoer14WithEndOfCallStatusSupport)
+	_ = msgReg.Register(TTIOER, 14, newTTIoer14WithEndOfCallStatusSupport)
 
 	factory := &SimpleFactory{
 		ttcVersion:   24,

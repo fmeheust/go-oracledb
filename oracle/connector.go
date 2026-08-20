@@ -55,7 +55,7 @@ import (
 )
 
 type ConnInstantiatorFactory func(config *oracleconfig.OracleDriverConfig, ns driverCommon.NetworkSession) (driverCommon.ConnectionInstantiator, error)
-type ConnCreator func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (driverCommon.NetworkSession, error)
+type ConnCreator func(ctx context.Context, option naming.ConnectionAttempt, connectionID string) (driverCommon.NetworkSession, error)
 
 // connector implements the database/sql/driver.connector interface for Oracle databases,
 // allowing connections to Oracle via Go's standard database/sql package.
@@ -97,7 +97,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	var err error
 	var ns driverCommon.NetworkSession
 	var savedErr error                       // last error raised during attempt loop
-	var savedOption *naming.ConnectionOption // last option tried during attempt loop
+	var savedOption naming.ConnectionAttempt // last option tried during attempt loop
 	isNsConnected := false
 	isConnectionEstablished := false
 
@@ -141,11 +141,12 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 				"option",
 				option)
 		}
-		if option.Description != nil && option.Description.ConnectTimeout > 0 {
+		desc := option.GetDescription()
+		if desc != nil && desc.ConnectTimeout > 0 {
 			// take precedence over the passed context if it is a shorter timeout
 			tctxToBeUsed, tCancelToBeUsed =
-				context.WithTimeoutCause(tctxToBeUsed, time.Duration(option.Description.ConnectTimeout)*time.Millisecond,
-					common.NewCtxTimeoutCauseError("ConnectTimeout", uint(option.Description.ConnectTimeout),
+				context.WithTimeoutCause(tctxToBeUsed, time.Duration(desc.ConnectTimeout)*time.Millisecond,
+					common.NewCtxTimeoutCauseError("ConnectTimeout", uint(desc.ConnectTimeout),
 						sessionUid))
 			defer tCancelToBeUsed()
 		}
@@ -167,7 +168,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 			//"%s Timeout of %d for %s.(CONNECTION_ID=%s)")
 			localized := common.NewOracleError(oracleErrors.ConnectFailed,
 				common.NewOracleError(oracleErrors.ConnectTimeout, nil, ctxTErr.GetSource(),
-					ctxTErr.GetValue(), savedOption.Address.String(), ctxTErr.GetEmitterID()))
+					ctxTErr.GetValue(), savedOption.GetAddress().String(), ctxTErr.GetEmitterID()))
 			return nil, localizationService.LocalizeError(localized)
 		}
 		e := common.NewOracleError(oracleErrors.ConnectFailed, savedErr)

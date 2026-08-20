@@ -46,7 +46,6 @@ import (
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -232,7 +231,7 @@ func TestConnection_InvalidateOnOEROrSTA(t *testing.T) {
 		currentReadPosition:  0,
 		currentWritePosition: 4,
 	}
-	marshaller := NewMarshalEngine(databuffer, session.BIG_ENDIAN, NewTypeRep().nativeTypesRepresentation)
+	marshaller := NewMarshalEngine(databuffer, driverCommon.BIG_ENDIAN, NewTypeRep().nativeTypesRepresentation)
 	streamer := NewMessageStreamer(shelf)
 	shelf.RegisterMarshaller(marshaller)
 	shelf.RegisterMessageFactory(mockFactoryWithList)

@@ -268,7 +268,7 @@ func (nt *NTTCPS) processWallet() error {
 				return fmt.Errorf("missing wallet password for encrypted private key; set oracle.go.wallet_password")
 			}
 			// Pass the *pem.Block directly
-			privateKey, err := ParsePKCS8EncryptedPrivateKey(block, []byte(password))
+			privateKey, err := parsePKCS8EncryptedPrivateKey(block, []byte(password))
 			if err != nil {
 				return fmt.Errorf("decrypt encrypted private key: %w", err)
 			}

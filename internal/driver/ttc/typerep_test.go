@@ -44,7 +44,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
@@ -90,7 +90,7 @@ func TestTypeRep_MarshalTo_Fail(t *testing.T) {
 			}
 			faultyBuf.FailOnWriteBytesCall = fp.failCall
 
-			engine := NewMarshalEngine(faultyBuf, session.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
+			engine := NewMarshalEngine(faultyBuf, common.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
 			err := tr.MarshalTo(context.Background(), engine)
 			assertErrorContains(t, err, fp.wantErrMsg)
 		})
@@ -112,7 +112,7 @@ func TestTypeRep_UnMarshalFrom_Success(t *testing.T) {
 		buf := NewArrayDataBuffer(len(payload))
 		_ = buf.WriteBytesWithContext(context.Background(), payload)
 		buf.currentReadPosition = 0
-		engine := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+		engine := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 		err := tr.UnMarshalFrom(context.Background(), engine)
 		if err != nil {
 			t.Fatalf("[%s] UnMarshalFrom returned error: %v", tc.name, err)
@@ -146,7 +146,7 @@ func TestTypeRep_UnMarshalFrom_Fail(t *testing.T) {
 				FailOnReadByteCall:   0,
 				FailOnReadBytesCall:  tt.failOnReadBytesCall,
 			}
-			engine := NewNativeMarshalEngine(faulty, session.BIG_ENDIAN)
+			engine := NewNativeMarshalEngine(faulty, common.BIG_ENDIAN)
 			err := tr.UnMarshalFrom(context.Background(), engine)
 			if err == nil || !regexp.MustCompile("simulated read error").MatchString(err.Error()) {
 				t.Errorf("expected 'simulated read error' but got %v", err)
@@ -168,7 +168,7 @@ func TestTypeRep_UnMarshalFrom_TooManyTypeRepresentations(t *testing.T) {
 	buf := NewArrayDataBuffer(len(payload))
 	_ = buf.WriteBytesWithContext(context.Background(), payload)
 	buf.currentReadPosition = 0
-	engine := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+	engine := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 
 	err := tr.UnMarshalFrom(context.Background(), engine)
 	if err == nil {
@@ -212,7 +212,7 @@ func TestTypeRep_MarshalTo_Success(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tr := NewTypeRep()
 			buf := NewArrayDataBuffer(64)
-			engine := NewMarshalEngine(buf, session.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
+			engine := NewMarshalEngine(buf, common.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
 			for _, rep := range tc.addReps {
 				tr.addTypeRepToTable(rep, 0x00, 0x00) // use dummy ndty/rep (not used in MarshalTo)
 			}

@@ -47,14 +47,65 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/common"
 )
 
-// ConnectionOption represents a single connection attempt with all necessary information
-type ConnectionOption struct {
-	Address         Address      // The address ctx to connect to
-	Description     *Description // Parent description ctx (nil for simple ADDRESS strings)
-	ConnectData     ConnectData  // ConnectData ctx
-	ConnectDataNode *Node        // CONNECT_DATA node for further manipulation
-	ConnectDataStr  string       // Serialized CONNECT_DATA as string
-	ConnectString   string       // Full (DESCRIPTION=...) connection string
+// ConnectionAttempt represents a single connection attempt with all necessary information.
+type ConnectionAttempt interface {
+	GetAddress() Address
+	GetDescription() *Description
+	GetConnectData() ConnectData
+	GetConnectDataNode() *Node
+	GetConnectDataString() string
+	GetConnectString() string
+}
+
+type connectionOption struct {
+	Address         Address
+	Description     *Description
+	ConnectData     ConnectData
+	ConnectDataNode *Node
+	ConnectDataStr  string
+	ConnectString   string
+}
+
+func NewConnectionAttempt(
+	address Address,
+	description *Description,
+	connectData ConnectData,
+	connectDataNode *Node,
+	connectDataStr string,
+	connectString string,
+) *connectionOption {
+	return &connectionOption{
+		Address:         address,
+		Description:     description,
+		ConnectData:     connectData,
+		ConnectDataNode: connectDataNode,
+		ConnectDataStr:  connectDataStr,
+		ConnectString:   connectString,
+	}
+}
+
+func (o *connectionOption) GetAddress() Address {
+	return o.Address
+}
+
+func (o *connectionOption) GetDescription() *Description {
+	return o.Description
+}
+
+func (o *connectionOption) GetConnectData() ConnectData {
+	return o.ConnectData
+}
+
+func (o *connectionOption) GetConnectDataNode() *Node {
+	return o.ConnectDataNode
+}
+
+func (o *connectionOption) GetConnectDataString() string {
+	return o.ConnectDataStr
+}
+
+func (o *connectionOption) GetConnectString() string {
+	return o.ConnectString
 }
 
 // DescriptionAttempts holds all connection attempts for a single description
@@ -103,9 +154,9 @@ func NewConnectionIterator(ctx context.Context, rootNode *Node, connCtx *Connect
 	return iter
 }
 
-// Next returns the next ConnectionOption, or nil if exhausted.
+// Next returns the next connection option, or nil if exhausted.
 // Handles retry cycles and retry delays automatically.
-func (ci *ConnectionIterator) Next() *ConnectionOption {
+func (ci *ConnectionIterator) Next() *connectionOption {
 	if ci.exhausted {
 		return nil
 	}
@@ -464,32 +515,25 @@ func (ci *ConnectionIterator) extractConnectDataNode(descNode *Node) *Node {
 	return &Node{Name: "CONNECT_DATA"}
 }
 
-// buildOptionFromDesc creates a ConnectionOption from description attempts(called from Next())
+// buildOptionFromDesc creates a connection option from description attempts(called from Next())
 // Uses ResolvedIP in the connection string instead of hostname
-func (ci *ConnectionIterator) buildOptionFromDesc(desc *DescriptionAttempts) *ConnectionOption {
+func (ci *ConnectionIterator) buildOptionFromDesc(desc *DescriptionAttempts) *connectionOption {
 	addr := &desc.Addresses[desc.CurrentAddrIndex]
 
 	if desc.Description == nil {
 		// Simple ADDRESS without DESCRIPTION wrapper
-		return &ConnectionOption{
-			Address:         *addr,
-			Description:     nil,
-			ConnectData:     ConnectData{},
-			ConnectDataNode: nil,
-			ConnectDataStr:  "",
-			ConnectString:   ci.buildDescriptionWithAddress(addr),
-		}
+		return NewConnectionAttempt(*addr, nil, ConnectData{}, nil, "", ci.buildDescriptionWithAddress(addr))
 	}
 
 	// Full DESCRIPTION with CONNECT_DATA
-	return &ConnectionOption{
-		Address:         *addr,
-		Description:     desc.Description,
-		ConnectData:     desc.Description.ConnectData,
-		ConnectDataNode: desc.ConnectDataNode,
-		ConnectDataStr:  desc.ConnectDataStr,
-		ConnectString:   ci.buildConnectString(addr, desc.ConnectDataNode),
-	}
+	return NewConnectionAttempt(
+		*addr,
+		desc.Description,
+		desc.Description.ConnectData,
+		desc.ConnectDataNode,
+		desc.ConnectDataStr,
+		ci.buildConnectString(addr, desc.ConnectDataNode),
+	)
 }
 
 // buildConnectString creates the full (DESCRIPTION=(ADDRESS=...)(CONNECT_DATA=...)) string

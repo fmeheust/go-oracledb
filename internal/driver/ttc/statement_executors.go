@@ -155,7 +155,7 @@ type statementExecutorSelect struct {
 // Oracle may omit DCB metadata on OEXFEN re-execution, so these descriptors are
 // retained across executions of the statement.
 type selectResultMetadata struct {
-	columns []ColumnContext
+	columns []columnContext
 }
 
 // columnCount returns the number of columns described by the cached metadata.
@@ -167,7 +167,7 @@ func (m selectResultMetadata) columnCount() driverCommon.UB4 {
 // replace updates the cached result metadata from a newly received DCB
 // description. It copies the top-level slice so later changes to the source
 // slice cannot alter the cache.
-func (m *selectResultMetadata) replace(columns []ColumnContext) {
+func (m *selectResultMetadata) replace(columns []columnContext) {
 	m.columns = append(m.columns[:0], columns...)
 }
 
@@ -192,7 +192,7 @@ type queryRunState struct {
 	// prevRow and prevLobColContext form the aligned previous-row state used by
 	// BVC carry.
 	prevRow           []driverCommon.B1Array
-	prevLobColContext []*LobColumnContext
+	prevLobColContext []*lobColumnContext
 	rows              *ttcRows
 }
 
@@ -217,7 +217,7 @@ type statementExecutorExec struct {
 	_currentRank        driverCommon.UB4 // currentRank represents current row in processing, incremented at each execution
 	numberOfInOutParams int              // Number of IN OUT bind positions detected for the current execution.
 	outDestPtrs         []any            // Destination pointers that receive decoded OUT or RETURNING values.
-	outColumnContexts   []ColumnContext  // Decoder contexts derived from bind OAC metadata for returned values.
+	outColumnContexts   []columnContext  // Decoder contexts derived from bind OAC metadata for returned values.
 }
 
 /*
@@ -260,7 +260,7 @@ func (e *statementExecutorExec) initExecRunner(args []sqldriver.Value) {
 			bindOac, err := codecFactory.GetBindOac(normalizeBindValue(outArg), 0)
 			if err == nil {
 				if oac, ok := bindOac.(*tTIoac); ok {
-					e.outColumnContexts = append(e.outColumnContexts, ColumnContext{
+					e.outColumnContexts = append(e.outColumnContexts, columnContext{
 						Index:       outIndex,
 						DataType:    int16(oac.dataType),
 						Precision:   int64(oac.precision),
@@ -1209,7 +1209,7 @@ func (e *statementExecutorExec) handleRXDRow(msg driverCommon.Message[driverComm
 		}
 
 		// Use captured OAC-derived metadata when available to choose the correct decoder.
-		columnContext := ColumnContext{}
+		columnContext := columnContext{}
 		if i < len(e.outColumnContexts) {
 			columnContext = e.outColumnContexts[i]
 		}

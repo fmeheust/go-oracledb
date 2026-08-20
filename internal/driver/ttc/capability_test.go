@@ -44,7 +44,6 @@ import (
 	"testing"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 )
 
 // Helper functions for capabilities test data
@@ -110,7 +109,7 @@ func TestCapabilityMarshalTo_Success(t *testing.T) {
 	}
 	expected := []byte{3, 4, 5, 6, 3, 1, 2, 3}
 	buf := NewArrayDataBuffer(1024)
-	engine := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+	engine := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 
 	err := c.MarshalTo(context.Background(), engine)
 	if err != nil {
@@ -144,7 +143,7 @@ func TestCapabilityMarshalTo_Fail(t *testing.T) {
 				FailOnWriteByteCall:  tc.failByte,
 				FailOnWriteBytesCall: tc.failBytes,
 			}
-			engine := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+			engine := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 			err := cap.MarshalTo(context.Background(), engine)
 			if err == nil {
 				t.Errorf("expected error, got nil")
@@ -168,7 +167,7 @@ func TestCapabilityUnMarshalFrom_Success(t *testing.T) {
 	buf.WriteBytesWithContext(context.Background(), payload)
 
 	cap := newCapability()
-	engine := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+	engine := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 	err := cap.UnMarshalFrom(context.Background(), engine)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -201,7 +200,7 @@ func TestCapabilityUnMarshalFrom_Fail(t *testing.T) {
 			dbuf.WriteBytesWithContext(context.Background(), payload)
 			buf = &FaultyArrayBasedDataBuffer{ArrayBasedDataBuffer: dbuf, FailOnReadByteCall: ec.failPos}
 			cap := newCapability()
-			engine := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+			engine := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 			err := cap.UnMarshalFrom(context.Background(), engine)
 			if err == nil {
 				t.Error("Expected error but got none")

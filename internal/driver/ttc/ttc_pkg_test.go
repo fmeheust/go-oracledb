@@ -54,7 +54,6 @@ import (
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 )
 
 // TestCategory category of tests to be un
@@ -750,7 +749,7 @@ func (f *FaultyArrayBasedDataBuffer) ReadByteWithContext(ctx context.Context) (b
 }
 
 // NewMarshalEngineTest creates a new MarshalEngine for testing purposes.
-func NewMarshalEngineTest(byteOrder session.ByteOrder, typ byte, rep byte, bufSize int) (*ArrayBasedDataBuffer, *MarshalEngine) {
+func NewMarshalEngineTest(byteOrder common.ByteOrder, typ byte, rep byte, bufSize int) (*ArrayBasedDataBuffer, *MarshalEngine) {
 	dataBuffer := NewArrayDataBuffer(bufSize)
 	typeRep := NewTypeRep()
 	typeRep.setRep(typ, rep)
@@ -838,11 +837,11 @@ func createMarshaller(buf []byte, failOn FailOn, callCount int) common.Marshalle
 		case failOnWriteBytes:
 			faulty.FailOnWriteBytesCall = callCount
 		}
-		return NewMarshalEngine(faulty, session.BIG_ENDIAN, rep)
+		return NewMarshalEngine(faulty, common.BIG_ENDIAN, rep)
 	}
 	tdb := NewTestDataBuffer()
 	tdb.WriteBytesWithContext(context.Background(), buf)
-	mar := NewMarshalEngine(tdb, session.BIG_ENDIAN, rep)
+	mar := NewMarshalEngine(tdb, common.BIG_ENDIAN, rep)
 	return mar
 }
 

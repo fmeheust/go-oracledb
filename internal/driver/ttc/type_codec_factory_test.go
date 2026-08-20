@@ -53,9 +53,9 @@ func dummyEncoderA(driver.Value) (common.B1Array, error) { return nil, nil }
 
 func dummyEncoderB(driver.Value) (common.B1Array, error) { return common.B1Array{1, 2, 3}, nil }
 
-var dummyDecoderA = newTypeDecoder(func(ColumnContext, common.B1Array) (driver.Value, error) { return "A", nil }, nil)
+var dummyDecoderA = newTypeDecoder(func(columnContext, common.B1Array) (driver.Value, error) { return "A", nil }, nil)
 
-var dummyDecoderB = newTypeDecoder(func(ColumnContext, common.B1Array) (driver.Value, error) { return "B", nil }, nil)
+var dummyDecoderB = newTypeDecoder(func(columnContext, common.B1Array) (driver.Value, error) { return "B", nil }, nil)
 
 var dummyBindOacA = bindOacType{
 	bindOacFunc: func(common.UB4) common.Marshallable {
@@ -71,11 +71,11 @@ var dummyBindOacB = bindOacType{
 	maxLength: 16,
 }
 
-func dummyDefineOacA(ColumnContext, common.UB4) common.Marshallable {
+func dummyDefineOacA(columnContext, common.UB4) common.Marshallable {
 	return newTTIoac(DtyNum, define_maxlength_scalar)
 }
 
-func dummyDefineOacB(ColumnContext, common.UB4) common.Marshallable {
+func dummyDefineOacB(columnContext, common.UB4) common.Marshallable {
 	return newTTIoac(DtyVCS, define_maxlength_varchar)
 }
 
@@ -246,7 +246,7 @@ func TestCodecFactory_GetDecoder(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			got, err := decoder.decodeToType(ColumnContext{}, nil)
+			got, err := decoder.decodeToType(columnContext{}, nil)
 			if err != nil {
 				t.Fatalf("unexpected decode error: %v", err)
 			}
@@ -467,7 +467,7 @@ func TestCodecFactory_GetDefineOac(t *testing.T) {
 		name         string
 		protocol     int8
 		dbType       DtyType
-		columnCtx    ColumnContext
+		columnCtx    columnContext
 		setup        func(reg *codecRegistry[DtyType, defineOacFunc])
 		wantMaxLen   common.UB4
 		wantDataType common.UB1
@@ -478,7 +478,7 @@ func TestCodecFactory_GetDefineOac(t *testing.T) {
 			name:      "selects highest compatible define oac constructor",
 			protocol:  3,
 			dbType:    DtyVCS,
-			columnCtx: ColumnContext{DataType: DtyVCS},
+			columnCtx: columnContext{DataType: DtyVCS},
 			setup: func(reg *codecRegistry[DtyType, defineOacFunc]) {
 				reg.Register(DtyVCS, 1, dummyDefineOacA)
 				reg.Register(DtyVCS, 3, dummyDefineOacB)
@@ -490,7 +490,7 @@ func TestCodecFactory_GetDefineOac(t *testing.T) {
 			name:         "falls back to scalar define oac when missing",
 			protocol:     1,
 			dbType:       DtyNum,
-			columnCtx:    ColumnContext{DataType: DtyNum},
+			columnCtx:    columnContext{DataType: DtyNum},
 			setup:        func(reg *codecRegistry[DtyType, defineOacFunc]) {},
 			wantMaxLen:   define_maxlength_scalar,
 			wantDataType: common.UB1(DtyNum),

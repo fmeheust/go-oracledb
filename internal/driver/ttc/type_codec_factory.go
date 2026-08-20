@@ -84,14 +84,14 @@ Description:
 
 		// Row/scan path: resolve a decoder for an Oracle database type id.
 		decoder, _ := f.GetDecoder(DtyVCS)
-		v, _ := decoder.decodeToType(ColumnContext{Name: "C1", Index: 0}, wireBytes)
+		v, _ := decoder.decodeToType(columnContext{Name: "C1", Index: 0}, wireBytes)
 		_ = v // decoded driver.Value (string, number, time.Time, etc.)
 */
 type codecFactory interface {
 	GetEncoder(normalizedBindValue) (encoderFunc, error)
 	GetDecoder(DtyType) (*typeDecoder, error)
 	GetBindOac(normalizedBindValue, driverCommon.UB4) (driverCommon.Marshallable, error)
-	GetDefineOac(DtyType, ColumnContext, driverCommon.DriverProperties) driverCommon.Marshallable
+	GetDefineOac(DtyType, columnContext, driverCommon.DriverProperties) driverCommon.Marshallable
 }
 
 // encoderFunc defines the function signature of encoder functions.
@@ -102,7 +102,7 @@ type encoderFunc func(driver.Value) (driverCommon.B1Array, error)
 // decoderFunc defines the signature for TTC decoder implementors registered with the
 // codec factory. The function receives the column context and raw TTC data bytes and is
 // expected to return the decoded database value or an error.
-type decoderFunc func(ColumnContext, driverCommon.B1Array) (driver.Value, error)
+type decoderFunc func(columnContext, driverCommon.B1Array) (driver.Value, error)
 
 // bindOacFunc defines the signature for bind OAC constructor functions registered
 // with the codec factory. The function receives the requested maximum bind length
@@ -121,9 +121,9 @@ type bindOacType struct {
 // registered with the codec factory. The function receives the result-set column
 // context plus the effective LOB prefetch size and must return a TTC OAC
 // descriptor suitable for marshalling define/fetch metadata.
-type defineOacFunc func(ColumnContext, driverCommon.UB4) driverCommon.Marshallable
+type defineOacFunc func(columnContext, driverCommon.UB4) driverCommon.Marshallable
 
-type scanTypeFunc func(ColumnContext) reflect.Type
+type scanTypeFunc func(columnContext) reflect.Type
 
 type typeDecoder struct {
 	decodeToType decoderFunc
@@ -599,7 +599,7 @@ Returns:
 */
 func (f *CodecFactoryImpl) GetDefineOac(
 	dbType DtyType,
-	columnContext ColumnContext,
+	columnContext columnContext,
 	connectionProperties driverCommon.DriverProperties,
 ) driverCommon.Marshallable {
 	common.Odl.Debug("New define OAC requested", "dbType", dbType, "ttcVersion", f.ttcVersion)

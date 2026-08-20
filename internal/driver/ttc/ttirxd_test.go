@@ -46,7 +46,6 @@ import (
 	"testing"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
@@ -120,7 +119,7 @@ func TestTTIrxd_MarshalTo_Success(t *testing.T) {
 	rxd.setBindValues([]common.B1Array{nil, val})
 
 	// Use ArrayBasedDataBuffer via NewMarshalEngineTest so we can inspect bytes directly
-	buf, eng := NewMarshalEngineTest(session.BIG_ENDIAN, B2, Universal, 64)
+	buf, eng := NewMarshalEngineTest(common.BIG_ENDIAN, B2, Universal, 64)
 
 	err := rxd.MarshalTo(context.Background(), eng)
 	if err != nil {
@@ -192,7 +191,7 @@ func TestTTIrxd_BvcOnFirstRow_ReturnsError(t *testing.T) {
 	rxd := newTTIrxd().(*tTIrxd)
 	rxd.SetNumberOfColumns(2)
 	rxd.SetRowCount(0)
-	rxd.setColumnContexts([]ColumnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
+	rxd.setColumnContexts([]columnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 	bitset := common.NewBitSet(2)
 	bitset.SetBytes(0, []byte{0x03})
 	rxd.SetBvcState(bitset, true)
@@ -328,7 +327,7 @@ func TestTTIrxd_UnmarshalFrom_ErrorCases(t *testing.T) {
 			// Create a new tTIrxd & configure it for this scenario
 			rxd := newTTIrxd().(*tTIrxd)
 			tc.setup(rxd)
-			columnContexts := make([]ColumnContext, int(rxd.numberOfColumns))
+			columnContexts := make([]columnContext, int(rxd.numberOfColumns))
 			for i := range columnContexts {
 				columnContexts[i].DataType = DtyVCS
 			}
@@ -365,7 +364,7 @@ func TestTTIrxd_UnmarshalFrom(t *testing.T) {
 	rxd.SetRowCount(rowCount)
 	rxd.SetPrevRow(nil)
 	rxd.SetBvcState(nil, false)
-	rxd.setColumnContexts([]ColumnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
+	rxd.setColumnContexts([]columnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 
 	// Attempt to unmarshal: should succeed with valid data
 	err := rxd.UnMarshalFrom(context.Background(), mar)
@@ -472,7 +471,7 @@ func runBvcIntegration(t *testing.T, dump []string, expRows [][][]byte, noCols c
 			rxd.SetRowCount(rowCount)
 			rxd.SetNumberOfColumns(noCols)
 			rxd.SetPrevRow(prevRow)
-			columnContexts := make([]ColumnContext, int(noCols))
+			columnContexts := make([]columnContext, int(noCols))
 			for i := range columnContexts {
 				columnContexts[i].DataType = DtyVCS
 			}
@@ -526,7 +525,7 @@ func TestTTIrxd_BvcPresentColumn_UnmarshalError(t *testing.T) {
 	bitset := common.NewBitSet(numCols)
 	bitset.SetBytes(0, []byte{0x01}) // Only column 0 marked present
 	rxd.SetBvcState(bitset, true)
-	rxd.setColumnContexts([]ColumnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
+	rxd.setColumnContexts([]columnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 
 	// Payload with only length byte, not enough data (forces error in _unmarshalScalarColumn)
 	payload := []byte{5}
@@ -553,7 +552,7 @@ func TestTTIrxd_BvcCarriedNullKeepsLobContextAligned(t *testing.T) {
 	rxd.SetNumberOfColumns(numCols)
 	rxd.SetRowCount(2)
 	rxd.SetPrevRow([]common.B1Array{{0x11}, nil})
-	rxd.setColumnContexts([]ColumnContext{
+	rxd.setColumnContexts([]columnContext{
 		{DataType: DtyVCS},
 		{DataType: DtyClob},
 	})
@@ -593,7 +592,7 @@ func TestTTIrxd_BvcCarriedClobPreservesLobContext(t *testing.T) {
 			shelf:   shelf,
 			sessCtx: &common.SessionContext{},
 		},
-		resultMetadata: selectResultMetadata{columns: []ColumnContext{
+		resultMetadata: selectResultMetadata{columns: []columnContext{
 			{DataType: DtyVCS},
 			{DataType: DtyClob},
 		}},
@@ -601,10 +600,10 @@ func TestTTIrxd_BvcCarriedClobPreservesLobContext(t *testing.T) {
 	state := &queryRunState{rows: exec.resultMetadata.newRows(shelf)}
 
 	clobData := common.B1Array("hello")
-	previousLobContext := &LobColumnContext{CharsetID: al16Utf16CharSet}
+	previousLobContext := &lobColumnContext{CharsetID: al16Utf16CharSet}
 	state.handleRXDRow(&tTIrxd{
 		row:           []common.B1Array{{0x11}, clobData},
-		lobColContext: []*LobColumnContext{nil, previousLobContext},
+		lobColContext: []*lobColumnContext{nil, previousLobContext},
 	})
 
 	// Only column 0 is sent for the next row. Column 1 must carry both its CLOB

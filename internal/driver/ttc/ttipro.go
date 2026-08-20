@@ -67,9 +67,9 @@ var (
 	proCliStrTTC8Slice = []byte("GO_TTC-8.2.0\x00")
 )
 
-// NewTTIpro constructs a zeroed tTIpro message with default capabilities.
-func NewTTIpro() driverCommon.Message[driverCommon.MessageType] {
-	common.Odl.Debug("tTIpro.NewTTIpro: Creating tTIpro message")
+// newTTIpro constructs a zeroed tTIpro message with default capabilities.
+func newTTIpro() driverCommon.Message[driverCommon.MessageType] {
+	common.Odl.Debug("tTIpro.newTTIpro: Creating tTIpro message")
 	return &tTIpro{
 		NCharCharset: 0,
 		ServerCaps:   newCapability(),
@@ -221,28 +221,28 @@ func (p *tTIpro) MarshalTo(ctx context.Context, mar driverCommon.Marshaller) err
 	return nil
 }
 
-// GetProtocolVersion returns the protocol version reported by the server.
-func (p *tTIpro) GetProtocolVersion() driverCommon.UB2 { return p.proSvrVer }
+// getProtocolVersion returns the protocol version reported by the server.
+func (p *tTIpro) getProtocolVersion() driverCommon.UB2 { return p.proSvrVer }
 
-// GetOracleVersion returns the Oracle version value reported by the database.
-func (p *tTIpro) GetOracleVersion() driverCommon.UB2 { return p.oVersion }
+// getOracleVersion returns the Oracle version value reported by the database.
+func (p *tTIpro) getOracleVersion() driverCommon.UB2 { return p.oVersion }
 
-// GetServerRuntimeCapabilities returns the server runtime capability flags.
-func (p *tTIpro) GetServerRuntimeCapabilities() *[]byte { return &p.ServerCaps.runTimeCapabilities }
+// getServerRuntimeCapabilities returns the server runtime capability flags.
+func (p *tTIpro) getServerRuntimeCapabilities() *[]byte { return &p.ServerCaps.runTimeCapabilities }
 
-// GetServerCompileTimeCapabilities returns the server compile-time capabilities flags.
-func (p *tTIpro) GetServerCompileTimeCapabilities() *[]byte {
+// getServerCompileTimeCapabilities returns the server compile-time capabilities flags.
+func (p *tTIpro) getServerCompileTimeCapabilities() *[]byte {
 	return &p.ServerCaps.compileTimeCapabilities
 }
 
-// GetCharacterSet returns the main character set reported by the server.
-func (p *tTIpro) GetCharacterSet() driverCommon.UB2 { return p.svrCharSet }
+// getCharacterSet returns the main character set reported by the server.
+func (p *tTIpro) getCharacterSet() driverCommon.UB2 { return p.svrCharSet }
 
-// GetNCharCharacterSet returns the NCHAR character set value.
-func (p *tTIpro) GetNCharCharacterSet() driverCommon.UB2 { return p.NCharCharset }
+// getNCharCharacterSet returns the NCHAR character set value.
+func (p *tTIpro) getNCharCharacterSet() driverCommon.UB2 { return p.NCharCharset }
 
-// GetFlags returns tTIpro's protocol flags (bit flags).
-func (p *tTIpro) GetFlags() byte { return p.svrFlags }
+// getFlags returns tTIpro's protocol flags (bit flags).
+func (p *tTIpro) getFlags() byte { return p.svrFlags }
 
-// GetSvrPortDescription returns the raw server description/version string.
-func (p *tTIpro) GetSvrPortDescription() driverCommon.B1Array { return p.svrPortDescription }
+// getSvrPortDescription returns the raw server description/version string.
+func (p *tTIpro) getSvrPortDescription() driverCommon.B1Array { return p.svrPortDescription }

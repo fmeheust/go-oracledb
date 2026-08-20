@@ -219,7 +219,7 @@ func (c *connection) registerEventListeners(service *eventService) {
 	service.register(c, streamerOverFlowEvent)
 }
 
-// notify implements EventListener interface
+// notify implements eventListener.
 func (c *connection) notify(event eventType) {
 	var wasValid = c._isValid == true
 	switch event {

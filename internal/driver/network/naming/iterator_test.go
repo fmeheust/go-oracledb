@@ -542,7 +542,7 @@ func TestConnectionIterator_RetryDelay_ContextCancellation(t *testing.T) {
 	}
 
 	start := time.Now()
-	done := make(chan *ConnectionOption, 1)
+	done := make(chan *connectionOption, 1)
 	go func() {
 		done <- iter.Next()
 	}()

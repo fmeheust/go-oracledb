@@ -152,12 +152,12 @@ func createPasswordAuthenticator(parameters *oracleconfig.OracleDriverConfig) (A
 	if len(parameters.Credentials.LogonMode) > 0 {
 		var mode, _ = common.GetLogonModeFromString(parameters.Credentials.LogonMode)
 		common.Odl.Debug(fmt.Sprintf("logonMode set to [%s]", mode))
-		return NewPasswordAuthenticatorWithLogonMode(parameters.Credentials.User,
+		return newPasswordAuthenticatorWithLogonMode(parameters.Credentials.User,
 			parameters.Credentials.Password,
 			mode,
 			parameters.ConnectDescriptor), nil
 	}
-	return NewPasswordAuthenticator(parameters.Credentials.User,
+	return newPasswordAuthenticator(parameters.Credentials.User,
 		parameters.Credentials.Password,
 		parameters.ConnectDescriptor), nil
 }
@@ -167,7 +167,7 @@ func createPasswordAuthenticator(parameters *oracleconfig.OracleDriverConfig) (A
 // GetNegotiator returns the default Negotiator implementation.
 // TODO : we should not have to pass the buffer here...
 func GetNegotiator(transport driverCommon.DataBuffer) Negotiator {
-	n := NewConnectionNegotiator()
+	n := newConnectionNegotiator()
 	n.SetDataBuffer(transport)
 	return n
 }

@@ -46,7 +46,6 @@ import (
 	"testing"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 )
 
 func TestTTIdtyNew(t *testing.T) {
@@ -84,7 +83,7 @@ func TestTTIdtyMarshalTo_Success(t *testing.T) {
 	}
 
 	tdb := NewArrayDataBuffer(16384)
-	mar := NewNativeMarshalEngine(tdb, session.BIG_ENDIAN)
+	mar := NewNativeMarshalEngine(tdb, common.BIG_ENDIAN)
 
 	err := dty.MarshalTo(context.Background(), mar)
 	written := tdb.bytes[:tdb.currentWritePosition]
@@ -164,10 +163,10 @@ func TestTTIdtyMarshalTo_Fail(t *testing.T) {
 			}
 
 			if tt.faulty != nil {
-				mar = NewNativeMarshalEngine(newFaultyBuffer(tt.faulty), session.BIG_ENDIAN)
+				mar = NewNativeMarshalEngine(newFaultyBuffer(tt.faulty), common.BIG_ENDIAN)
 			} else {
 				tdb := NewArrayDataBuffer(8192)
-				mar = NewNativeMarshalEngine(tdb, session.BIG_ENDIAN)
+				mar = NewNativeMarshalEngine(tdb, common.BIG_ENDIAN)
 			}
 			err := obj.MarshalTo(context.Background(), mar)
 			if tt.expectedErr != "" {
@@ -225,7 +224,7 @@ func TestTTIdtyUnmarshalFrom_Success(t *testing.T) {
 	testBytes := []byte{0x00, 0x01, 0x00, 0x00, 0x00, 0x00}
 	_ = buf.WriteBytesWithContext(ctx, testBytes)
 
-	mar := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+	mar := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 
 	err := u.UnMarshalFrom(ctx, mar)
 	if err != nil {
@@ -278,7 +277,7 @@ func TestTTIdtyUnmarshalFrom_Failure(t *testing.T) {
 				_ = buf.WriteBytesWithContext(ctx, []byte{0x02, 0x00})
 			}
 
-			mar := NewNativeMarshalEngine(buf, session.BIG_ENDIAN)
+			mar := NewNativeMarshalEngine(buf, common.BIG_ENDIAN)
 
 			err := u.UnMarshalFrom(ctx, mar)
 			if err == nil {

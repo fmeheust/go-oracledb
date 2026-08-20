@@ -63,7 +63,7 @@ type tTIrxd struct {
 	prevRow []driverCommon.B1Array
 	// prevLobColContext contains the LOB metadata aligned with prevRow for BVC
 	// column carry.
-	prevLobColContext []*LobColumnContext
+	prevLobColContext []*lobColumnContext
 	// bvcColSent is a BitSet indicating which columns are present in this row (per BVC protocol column-carry rules).
 	bvcColSent *driverCommon.BitSet
 	// bvcFound is true if BVC/column-carry logic applies to the current row (if bvcColSent has any set columns).
@@ -71,8 +71,8 @@ type tTIrxd struct {
 
 	// Outgoing bind payload for TTIRXD when marshalling bind values (Phase 1: single row binds).
 	bindRow        []driverCommon.B1Array
-	columnContexts []ColumnContext
-	lobColContext  []*LobColumnContext
+	columnContexts []columnContext
+	lobColContext  []*lobColumnContext
 
 	numberOfReturningPositions int
 	isDmlReturning             bool
@@ -114,7 +114,7 @@ func (rxd *tTIrxd) SetPrevRow(row []driverCommon.B1Array) {
 
 // setPrevLobColumnContext assigns the per-column LOB metadata for the previous
 // row. BVC decoding carries this metadata together with omitted column data.
-func (rxd *tTIrxd) setPrevLobColumnContext(lobColContext []*LobColumnContext) {
+func (rxd *tTIrxd) setPrevLobColumnContext(lobColContext []*lobColumnContext) {
 	rxd.prevLobColContext = lobColContext
 }
 
@@ -124,7 +124,7 @@ func (rxd *tTIrxd) SetBvcState(colSent *driverCommon.BitSet, found bool) {
 	rxd.bvcFound = found
 }
 
-func (rxd *tTIrxd) setColumnContexts(columnContexts []ColumnContext) {
+func (rxd *tTIrxd) setColumnContexts(columnContexts []columnContext) {
 	rxd.columnContexts = columnContexts
 }
 
@@ -142,7 +142,7 @@ func (rxd *tTIrxd) setSessionCharacterSet(sessCharSet driverCommon.UB2) {
 	rxd.sessCharSet = sessCharSet
 }
 
-func (rxd *tTIrxd) getLobColumnContext() []*LobColumnContext {
+func (rxd *tTIrxd) getLobColumnContext() []*lobColumnContext {
 	return rxd.lobColContext
 }
 
@@ -241,7 +241,7 @@ func (rxd *tTIrxd) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshalle
 	// BVC rows carry both raw column data and its aligned LOB metadata from the
 	// previous row. Columns marked present are unmarshalled as fresh values.
 	// For non-BVC rows, unmarshal all columns as fresh.
-	rxd.lobColContext = make([]*LobColumnContext, 0, int(rxd.numberOfColumns))
+	rxd.lobColContext = make([]*lobColumnContext, 0, int(rxd.numberOfColumns))
 	if rxd.bvcFound {
 		// BVC carry requires a previous row from the current result set.
 		if rxd.prevRow == nil {
@@ -278,7 +278,7 @@ func (rxd *tTIrxd) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshalle
 					copy(tmp, rxd.prevRow[col])
 					rxd.row[col] = tmp
 				}
-				var lobContext *LobColumnContext
+				var lobContext *lobColumnContext
 				if rxd.prevLobColContext != nil {
 					lobContext = rxd.prevLobColContext[col]
 				}
@@ -395,7 +395,7 @@ Errors:
 */
 func (rxd *tTIrxd) _unmarshalClobColumn(ctx context.Context, mar driverCommon.Marshaller, col int) error {
 	// length
-	lob := &LobColumnContext{}
+	lob := &lobColumnContext{}
 	var err error
 	if lob.LobLength, err = mar.UnmarshalUB4(ctx); err != nil {
 		common.Odl.Error("tTIrxd._unmarshalClobColumn: failed to read LOB length",
@@ -552,7 +552,7 @@ Errors:
 */
 func (rxd *tTIrxd) _unmarshalBlobColumn(ctx context.Context, mar driverCommon.Marshaller, col int, dtyType DtyType) error {
 	// length
-	lob := &LobColumnContext{}
+	lob := &lobColumnContext{}
 	var err error
 	if lob.LobLength, err = mar.UnmarshalUB4(ctx); err != nil {
 		common.Odl.Error("tTIrxd._unmarshalBlobColumn: failed to read LOB length",
