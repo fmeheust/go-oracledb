@@ -2,6 +2,10 @@ package providers
 
 import "context"
 
+type ProviderRegistrar interface {
+	RegisterProvider(Provider)
+}
+
 type Provider interface{}
 
 /*** TOKEN AUTHENTICATI%ON ***/

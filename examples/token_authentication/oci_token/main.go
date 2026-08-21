@@ -22,10 +22,6 @@ import (
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
-type providerRegistrar interface {
-	RegisterProvider(oracleProviders.Provider)
-}
-
 type fileOCITokenProvider struct {
 	tokenPath      string
 	privateKeyPath string
@@ -56,7 +52,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	registrar, ok := connector.(providerRegistrar)
+	registrar, ok := connector.(oracleProviders.ProviderRegistrar)
 	if !ok {
 		log.Fatal("connector does not support provider registration")
 	}
