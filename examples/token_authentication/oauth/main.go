@@ -19,21 +19,38 @@ import (
 
 	"github.com/oracle/go-oracledb/v26/oracle"
 	"github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
+
+type providerRegistrar interface {
+	RegisterProvider(oracleProviders.Provider)
+}
+
+type fileOAuthTokenProvider struct {
+	tokenPath string
+}
+
+func (p fileOAuthTokenProvider) Token(context.Context) (string, error) {
+	return readTrimmedFile(p.tokenPath)
+}
 
 func main() {
 	connectDescriptor := requiredEnv("ORACLE_GO_OAUTH_CONNECT_DESCRIPTOR")
-	tokenLocation := requiredEnv("ORACLE_GO_OAUTH_TOKEN_LOCATION")
+	tokenPath := requiredEnv("ORACLE_GO_OAUTH_TOKEN_FILE")
 
 	cfg := oracle.NewOracleDriverConfig()
 	cfg.ConnectDescriptor = connectDescriptor
 	cfg.Credentials.TokenAuthentication = config.TokenAuthenticationOAuth
-	cfg.Credentials.TokenLocation = tokenLocation
 
 	connector, err := oracle.NewOracleConnector(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
+	registrar, ok := connector.(providerRegistrar)
+	if !ok {
+		log.Fatal("connector does not support provider registration")
+	}
+	registrar.RegisterProvider(fileOAuthTokenProvider{tokenPath: tokenPath})
 
 	db := sql.OpenDB(connector)
 	defer db.Close()
@@ -59,4 +76,12 @@ func requiredEnv(name string) string {
 		log.Fatalf("missing required environment variable %s", name)
 	}
 	return value
+}
+
+func readTrimmedFile(path string) (string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(content)), nil
 }

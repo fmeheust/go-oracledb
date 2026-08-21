@@ -53,7 +53,7 @@ import (
 func TestAuthencationFactoryWithNilParameters(t *testing.T) {
 	t.Parallel()
 
-	auth, err := GetAuthenticator(nil)
+	auth, err := GetAuthenticator(nil, nil)
 	if err == nil {
 		t.Fatalf("get authenticator test failed %v", err)
 	}
@@ -68,7 +68,7 @@ func TestAuthencationFactoryBasic(t *testing.T) {
 	c.Credentials.User = "foo"
 	c.Credentials.Password = "bar"
 	c.ConnectDescriptor = "connection string"
-	auth, err := GetAuthenticator(c)
+	auth, err := GetAuthenticator(c, nil)
 	if err != nil {
 		t.Fatalf("get authenticator test failed %v", err)
 	}

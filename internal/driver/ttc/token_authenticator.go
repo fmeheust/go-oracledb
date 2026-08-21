@@ -17,67 +17,36 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	oracleConfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
-
-const (
-	tokenFileName         = "token"
-	ociPrivateKeyFileName = "oci_db_key.pem"
-)
-
-type tokenProviderContext struct {
-	connectString  string
-	sessionContext *driverCommon.SessionContext
-	tokenLocation  string
-}
-
-type tokenProvider interface {
-	logonMode() int64
-	resolveTokenPath(tokenLocation string) (string, error)
-	applyAuthData(oauthPacket *oAuth, token string, ctx tokenProviderContext) error
-}
 
 type tokenAuthenticator struct {
-	tokenAuthentication oracleConfig.TokenAuthenticationType
-	accessToken         string
-	tokenLocation       string
-	connectString       string
-	provider            tokenProvider
-	shelf               ttiShelf[driverCommon.MessageType]
-	sessionContext      *driverCommon.SessionContext
+	shelf          ttiShelf[driverCommon.MessageType]
+	sessionContext *driverCommon.SessionContext
+	tokenProvider  oracleProviders.TokenAuthenticationProvider
+	connectString  string
 }
 
-type ociTokenProvider struct{}
-type oauthTokenProvider struct{}
-
-func NewTokenAuthenticator(tokenAuthentication oracleConfig.TokenAuthenticationType, accessToken, tokenLocation, connectString string) *tokenAuthenticator {
-	normalizedAuth := oracleConfig.TokenAuthenticationType(strings.ToUpper(strings.TrimSpace(tokenAuthentication.String())))
+func NewTokenAuthenticator(providerRegistry []oracleProviders.Provider, connectString string) *tokenAuthenticator {
 	return &tokenAuthenticator{
-		tokenAuthentication: normalizedAuth,
-		accessToken:         strings.TrimSpace(accessToken),
-		tokenLocation:       strings.TrimSpace(tokenLocation),
-		connectString:       connectString,
-		provider:            newTokenProvider(normalizedAuth),
+		tokenProvider: findFirstTokenAuthenticatorProvider(providerRegistry),
+		connectString: connectString,
 	}
 }
 
-func newTokenProvider(tokenAuthentication oracleConfig.TokenAuthenticationType) tokenProvider {
-	switch oracleConfig.TokenAuthenticationType(strings.ToUpper(strings.TrimSpace(tokenAuthentication.String()))) {
-	case oracleConfig.TokenAuthenticationOCI:
-		return ociTokenProvider{}
-	case oracleConfig.TokenAuthenticationOAuth:
-		return oauthTokenProvider{}
-	default:
-		return nil
+func findFirstTokenAuthenticatorProvider(providerRegistry []oracleProviders.Provider) oracleProviders.TokenAuthenticationProvider {
+	for _, provider := range providerRegistry {
+		if tokenProvider, ok := provider.(oracleProviders.TokenAuthenticationProvider); ok {
+			return tokenProvider
+		}
 	}
+	return nil
 }
 
 func (ta *tokenAuthenticator) SetShelf(shelf *ttiShelf[driverCommon.MessageType]) {
@@ -90,14 +59,15 @@ func (ta *tokenAuthenticator) SetSessionContext(sessCtx *driverCommon.SessionCon
 
 func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 	common.Odl.Debug("Start TOKEN authentication")
-	if ta.provider == nil {
-		return common.NewOracleError(oracleErrors.NoAuthenticatorError, nil, ta.tokenAuthentication)
+	if ta.tokenProvider == nil {
+		return common.NewOracleError(oracleErrors.NoAuthenticatorError, nil)
 	}
 	if ta.sessionContext == nil {
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
-	token, err := ta.resolveAccessToken()
+	// Validate token
+	token, err := ta.tokenProvider.Token(ctx)
 	if err != nil {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
@@ -105,10 +75,16 @@ func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
 
-	return ta.doOAuth(ctx, token)
-}
+	// Generate header and sign it if expected
+	tokenHeader, err := ta.generateTokenHeader()
+	if err != nil {
+		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
+	}
+	signature, err := ta.signHeader(ctx, tokenHeader)
+	if err != nil {
+		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
+	}
 
-func (ta *tokenAuthenticator) doOAuth(ctx context.Context, token string) error {
 	shelf := ta.shelf
 	streamer := shelf.GetMessageStreamer().(MessageStreamerInterface)
 
@@ -117,20 +93,14 @@ func (ta *tokenAuthenticator) doOAuth(ctx context.Context, token string) error {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
 
+	// build oauth message
 	oauthMsg := msg.(*oAuth)
 	oauthMsg.setConnectString(ta.connectString)
-	oauthMsg.setLogonMode(ta.provider.logonMode())
-	if err := oauthMsg.prepareForTokenOAUTH(driverCommon.B1Array{}); err != nil {
-		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
-	}
-	if err := ta.provider.applyAuthData(oauthMsg, token, tokenProviderContext{
-		connectString:  ta.connectString,
-		sessionContext: ta.sessionContext,
-		tokenLocation:  ta.tokenLocation,
-	}); err != nil {
-		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
-	}
+	oauthMsg.setLogonMode(logonMode(ta.tokenProvider))
+	oauthMsg.prepareForTokenOAUTH(driverCommon.B1Array{})
+	oauthMsg.setTokenKeyValsForOAUTH(token, tokenHeader, signature)
 
+	// send oauth message
 	if err := streamer.Push(ctx, msg); err != nil {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
@@ -138,12 +108,14 @@ func (ta *tokenAuthenticator) doOAuth(ctx context.Context, token string) error {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
 
+	// prepare to receive response
 	oauthRPACallBack := func(t *messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
 		return shelf.GetMessageFactory().(Factory).GetMessageForFunction(TTIRPA, oauth)
 	}
 	streamer.RegisterPreUnmarshallCallback(TTIRPA, oauthRPACallBack)
 	defer streamer.UnRegisterPreUnmarshallCallback(TTIRPA)
 
+	// fetch response
 	var oauthrpa *OAuthRPA
 	for {
 		msg, err := streamer.Pull(ctx, TTIRPA, TTIOER, TTIWRN)
@@ -171,82 +143,56 @@ func (ta *tokenAuthenticator) doOAuth(ctx context.Context, token string) error {
 	}
 }
 
-func (ta *tokenAuthenticator) resolveAccessToken() (string, error) {
-	if ta.accessToken != "" {
-		return ta.accessToken, nil
-	}
-
-	tokenPath, err := ta.provider.resolveTokenPath(ta.tokenLocation)
-	if err != nil {
-		return "", err
-	}
-
-	tokenBytes, err := os.ReadFile(tokenPath)
-	if err != nil {
-		return "", err
-	}
-	token := strings.TrimSpace(string(tokenBytes))
-	if token == "" {
-		return "", common.NewOracleError(oracleErrors.EmptyTokenError, nil, ta.String())
-	}
-	return token, nil
+func expectsHeader(tokenProvider oracleProviders.TokenAuthenticationProvider) bool {
+	_, ok := tokenProvider.(oracleProviders.OCITokenAuthenticationProvider)
+	return ok
 }
 
-func (provider ociTokenProvider) logonMode() int64 {
-	return common.KpzLogon.Value() | common.KpzLogonToken.Value()
+func logonMode(tokenProvider oracleProviders.TokenAuthenticationProvider) int64 {
+	if expectsHeader(tokenProvider) {
+		return common.KpzLogon.Value() | common.KpzLogonToken.Value()
+	} else {
+		return common.KpzLogon.Value()
+	}
 }
 
-func (oauthTokenProvider) logonMode() int64 {
-	return common.KpzLogon.Value()
+func (ta *tokenAuthenticator) generateTokenHeader() (string, error) {
+	if expectsHeader(ta.tokenProvider) {
+		serviceName, err := extractServiceName(ta.connectString)
+		if err != nil {
+			return "", err
+		}
+		remoteAddr, err := getRequiredSessionProperty(ta.sessionContext, "REMOTE_ADDRESS")
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf(
+			"date: %s\n(request-target): %s\nhost: %s",
+			time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT"),
+			serviceName,
+			remoteAddr,
+		), nil
+	}
+	return "", nil
 }
 
-func (provider ociTokenProvider) resolveTokenPath(tokenLocation string) (string, error) {
-	tokenDir, err := resolveTokenDirectory(tokenLocation, filepath.Join(".oci", "db-token"))
-	if err != nil {
-		return "", err
+func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string) (string, error) {
+	if expectsHeader(ta.tokenProvider) && len(header) > 0 {
+		keyPEM, err := ta.tokenProvider.(oracleProviders.OCITokenAuthenticationProvider).PrivateKey(ctx)
+		if err != nil {
+			return "", err
+		}
+		signer, err := getSigner(keyPEM)
+		if err != nil {
+			return "", err
+		}
+		signature, err := signTokenHeader(header, signer)
+		if err != nil {
+			return "", err
+		}
+		return signature, nil
 	}
-	return filepath.Join(tokenDir, tokenFileName), nil
-}
-
-func (oauthTokenProvider) resolveTokenPath(tokenLocation string) (string, error) {
-	return resolveTokenLocation(tokenLocation)
-}
-
-func (provider ociTokenProvider) applyAuthData(oauthPacket *oAuth, token string, ctx tokenProviderContext) error {
-	header, err := provider.generateTokenHeader(ctx)
-	if err != nil {
-		return err
-	}
-	keyPath, err := resolveOCIPrivateKeyPath(ctx.tokenLocation)
-	if err != nil {
-		return err
-	}
-	signer, err := readOCIPrivateKey(keyPath)
-	if err != nil {
-		return err
-	}
-	return oauthPacket.setTokenKeyValsForOAUTH(token, header, signer)
-}
-
-func (oauthTokenProvider) applyAuthData(oauthPacket *oAuth, token string, _ tokenProviderContext) error {
-	return oauthPacket.setTokenKeyValsForOAUTH(token, "", nil)
-}
-
-func (provider ociTokenProvider) generateTokenHeader(ctx tokenProviderContext) (string, error) {
-	serviceName, err := extractServiceName(ctx.connectString)
-	if err != nil {
-		return "", err
-	}
-	remoteAddr, err := getRequiredSessionProperty(ctx.sessionContext, "REMOTE_ADDRESS")
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf(
-		"date: %s\n(request-target): %s\nhost: %s",
-		time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT"),
-		serviceName,
-		remoteAddr,
-	), nil
+	return "", nil
 }
 
 func getRequiredSessionProperty(sessionContext *driverCommon.SessionContext, key string) (string, error) {
@@ -280,56 +226,7 @@ func extractAddressValue(connectString, key string) (string, error) {
 	return strings.TrimSpace(connectString[start : start+end]), nil
 }
 
-func resolveTokenDirectory(tokenLocation, defaultRelativePath string) (string, error) {
-	if tokenLocation != "" {
-		info, err := os.Stat(tokenLocation)
-		if err != nil {
-			return "", err
-		}
-		if info.IsDir() {
-			return tokenLocation, nil
-		}
-		return filepath.Dir(tokenLocation), nil
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, defaultRelativePath), nil
-}
-
-func resolveTokenLocation(tokenLocation string) (string, error) {
-	if strings.TrimSpace(tokenLocation) == "" {
-		return "", common.NewOracleError(oracleErrors.MissingTokenLocationError, nil)
-	}
-	info, err := os.Stat(tokenLocation)
-	if err != nil {
-		return "", err
-	}
-	if info.IsDir() {
-		return filepath.Join(tokenLocation, tokenFileName), nil
-	}
-	return tokenLocation, nil
-}
-
-func resolveOCIPrivateKeyPath(tokenLocation string) (string, error) {
-	tokenDir, err := resolveTokenDirectory(tokenLocation, filepath.Join(".oci", "db-token"))
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(tokenDir, ociPrivateKeyFileName), nil
-}
-
-func (ta *tokenAuthenticator) String() string {
-	return fmt.Sprintf("TokenAuthenticator{tokenAuthentication=%s, tokenLocation=%s}", ta.tokenAuthentication, ta.tokenLocation)
-}
-
-func readOCIPrivateKey(path string) (crypto.Signer, error) {
-	keyPEM, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
+func getSigner(keyPEM []byte) (crypto.Signer, error) {
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
 		return nil, common.NewOracleError(oracleErrors.InvalidPrivateKey, nil)

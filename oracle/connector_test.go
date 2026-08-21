@@ -50,6 +50,7 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/transport"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 type mockConnectorNTAdapter struct {
@@ -140,9 +141,12 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenInstantiatorFails(t *testi
 		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
 			return ns, nil
 		},
-		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
+		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error) {
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
+			}
+			if len(providerRegistry) != 0 {
+				t.Fatalf("expected empty provider registry, got %d providers", len(providerRegistry))
 			}
 			return nil, errors.New("instantiator failed")
 		},
@@ -179,9 +183,12 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenGetConnectionFails(t *test
 		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
 			return ns, nil
 		},
-		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
+		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error) {
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
+			}
+			if len(providerRegistry) != 0 {
+				t.Fatalf("expected empty provider registry, got %d providers", len(providerRegistry))
 			}
 			return mockConnectorConnectionInstantiator{err: errors.New("authentication failed")}, nil
 		},
@@ -218,7 +225,10 @@ func TestConnectorConnectLeavesNetworkSessionOpenAfterSuccess(t *testing.T) {
 		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error) {
 			return ns, nil
 		},
-		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
+		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error) {
+			if len(providerRegistry) != 0 {
+				t.Fatalf("expected empty provider registry, got %d providers", len(providerRegistry))
+			}
 			return mockConnectorConnectionInstantiator{conn: mockConnectorDriverConn{}}, nil
 		},
 	)
@@ -256,9 +266,12 @@ func TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess(t *test
 			}
 			return ns, nil
 		},
-		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
+		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error) {
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
+			}
+			if len(providerRegistry) != 0 {
+				t.Fatalf("expected empty provider registry, got %d providers", len(providerRegistry))
 			}
 			return mockConnectorConnectionInstantiator{conn: mockConnectorDriverConn{}}, nil
 		},

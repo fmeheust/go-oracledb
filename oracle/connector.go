@@ -43,6 +43,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
@@ -52,9 +53,12 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
-type ConnInstantiatorFactory func(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession) (driverCommon.ConnectionInstantiator, error)
+const maxProviders = 10
+
+type ConnInstantiatorFactory func(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error)
 type ConnCreator func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error)
 
 // connector implements the database/sql/driver.connector interface for Oracle databases,
@@ -65,6 +69,8 @@ type connector struct {
 	connectorConfig         *oracleconfig.OracleDriverConfig
 	connCreator             ConnCreator
 	connInstantiatorFactory ConnInstantiatorFactory
+	providerRegistry        []oracleProviders.Provider
+	providerRegistryMutex   sync.Mutex
 }
 
 // used in tests
@@ -176,7 +182,13 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 
 	common.Odl.Debug("Network session established")
 
-	connInstantiator, err := c.connInstantiatorFactory(c.connectorConfig, ns)
+	// Make a copy of the of the providerRegistry
+	c.providerRegistryMutex.Lock()
+	providerRegistryCopy := make([]oracleProviders.Provider, len(c.providerRegistry))
+	copy(providerRegistryCopy, c.providerRegistry)
+	c.providerRegistryMutex.Unlock()
+
+	connInstantiator, err := c.connInstantiatorFactory(c.connectorConfig, ns, providerRegistryCopy)
 	if err != nil {
 		e := common.NewOracleError(oracleErrors.ConnectFailed, err)
 		return nil, localizationService.LocalizeError(e)
@@ -192,4 +204,13 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 // Driver returns the database/sql/driver.Driver for this connector.
 func (c *connector) Driver() driver.Driver {
 	return c.driver
+}
+
+func (c *connector) RegisterProvider(provider oracleProviders.Provider) {
+	c.providerRegistryMutex.Lock()
+	defer c.providerRegistryMutex.Unlock()
+	if len(c.providerRegistry) == maxProviders {
+		c.providerRegistry = c.providerRegistry[1:maxProviders]
+	}
+	c.providerRegistry = append(c.providerRegistry, provider)
 }

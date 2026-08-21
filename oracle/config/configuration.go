@@ -488,6 +488,8 @@ type OracleCredentials struct {
 	AccessToken string `propertyName:"access_token" default:"" cliVisible:"false" sensitive:"true" help:"sets the token directly for token-based authentication instead of reading it from token_location"`
 	// TokenLocation points to a token file or token directory used for token-based authentication.
 	TokenLocation string `propertyName:"token_location" default:"" help:"points to a token file or token directory used for token-based authentication"`
+	// UseTokenPlugin indicates whether the token authentication should use a plugin to get the token
+	TokenAuthenticationMethod TokenAuthenticationMethod `propertyName:"token_authentication_method" default:"TOKEN_LOCATION" help:"indicates whether the token authentication should use a plugin to get the token"`
 }
 
 func (config OracleCredentials) String() string {

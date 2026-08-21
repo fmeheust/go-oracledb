@@ -40,7 +40,6 @@ package ttc
 
 import (
 	"context"
-	"crypto"
 	"errors"
 	"fmt"
 	"math"
@@ -400,13 +399,11 @@ func (o *oAuth) prepareForOAUTH(luser driverCommon.B1Array,
 	return nil
 }
 
-func (o *oAuth) prepareForTokenOAUTH(luser driverCommon.B1Array) error {
+func (o *oAuth) prepareForTokenOAUTH(luser driverCommon.B1Array) {
 	o.initializeLogonModeForOAUTH(luser, o.logonMode, nil)
 	o.setVSessionKeyValsForOAUTH()
 	o.setAlterSessionKeyValsForOAUTH()
 	o.setDriverIdentityKeyValsForOAUTH()
-
-	return nil
 }
 
 // Initializes logonMode before executing an oauth call.
@@ -444,21 +441,18 @@ func (o *oAuth) setPasswordKeyValsForOAUTH(lpassword []byte, speedyKey []byte) {
 	}
 }
 
-func (o *oAuth) setTokenKeyValsForOAUTH(token string, header string, signer crypto.Signer) error {
+func (o *oAuth) setTokenKeyValsForOAUTH(token string, header string, signature string) error {
 	o.keyValList.PushBack(&driverCommon.KeyValue{
 		Key:   _authTokenKey,
 		Value: driverCommon.StringToB1Array(token),
 	})
 
-	if signer == nil {
+	// If there is no header stop here
+	if len(header) == 0 {
 		return nil
 	}
 
-	signature, err := signTokenHeader(header, signer)
-	if err != nil {
-		return err
-	}
-
+	// Add header and signature
 	o.keyValList.PushBack(&driverCommon.KeyValue{
 		Key:   _authHeaderKey,
 		Value: driverCommon.StringToB1Array(header),

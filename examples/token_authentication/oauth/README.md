@@ -130,12 +130,7 @@ The token is short-lived. Regenerate it when it expires.
 
 ## 4. Put the token on disk
 
-The sample reads the access token from `ORACLE_GO_OAUTH_TOKEN_LOCATION`.
-
-You can point that variable at either:
-
-- a token file
-- a directory containing a file named `token`
+The sample registers a token provider on the connector. That provider reads the access token from the file path in `ORACLE_GO_OAUTH_TOKEN_FILE`.
 
 Example token file contents:
 
@@ -150,24 +145,14 @@ Store the token as a single line of UTF-8 text.
 The sample reads its configuration from these environment variables:
 
 - `ORACLE_GO_OAUTH_CONNECT_DESCRIPTOR`: the TCPS connect descriptor for the target database
-- `ORACLE_GO_OAUTH_TOKEN_LOCATION`: the token location; it can point to either a token file or a directory containing a file named `token`
+- `ORACLE_GO_OAUTH_TOKEN_FILE`: the token file path
 
 Set them before running [main.go](C:/work/driver/go-driver/go-oracledb/examples/token_authentication/oauth/main.go).
 
-File-based token location:
-
 ```bash
 export ORACLE_GO_OAUTH_CONNECT_DESCRIPTOR="(description=(address=(protocol=tcps)(port=1522)(host=<db-host>))(connect_data=(service_name=<service-name>))(security=(ssl_server_dn_match=yes)))"
-export ORACLE_GO_OAUTH_TOKEN_LOCATION="$HOME/tokens/db-token.txt"
-go run ./examples/token_authentication/oauth
-```
-
-Directory-based token location:
-
-```bash
-mkdir -p "$HOME/tokens/oauth"
 printf '%s' '<database-access-token>' > "$HOME/tokens/oauth/token"
-export ORACLE_GO_OAUTH_TOKEN_LOCATION="$HOME/tokens/oauth"
+export ORACLE_GO_OAUTH_TOKEN_FILE="$HOME/tokens/oauth/token"
 go run ./examples/token_authentication/oauth
 ```
 
@@ -183,7 +168,7 @@ Username: <database user>
 - Confirm that the token has not expired.
 - Confirm that the token is a database access token, not just a generic API token.
 - Confirm that the mapped user or role exists in the database.
-- Confirm that the token file contains only the token text.
+- Confirm that `ORACLE_GO_OAUTH_TOKEN_FILE` points to the expected token file and that it contains only the token text.
 - Confirm that the connect descriptor uses TCPS and the correct service name.
 
 ## References

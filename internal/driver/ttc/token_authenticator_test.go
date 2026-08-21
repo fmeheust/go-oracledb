@@ -1,17 +1,51 @@
 package ttc
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
-	"os"
+	"encoding/pem"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
+
+type mockTokenAuthenticationProvider struct {
+	token string
+	err   error
+}
+
+func (m mockTokenAuthenticationProvider) Token(context.Context) (string, error) {
+	return m.token, m.err
+}
+
+type mockOCITokenAuthenticationProvider struct {
+	mockTokenAuthenticationProvider
+	privateKey    []byte
+	privateKeyErr error
+}
+
+func (m mockOCITokenAuthenticationProvider) PrivateKey(context.Context) ([]byte, error) {
+	return m.privateKey, m.privateKeyErr
+}
+
+type mockNonTokenProvider struct{}
+
+func encodePrivateKeyPEM(t *testing.T, privateKey *rsa.PrivateKey) []byte {
+	t.Helper()
+
+	encoded, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		t.Fatalf("MarshalPKCS8PrivateKey failed: %v", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: encoded})
+}
 
 func TestGetAuthenticator_UsesTokenAuthenticatorForOCIToken(t *testing.T) {
 	t.Parallel()
@@ -21,7 +55,7 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOCIToken(t *testing.T) {
 	cfg.Credentials.TokenLocation = t.TempDir()
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
 
-	authenticator, err := GetAuthenticator(cfg)
+	authenticator, err := GetAuthenticator(cfg, nil)
 	if err != nil {
 		t.Fatalf("GetAuthenticator returned error: %v", err)
 	}
@@ -38,7 +72,7 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 	cfg.Credentials.TokenLocation = filepath.Join(t.TempDir(), "token")
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
 
-	authenticator, err := GetAuthenticator(cfg)
+	authenticator, err := GetAuthenticator(cfg, nil)
 	if err != nil {
 		t.Fatalf("GetAuthenticator returned error: %v", err)
 	}
@@ -47,35 +81,35 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 	}
 }
 
-func TestOCITokenProviderResolveTokenPathDefault(t *testing.T) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Skip("Cannot retrieve user home directory")
+func TestFindFirstTokenAuthenticatorProviderReturnsFirstMatch(t *testing.T) {
+	t.Parallel()
+
+	provider := findFirstTokenAuthenticatorProvider([]oracleProviders.Provider{
+		mockNonTokenProvider{},
+		mockTokenAuthenticationProvider{token: "first-token"},
+		mockTokenAuthenticationProvider{token: "second-token"},
+	})
+	if provider == nil {
+		t.Fatal("expected token authentication provider, got nil")
 	}
 
-	got, err := (ociTokenProvider{}).resolveTokenPath("")
+	got, err := provider.Token(context.Background())
 	if err != nil {
-		t.Fatalf("resolveTokenPath returned error: %v", err)
+		t.Fatalf("Token returned error: %v", err)
 	}
-
-	want := filepath.Join(homeDir, ".oci", "db-token", tokenFileName)
-	if got != want {
-		t.Fatalf("resolveTokenPath = %q, want %q", got, want)
+	if got != "first-token" {
+		t.Fatalf("Token = %q, want %q", got, "first-token")
 	}
 }
 
 func TestOAuthSetTokenKeyValsForOAUTHAddsTokenHeaderAndSignature(t *testing.T) {
 	t.Parallel()
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("GenerateKey failed: %v", err)
-	}
-
 	oauth := NewOAuth().(*oAuth)
 	oauth.keyValList = NewKeyValueList()
 	header := "date: Mon, 10 Aug 2026 10:00:00 GMT\n(request-target): freepdb1\nhost: 127.0.0.1:1521"
-	if err := oauth.setTokenKeyValsForOAUTH("token-value", header, privateKey); err != nil {
+	signature := base64.StdEncoding.EncodeToString([]byte("signature"))
+	if err := oauth.setTokenKeyValsForOAUTH("token-value", header, signature); err != nil {
 		t.Fatalf("setTokenKeyValsForOAUTH returned error: %v", err)
 	}
 
@@ -111,10 +145,13 @@ func TestOCITokenProviderGenerateTokenHeader(t *testing.T) {
 	sessionProperties.SetProperty("REMOTE_ADDRESS", "192.0.2.10:1522")
 	sessContext.UpdateSessionProperties(sessionProperties)
 
-	header, err := (ociTokenProvider{}).generateTokenHeader(tokenProviderContext{
-		connectString:  "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=adb.example.com)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))",
+	authenticator := &tokenAuthenticator{
+		tokenProvider: mockOCITokenAuthenticationProvider{},
+		connectString: "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=adb.example.com)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))",
 		sessionContext: sessContext,
-	})
+	}
+
+	header, err := authenticator.generateTokenHeader()
 	if err != nil {
 		t.Fatalf("generateTokenHeader returned error: %v", err)
 	}
@@ -129,31 +166,26 @@ func TestOCITokenProviderGenerateTokenHeader(t *testing.T) {
 	}
 }
 
-func TestOAuthTokenProviderResolveTokenPathFile(t *testing.T) {
+func TestFindFirstTokenAuthenticatorProviderReturnsNilWhenMissing(t *testing.T) {
 	t.Parallel()
 
-	tokenFile := filepath.Join(t.TempDir(), "jwtbearertoken")
-	if err := os.WriteFile(tokenFile, []byte("token-value"), 0o600); err != nil {
-		t.Fatalf("WriteFile failed: %v", err)
-	}
-
-	got, err := (oauthTokenProvider{}).resolveTokenPath(tokenFile)
-	if err != nil {
-		t.Fatalf("resolveTokenPath returned error: %v", err)
-	}
-	if got != tokenFile {
-		t.Fatalf("resolveTokenPath = %q, want %q", got, tokenFile)
+	provider := findFirstTokenAuthenticatorProvider([]oracleProviders.Provider{
+		mockNonTokenProvider{},
+		struct{}{},
+	})
+	if provider != nil {
+		t.Fatalf("expected nil token authentication provider, got %T", provider)
 	}
 }
 
-func TestOAuthTokenProviderApplyAuthDataAddsTokenOnly(t *testing.T) {
+func TestOAuthSetTokenKeyValsForOAUTHAddsTokenOnlyWithoutHeader(t *testing.T) {
 	t.Parallel()
 
 	oauth := NewOAuth().(*oAuth)
 	oauth.keyValList = NewKeyValueList()
 
-	if err := (oauthTokenProvider{}).applyAuthData(oauth, "token-value", tokenProviderContext{}); err != nil {
-		t.Fatalf("applyAuthData returned error: %v", err)
+	if err := oauth.setTokenKeyValsForOAUTH("token-value", "", ""); err != nil {
+		t.Fatalf("setTokenKeyValsForOAUTH returned error: %v", err)
 	}
 
 	if oauth.keyValList.Len() != 1 {
@@ -169,36 +201,45 @@ func TestOAuthTokenProviderApplyAuthDataAddsTokenOnly(t *testing.T) {
 	}
 }
 
-func TestTokenAuthenticatorResolveAccessTokenUsesConfiguredAccessToken(t *testing.T) {
+func TestTokenAuthenticatorSignHeaderForOCIProvider(t *testing.T) {
 	t.Parallel()
 
-	authenticator := NewTokenAuthenticator(oracleconfig.TokenAuthenticationOAuth, " direct-token ", "", "")
-
-	got, err := authenticator.resolveAccessToken()
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Fatalf("resolveAccessToken returned error: %v", err)
+		t.Fatalf("GenerateKey failed: %v", err)
 	}
-	if got != "direct-token" {
-		t.Fatalf("resolveAccessToken = %q, want %q", got, "direct-token")
+
+	authenticator := &tokenAuthenticator{
+		tokenProvider: mockOCITokenAuthenticationProvider{
+			privateKey: encodePrivateKeyPEM(t, privateKey),
+		},
+	}
+
+	got, err := authenticator.signHeader(context.Background(), "date: Mon, 10 Aug 2026 10:00:00 GMT")
+	if err != nil {
+		t.Fatalf("signHeader returned error: %v", err)
+	}
+	if got == "" {
+		t.Fatal("expected non-empty signature")
+	}
+	if _, err := base64.StdEncoding.DecodeString(got); err != nil {
+		t.Fatalf("signature is not valid base64: %v", err)
 	}
 }
 
-func TestTokenAuthenticatorResolveAccessTokenPrefersAccessTokenOverLocation(t *testing.T) {
+func TestTokenAuthenticatorSignHeaderForOAuthProviderReturnsEmpty(t *testing.T) {
 	t.Parallel()
 
-	tokenFile := filepath.Join(t.TempDir(), "token")
-	if err := os.WriteFile(tokenFile, []byte("file-token"), 0o600); err != nil {
-		t.Fatalf("WriteFile failed: %v", err)
+	authenticator := &tokenAuthenticator{
+		tokenProvider: mockTokenAuthenticationProvider{token: "token-value"},
 	}
 
-	authenticator := NewTokenAuthenticator(oracleconfig.TokenAuthenticationOAuth, "inline-token", tokenFile, "")
-
-	got, err := authenticator.resolveAccessToken()
+	got, err := authenticator.signHeader(context.Background(), "date: Mon, 10 Aug 2026 10:00:00 GMT")
 	if err != nil {
-		t.Fatalf("resolveAccessToken returned error: %v", err)
+		t.Fatalf("signHeader returned error: %v", err)
 	}
-	if got != "inline-token" {
-		t.Fatalf("resolveAccessToken = %q, want %q", got, "inline-token")
+	if got != "" {
+		t.Fatalf("signHeader = %q, want empty signature", got)
 	}
 }
 

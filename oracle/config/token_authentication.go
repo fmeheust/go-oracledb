@@ -9,6 +9,7 @@ import (
 )
 
 type TokenAuthenticationType string
+type TokenAuthenticationMethod string
 
 const (
 	// TokenAuthenticationOCI selects OCI IAM token authentication using a token
@@ -17,6 +18,13 @@ const (
 	// TokenAuthenticationOAuth selects generic OAuth bearer token
 	// authentication without an OCI database private key.
 	TokenAuthenticationOAuth TokenAuthenticationType = "OAUTH"
+
+	// TokenAuthenticationTokenLocation use token location to get the token
+	TokenAuthenticationTokenLocation TokenAuthenticationMethod = "TOKEN_LOCATION"
+	// TokenAuthenticationTokenLocation use access token to get the token
+	TokenAuthenticationAccessToken TokenAuthenticationMethod = "ACCESS_TOKEN"
+	// TokenAuthenticationTokenLocation use plugin to get the token
+	TokenAuthenticationPlugin TokenAuthenticationMethod = "TOKEN_PLUGIN"
 )
 
 // String returns the Oracle connection-property string value for the token
