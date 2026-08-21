@@ -251,7 +251,7 @@ func TestDriver_OpenConnectorUsesNSProperty(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	desc := option.GetDescription()
+	desc := option.Description
 	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
@@ -292,7 +292,7 @@ func TestDriver_OpenConnectorUsesNSParamOverConfig(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	desc := option.GetDescription()
+	desc := option.Description
 	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
@@ -322,7 +322,7 @@ func TestDriver_OpenConnectorUsesParam(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	desc := option.GetDescription()
+	desc := option.Description
 	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
@@ -350,7 +350,7 @@ func TestDriver_OpenConnectorUsesNSParam(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	desc := option.GetDescription()
+	desc := option.Description
 	if desc == nil {
 		t.Fatal("expected parsed description")
 	}

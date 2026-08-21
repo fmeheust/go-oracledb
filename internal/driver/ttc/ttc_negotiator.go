@@ -81,7 +81,7 @@ func (cn *connectionNegotiator) Negotiate(ctx context.Context) (*driverCommon.Se
 	}
 
 	// 5. Register negotiated server capabilities
-	shelf.RegisterCapabilities(pro.ServerCaps.toMap())
+	shelf.RegisterCapabilities(pro.serverCaps.toMap())
 
 	// 6. Negotiate Datatype
 	dty, err = cn._negotiateDatatype(ctx, msgStmr, msgfactory, pro)
@@ -155,11 +155,11 @@ func (cn *connectionNegotiator) _negotiateDatatype(
 	}
 
 	common.Odl.Debug("connectionNegotiator: TTIDTY message created and sending")
-	if pro == nil || pro.ClientCaps == nil {
+	if pro == nil || pro.clientCaps == nil {
 		common.Odl.Warn("Client Caps is nil) failed", "error", err)
 		return nil, common.NewOracleError(oracleErrors.NegotiatorError, err, nil)
 	}
-	dtyMsg.(*tTIdty).SetNegotiatedCapabilities(pro.ClientCaps)
+	dtyMsg.(*tTIdty).SetNegotiatedCapabilities(pro.clientCaps)
 
 	err = msgStmr.Push(ctx, dtyMsg)
 	if err != nil {
@@ -179,7 +179,7 @@ func (cn *connectionNegotiator) _negotiateDatatype(
 		if err != nil {
 			return nil, err
 		}
-		msg.(*tTIdty).SetNegotiatedCapabilities(pro.ClientCaps)
+		msg.(*tTIdty).SetNegotiatedCapabilities(pro.clientCaps)
 		return msg, nil
 	}
 	msgStmr.(MessageStreamerInterface).RegisterPreUnmarshallCallback(TTIDTY, dtyCallBack)
@@ -234,7 +234,7 @@ func (cn *connectionNegotiator) _negotiateProtocol(
 
 	switch m := msg.(type) {
 	case *tTIpro:
-		common.Odl.Debug("connectionNegotiator: Negotiated capabilities", "Caps", m.ClientCaps)
+		common.Odl.Debug("connectionNegotiator: Negotiated capabilities", "Caps", m.clientCaps)
 		return m, nil
 	default:
 		common.Odl.Warn("Unexpected message type", "message", m)

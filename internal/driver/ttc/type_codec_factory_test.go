@@ -79,10 +79,10 @@ func dummyDefineOacB(columnContext, common.UB4) common.Marshallable {
 	return newTTIoac(DtyVCS, define_maxlength_varchar)
 }
 
-// TestCodecFactory_GetEncoder exercises encoder selection and error paths for CodecFactoryImpl.
+// TestCodecFactory_getEncoder exercises encoder selection and error paths for CodecFactoryImpl.
 // It validates that the highest compatible version is returned for a given protocol and Go type,
 // and that the factory emits structured Oracle errors when the Go type is nil or unregistered.
-func TestCodecFactory_GetEncoder(t *testing.T) {
+func TestCodecFactory_getEncoder(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name        string
@@ -133,7 +133,7 @@ func TestCodecFactory_GetEncoder(t *testing.T) {
 			}
 			factory := &CodecFactoryImpl{ttcVersion: tc.protocol, encoders: encReg}
 
-			encoder, err := factory.GetEncoder(normalizeBindValue(tc.value))
+			encoder, err := factory.getEncoder(normalizeBindValue(tc.value))
 			if tc.expectError {
 				if err == nil {
 					t.Fatalf("expected error, got nil")
@@ -162,10 +162,10 @@ func TestCodecFactory_GetEncoder(t *testing.T) {
 	}
 }
 
-// TestCodecFactory_GetDecoder mirrors the encoder suite for decoder selection, covering
+// TestCodecFactory_getDecoder mirrors the encoder suite for decoder selection, covering
 // fallback behaviour for lower negotiated protocol versions, and error surfacing when no
 // candidate or type registration exists.
-func TestCodecFactory_GetDecoder(t *testing.T) {
+func TestCodecFactory_getDecoder(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name        string
@@ -228,7 +228,7 @@ func TestCodecFactory_GetDecoder(t *testing.T) {
 			}
 			factory := &CodecFactoryImpl{ttcVersion: tc.protocol, decoders: decReg}
 
-			decoder, err := factory.GetDecoder(tc.dbType)
+			decoder, err := factory.getDecoder(tc.dbType)
 			if tc.expectError {
 				if err == nil {
 					t.Fatalf("expected error, got nil")
@@ -260,7 +260,7 @@ func TestCodecFactory_GetDecoder(t *testing.T) {
 // TestCodecFactory_RegisterEncoderGeneric verifies the generic RegisterEncoder helper resolves
 // the Go type of T and inserts the implementor into the global encoder registry with the
 // provided version metadata.
-func TestCodecFactory_GetBindOac(t *testing.T) {
+func TestCodecFactory_getBindOac(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name            string
@@ -304,7 +304,7 @@ func TestCodecFactory_GetBindOac(t *testing.T) {
 			}
 			factory := &CodecFactoryImpl{ttcVersion: tc.protocol, bindOacs: bindReg}
 
-			oac, err := factory.GetBindOac(normalizeBindValue(tc.bindValue), tc.maxLength)
+			oac, err := factory.getBindOac(normalizeBindValue(tc.bindValue), tc.maxLength)
 			if tc.expectError {
 				if err == nil {
 					t.Fatalf("expected error, got nil")
@@ -461,7 +461,7 @@ func TestNormalizeBindValue_SQLNullTypes(t *testing.T) {
 	}
 }
 
-func TestCodecFactory_GetDefineOac(t *testing.T) {
+func TestCodecFactory_getDefineOac(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name         string
@@ -508,7 +508,7 @@ func TestCodecFactory_GetDefineOac(t *testing.T) {
 				defineOacs: defineReg,
 			}
 
-			got := factory.GetDefineOac(tc.dbType, tc.columnCtx, nil).(*tTIoac)
+			got := factory.getDefineOac(tc.dbType, tc.columnCtx, nil).(*tTIoac)
 			if got.maxLength != tc.wantMaxLen {
 				t.Fatalf("expected maxLength %d, got %d", tc.wantMaxLen, got.maxLength)
 			}

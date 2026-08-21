@@ -357,7 +357,7 @@ func TestPrepareWithSystemTrust(t *testing.T) {
 				t.Fatal("expected connection option")
 			}
 			option := iter.Next()
-			desc := option.GetDescription()
+			desc := option.Description
 			if desc == nil {
 				t.Fatal("expected description")
 			}

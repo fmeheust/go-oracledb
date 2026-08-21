@@ -199,8 +199,8 @@ func TestTransportConnect(t *testing.T) {
 // TestConnectToOption tests the ConnectToOption function
 func TestConnectToOption(t *testing.T) {
 	t.Parallel()
-	newOption := func(protocol driverCommon.Protocol, description *naming.Description, connectString string) naming.ConnectionAttempt {
-		return naming.NewConnectionAttempt(
+	newOption := func(protocol driverCommon.Protocol, description *naming.Description, connectString string) *naming.ConnectionOption {
+		return naming.NewConnectionOption(
 			naming.Address{
 				Host:     "localhost",
 				Port:     1521,
@@ -262,7 +262,7 @@ func TestConnectToOption(t *testing.T) {
 // TestConnectSubtests groups subtests for ConnectToOption
 func TestConnectSubtests(t *testing.T) {
 	t.Parallel()
-	option := naming.NewConnectionAttempt(
+	option := naming.NewConnectionOption(
 		naming.Address{
 			Host:     "localhost",
 			Port:     1521,
@@ -294,7 +294,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.GetConnectString()), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -452,7 +452,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.GetConnectString()), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -496,7 +496,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.GetConnectString()), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -522,7 +522,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.GetConnectString()), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -547,7 +547,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.GetConnectString()), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err == nil || !strings.Contains(err.Error(), "send error") {
 			t.Errorf("Expected send connect error, got %v", err)

@@ -236,7 +236,7 @@ Parameters:
   - args: ordered bind values for the current execution.
 
 Notes:
-  - Metadata extraction from GetBindOac is best-effort; if it fails, the execution
+  - Metadata extraction from getBindOac is best-effort; if it fails, the execution
     still proceeds without populating the corresponding output column context.
 */
 func (e *statementExecutorExec) initExecRunner(args []sqldriver.Value) {
@@ -257,7 +257,7 @@ func (e *statementExecutorExec) initExecRunner(args []sqldriver.Value) {
 			}
 
 			// Capture decoder-relevant metadata from the bind OAC when it is available.
-			bindOac, err := codecFactory.GetBindOac(normalizeBindValue(outArg), 0)
+			bindOac, err := codecFactory.getBindOac(normalizeBindValue(outArg), 0)
 			if err == nil {
 				if oac, ok := bindOac.(*tTIoac); ok {
 					e.outColumnContexts = append(e.outColumnContexts, columnContext{
@@ -459,7 +459,7 @@ func (e *statementExecutorSelect) prepareDefines(messageToBeExecuted driverCommo
 	defines := make([]driverCommon.Marshallable, len(e.resultMetadata.columns))
 	connectionProperties := e.shelf.GetConnectionProperties()
 	for i, colContext := range e.resultMetadata.columns {
-		defines[i] = e.shelf.GetCodecFactory().GetDefineOac(colContext.DataType, colContext, connectionProperties)
+		defines[i] = e.shelf.GetCodecFactory().getDefineOac(colContext.DataType, colContext, connectionProperties)
 	}
 	messageToBeExecuted.(*tTIOall).setDefCols(driverCommon.SB4(len(defines)))
 	messageToBeExecuted.(*tTIOall).setDefineOACs(defines)
@@ -661,7 +661,7 @@ func (e *statementProcessor) prepareBindsAndOAC(args []sqldriver.Value) error {
 		// sql.Out{}, int, float, string,time
 		var err error
 		normalized := normalizeBindValue(v)
-		encoder, err := e.shelf.GetCodecFactory().GetEncoder(normalized)
+		encoder, err := e.shelf.GetCodecFactory().getEncoder(normalized)
 		if err != nil {
 			return err
 		}
@@ -671,7 +671,7 @@ func (e *statementProcessor) prepareBindsAndOAC(args []sqldriver.Value) error {
 			return err
 		}
 
-		e.currentOacs[i], err = e.shelf.GetCodecFactory().GetBindOac(
+		e.currentOacs[i], err = e.shelf.GetCodecFactory().getBindOac(
 			normalized,
 			e.getMaxLengthForOac(i, len(e.encodedValues[currentRow][i])),
 		)
@@ -956,7 +956,7 @@ func (e *statementExecutorPlSql) createRXD(t *messageHeader) (driverCommon.Messa
 		return nil, common.NewOracleError(oracleErrors.CallbackFactoryError, err, "createRXD failed")
 	}
 	rxd := msg.(*tTIrxd)
-	rxd.SetNumberofReturningArgs(len(e.outDestPtrs))
+	rxd.setNumberofReturningArgs(len(e.outDestPtrs))
 	rxd.setColumnContexts(e.outColumnContexts)
 	return rxd, nil
 }
@@ -1124,13 +1124,13 @@ func (e *statementExecutorSelect) createRXD(state *queryRunState, t *messageHead
 	rxd := msg.(*tTIrxd)
 
 	// supply BVC state and previous row for RXD decoding (delta/continuation)
-	rxd.SetBvcState(state.bvcColSent, state.bvcFound)
-	rxd.SetRowCount(state.rowCount)
-	rxd.SetNumberOfColumns(e.resultMetadata.columnCount())
+	rxd.setBvcState(state.bvcColSent, state.bvcFound)
+	rxd.setRowCount(state.rowCount)
+	rxd.setNumberOfColumns(e.resultMetadata.columnCount())
 	// Reuse the existing column metadata slice to avoid per-row datatype allocations.
 	rxd.setColumnContexts(e.resultMetadata.columns)
 	if state.prevRow != nil {
-		rxd.SetPrevRow(state.prevRow)
+		rxd.setPrevRow(state.prevRow)
 		rxd.setPrevLobColumnContext(state.prevLobColContext)
 	}
 	// Pass the character set to RXD so that it can be set in lobContext if
@@ -1168,7 +1168,7 @@ func (e *statementExecutorDML) createRXD(t *messageHeader) (driverCommon.Message
 		return nil, common.NewOracleError(oracleErrors.CallbackFactoryError, err, "createRXD failed")
 	}
 	rxd := msg.(*tTIrxd)
-	rxd.SetNumberofReturningArgs(len(e.outDestPtrs))
+	rxd.setNumberofReturningArgs(len(e.outDestPtrs))
 	rxd.setDmlReturning()
 	return rxd, nil
 }
@@ -1215,7 +1215,7 @@ func (e *statementExecutorExec) handleRXDRow(msg driverCommon.Message[driverComm
 		}
 
 		// Decode the TTC payload for this returned bind position into a Go value.
-		decoder, err := codecFactory.GetDecoder(columnContext.DataType)
+		decoder, err := codecFactory.getDecoder(columnContext.DataType)
 		if err != nil {
 			return err
 		}

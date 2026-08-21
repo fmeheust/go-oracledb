@@ -192,7 +192,7 @@ func (r *ttcRows) decodeColumnValue(i int) (driver.Value, error) {
 		return r.handleNull(i, dtype, scale), nil
 	}
 
-	decoder, err := r.shelf.GetCodecFactory().GetDecoder(dtype)
+	decoder, err := r.shelf.GetCodecFactory().getDecoder(dtype)
 	if err != nil || decoder == nil {
 		// Preserve unknown types as raw bytes
 		return data, nil
@@ -466,7 +466,7 @@ func (r *ttcRows) ColumnTypePrecisionScale(index int) (int64, int64, bool) {
 // columns, matching the raw protocol representation returned by Next.
 func (r *ttcRows) ColumnTypeScanType(index int) reflect.Type {
 	if r.columnContexts[index].ScanType == nil {
-		decoder, err := r.shelf.GetCodecFactory().GetDecoder(r.columnContexts[index].DataType)
+		decoder, err := r.shelf.GetCodecFactory().getDecoder(r.columnContexts[index].DataType)
 		if err != nil {
 			common.Odl.Warn("Do not have decode mapping", "type", r.columnContexts[index].DataType)
 			return reflect.TypeOf([]byte(nil))

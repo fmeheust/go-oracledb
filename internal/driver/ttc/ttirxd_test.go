@@ -189,12 +189,12 @@ and has the expected message content.
 func TestTTIrxd_BvcOnFirstRow_ReturnsError(t *testing.T) {
 	t.Parallel()
 	rxd := newTTIrxd().(*tTIrxd)
-	rxd.SetNumberOfColumns(2)
-	rxd.SetRowCount(0)
+	rxd.setNumberOfColumns(2)
+	rxd.setRowCount(0)
 	rxd.setColumnContexts([]columnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 	bitset := common.NewBitSet(2)
 	bitset.SetBytes(0, []byte{0x03})
-	rxd.SetBvcState(bitset, true)
+	rxd.setBvcState(bitset, true)
 	// This is a valid two-column payload, so only the missing previous row can reject it.
 	mar := createMarshaller([]byte{1, 'a', 1, 'b'}, 0, 0)
 	err := rxd.UnMarshalFrom(context.Background(), mar)
@@ -222,29 +222,29 @@ func TestTTIrxd_Setters(t *testing.T) {
 	}
 
 	// Set and verify number of columns
-	rxd.SetNumberOfColumns(cols)
+	rxd.setNumberOfColumns(cols)
 	if rxd.numberOfColumns != cols {
-		t.Errorf("SetNumberOfColumns: expected %d, got %d", cols, rxd.numberOfColumns)
+		t.Errorf("setNumberOfColumns: expected %d, got %d", cols, rxd.numberOfColumns)
 	}
 	// Set and verify row count
-	rxd.SetRowCount(rowNum)
+	rxd.setRowCount(rowNum)
 	if rxd.rowCount != rowNum {
-		t.Errorf("SetRowCount: expected %d, got %d", rowNum, rxd.rowCount)
+		t.Errorf("setRowCount: expected %d, got %d", rowNum, rxd.rowCount)
 	}
 	// Set prevRow to nil and verify
-	rxd.SetPrevRow(nil)
+	rxd.setPrevRow(nil)
 	if rxd.prevRow != nil {
-		t.Errorf("SetPrevRow(nil): expected nil, got %v", rxd.prevRow)
+		t.Errorf("setPrevRow(nil): expected nil, got %v", rxd.prevRow)
 	}
 	// Set prevRow to previous data and verify
-	rxd.SetPrevRow(prev)
+	rxd.setPrevRow(prev)
 	if len(rxd.prevRow) != 2 {
-		t.Errorf("SetPrevRow: expected len 2, got %d", len(rxd.prevRow))
+		t.Errorf("setPrevRow: expected len 2, got %d", len(rxd.prevRow))
 	}
 	// Set and verify BVC state
-	rxd.SetBvcState(nil, true)
+	rxd.setBvcState(nil, true)
 	if !rxd.bvcFound {
-		t.Errorf("SetBvcState: expected bvcFound true")
+		t.Errorf("setBvcState: expected bvcFound true")
 	}
 }
 
@@ -264,10 +264,10 @@ func TestTTIrxd_UnmarshalFrom_ErrorCases(t *testing.T) {
 			name: "zero columns",
 			setup: func(rxd *tTIrxd) {
 				// No columns are set, simulating misconfigured state.
-				rxd.SetNumberOfColumns(0)
-				rxd.SetRowCount(1)
-				rxd.SetPrevRow(nil)
-				rxd.SetBvcState(nil, false)
+				rxd.setNumberOfColumns(0)
+				rxd.setRowCount(1)
+				rxd.setPrevRow(nil)
+				rxd.setBvcState(nil, false)
 			},
 			payload:    []byte{10, 20, 30}, // arbitrary data shouldn't matter, as zero cols should error early
 			wantErrSub: "Failed to unmarshal message: Row transfer data message",
@@ -276,10 +276,10 @@ func TestTTIrxd_UnmarshalFrom_ErrorCases(t *testing.T) {
 			name: "payload too short for column header",
 			setup: func(rxd *tTIrxd) {
 				// Valid columns, no payload; triggers too-short error at col 0
-				rxd.SetNumberOfColumns(2)
-				rxd.SetRowCount(1)
-				rxd.SetPrevRow(nil)
-				rxd.SetBvcState(nil, false)
+				rxd.setNumberOfColumns(2)
+				rxd.setRowCount(1)
+				rxd.setPrevRow(nil)
+				rxd.setBvcState(nil, false)
 			},
 			payload:    []byte{}, // empty payload
 			wantErrSub: "Failed to unmarshal message: Row transfer data message",
@@ -288,10 +288,10 @@ func TestTTIrxd_UnmarshalFrom_ErrorCases(t *testing.T) {
 			name: "payload too short for column data",
 			setup: func(rxd *tTIrxd) {
 				// Payload advertises length for data, but not enough bytes after
-				rxd.SetNumberOfColumns(1)
-				rxd.SetRowCount(1)
-				rxd.SetPrevRow(nil)
-				rxd.SetBvcState(nil, false)
+				rxd.setNumberOfColumns(1)
+				rxd.setRowCount(1)
+				rxd.setPrevRow(nil)
+				rxd.setBvcState(nil, false)
 			},
 			payload:    []byte{5}, // column claims 5 bytes, but only length present
 			wantErrSub: "Failed to unmarshal message: Row transfer data message",
@@ -299,11 +299,11 @@ func TestTTIrxd_UnmarshalFrom_ErrorCases(t *testing.T) {
 		{
 			name: "bvc found, prevRow is nil",
 			setup: func(rxd *tTIrxd) {
-				rxd.SetNumberOfColumns(2)
-				rxd.SetRowCount(2) // not first row
-				rxd.SetPrevRow(nil)
+				rxd.setNumberOfColumns(2)
+				rxd.setRowCount(2) // not first row
+				rxd.setPrevRow(nil)
 				bitset := &common.BitSet{}
-				rxd.SetBvcState(bitset, true)
+				rxd.setBvcState(bitset, true)
 			},
 			payload:    []byte{42, 43}, // won't be used, error triggers before unmarshalling
 			wantErrSub: "Failed to unmarshal message: Row transfer data message",
@@ -311,11 +311,11 @@ func TestTTIrxd_UnmarshalFrom_ErrorCases(t *testing.T) {
 		{
 			name: "bvc found, prevRow wrong length",
 			setup: func(rxd *tTIrxd) {
-				rxd.SetNumberOfColumns(3)
-				rxd.SetRowCount(2)                         // not first row
-				rxd.SetPrevRow([]common.B1Array{{1}, {2}}) // length 2, should be 3
+				rxd.setNumberOfColumns(3)
+				rxd.setRowCount(2)                         // not first row
+				rxd.setPrevRow([]common.B1Array{{1}, {2}}) // length 2, should be 3
 				bitset := &common.BitSet{}
-				rxd.SetBvcState(bitset, true)
+				rxd.setBvcState(bitset, true)
 			},
 			payload:    []byte{42, 43}, // won't be used, error triggers before unmarshalling
 			wantErrSub: "Failed to unmarshal message: Row transfer data message",
@@ -360,10 +360,10 @@ func TestTTIrxd_UnmarshalFrom(t *testing.T) {
 
 	// Configure tTIrxd for straightforward unmarshalling
 	rxd := newTTIrxd().(*tTIrxd)
-	rxd.SetNumberOfColumns(colCount)
-	rxd.SetRowCount(rowCount)
-	rxd.SetPrevRow(nil)
-	rxd.SetBvcState(nil, false)
+	rxd.setNumberOfColumns(colCount)
+	rxd.setRowCount(rowCount)
+	rxd.setPrevRow(nil)
+	rxd.setBvcState(nil, false)
 	rxd.setColumnContexts([]columnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 
 	// Attempt to unmarshal: should succeed with valid data
@@ -467,10 +467,10 @@ func runBvcIntegration(t *testing.T, dump []string, expRows [][][]byte, noCols c
 			// Step: RXD - Prepare to read a new row
 			rowCount++
 			rxd := newTTIrxd().(*tTIrxd)
-			rxd.SetBvcState(bvc.bvcColSent, bvc.bvcFound)
-			rxd.SetRowCount(rowCount)
-			rxd.SetNumberOfColumns(noCols)
-			rxd.SetPrevRow(prevRow)
+			rxd.setBvcState(bvc.bvcColSent, bvc.bvcFound)
+			rxd.setRowCount(rowCount)
+			rxd.setNumberOfColumns(noCols)
+			rxd.setPrevRow(prevRow)
 			columnContexts := make([]columnContext, int(noCols))
 			for i := range columnContexts {
 				columnContexts[i].DataType = DtyVCS
@@ -519,12 +519,12 @@ func TestTTIrxd_BvcPresentColumn_UnmarshalError(t *testing.T) {
 	t.Parallel()
 	rxd := newTTIrxd().(*tTIrxd)
 	const numCols = 2
-	rxd.SetNumberOfColumns(numCols)
-	rxd.SetRowCount(2) // not first row
-	rxd.SetPrevRow([]common.B1Array{{0x11}, {0x22}})
+	rxd.setNumberOfColumns(numCols)
+	rxd.setRowCount(2) // not first row
+	rxd.setPrevRow([]common.B1Array{{0x11}, {0x22}})
 	bitset := common.NewBitSet(numCols)
 	bitset.SetBytes(0, []byte{0x01}) // Only column 0 marked present
-	rxd.SetBvcState(bitset, true)
+	rxd.setBvcState(bitset, true)
 	rxd.setColumnContexts([]columnContext{{DataType: DtyVCS}, {DataType: DtyVCS}})
 
 	// Payload with only length byte, not enough data (forces error in _unmarshalScalarColumn)
@@ -549,9 +549,9 @@ func TestTTIrxd_BvcCarriedNullKeepsLobContextAligned(t *testing.T) {
 	const numCols = 2
 
 	rxd := newTTIrxd().(*tTIrxd)
-	rxd.SetNumberOfColumns(numCols)
-	rxd.SetRowCount(2)
-	rxd.SetPrevRow([]common.B1Array{{0x11}, nil})
+	rxd.setNumberOfColumns(numCols)
+	rxd.setRowCount(2)
+	rxd.setPrevRow([]common.B1Array{{0x11}, nil})
 	rxd.setColumnContexts([]columnContext{
 		{DataType: DtyVCS},
 		{DataType: DtyClob},
@@ -561,7 +561,7 @@ func TestTTIrxd_BvcCarriedNullKeepsLobContextAligned(t *testing.T) {
 	// carried from the previous row without consuming any bytes from the wire.
 	bitset := common.NewBitSet(numCols)
 	bitset.SetBytes(0, []byte{0x01})
-	rxd.SetBvcState(bitset, true)
+	rxd.setBvcState(bitset, true)
 
 	mar := createMarshaller([]byte{1, 0x22}, 0, 0)
 	if err := rxd.UnMarshalFrom(context.Background(), mar); err != nil {

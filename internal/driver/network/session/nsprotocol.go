@@ -412,13 +412,13 @@ func (ns *networkSession) connect(ctx context.Context, address transport.Address
 		}
 	}
 }
-func ConnectToOption(ctx context.Context, option naming.ConnectionAttempt) (driverCommon.NetworkSession, error) {
+func ConnectToOption(ctx context.Context, option *naming.ConnectionOption) (driverCommon.NetworkSession, error) {
 	return ConnectToOptionWithConnectionID(ctx, option, "")
 }
-func ConnectToOptionWithConnectionID(ctx context.Context, option naming.ConnectionAttempt, connectionID string) (driverCommon.NetworkSession, error) {
+func ConnectToOptionWithConnectionID(ctx context.Context, option *naming.ConnectionOption, connectionID string) (driverCommon.NetworkSession, error) {
 	ns := newNetworkSession()
-	addressOption := option.GetAddress()
-	description := option.GetDescription()
+	addressOption := option.Address
+	description := option.Description
 
 	portToBeUsed := addressOption.Port
 	if addressOption.Port == 0 {
@@ -434,7 +434,7 @@ func ConnectToOptionWithConnectionID(ctx context.Context, option naming.Connecti
 	if err != nil {
 		return nil, err
 	}
-	connectStr := option.GetConnectString()
+	connectStr := option.ConnectString
 	root, err := naming.Parse(connectStr)
 	if err != nil {
 		return nil, err

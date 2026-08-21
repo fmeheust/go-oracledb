@@ -64,17 +64,17 @@ type nttcps struct {
 
 func NewNTTCPS(atts NTattributes) *nttcps {
 	return &nttcps{
-		nttcp: nttcp{Atts: atts},
+		nttcp: nttcp{atts: atts},
 	}
 }
 
 // Connect establishes a TLS connection
 func (nt *nttcps) Connect(ctx context.Context, address Address) error {
-	nt.OriginHost = address.OriginHost
+	nt.originHost = address.OriginHost
 	if err := nt.nttcp.Connect(ctx, address); err != nil { // Establish a TCP connection
 		return err
 	}
-	nt.tcpStream = nt.Stream
+	nt.tcpStream = nt.stream
 	cleanupOnError := func() {
 		nt.Clear()
 		_ = nt.Disconnect()
@@ -109,7 +109,7 @@ func (nt *nttcps) Connect(ctx context.Context, address Address) error {
 
 		rootCAs := nt.rootCAs
 		if rootCAs == nil {
-			if !nt.Atts.UseSystemTrust {
+			if !nt.atts.UseSystemTrust {
 				return fmt.Errorf("no trusted CA certificates configured")
 			}
 
@@ -134,7 +134,7 @@ func (nt *nttcps) Connect(ctx context.Context, address Address) error {
 			return fmt.Errorf("unauthorized server certificate: %w", err)
 		}
 
-		if nt.Atts.SSLServerDNMatch && nt.doDNMatch {
+		if nt.atts.SSLServerDNMatch && nt.doDNMatch {
 			if err := nt.verifyServerDN(certs[0]); err != nil {
 				return fmt.Errorf("DN match failed: %w", err)
 			}
@@ -143,22 +143,22 @@ func (nt *nttcps) Connect(ctx context.Context, address Address) error {
 		return nil
 	}
 
-	if nt.Atts.SSLAllowWeakDNMatch {
+	if nt.atts.SSLAllowWeakDNMatch {
 		nt.doDNMatch = false
 	} else {
 		nt.doDNMatch = true
 	}
 
-	nt.Stream = tls.Client(nt.tcpStream, nt.config)
+	nt.stream = tls.Client(nt.tcpStream, nt.config)
 
 	return nil
 }
 
 func (nt *nttcps) VerifyPostAcceptDNMatch() error {
-	if !nt.Atts.SSLServerDNMatch || !nt.Atts.SSLAllowWeakDNMatch || nt.doDNMatch {
+	if !nt.atts.SSLServerDNMatch || !nt.atts.SSLAllowWeakDNMatch || nt.doDNMatch {
 		return nil
 	}
-	tlsConn, ok := nt.Stream.(*tls.Conn)
+	tlsConn, ok := nt.stream.(*tls.Conn)
 	if !ok {
 		return fmt.Errorf("TCPS stream is not TLS")
 	}
@@ -179,15 +179,15 @@ func (nt *nttcps) VerifyPostAcceptDNMatch() error {
 }
 
 func (nt *nttcps) verifyServerDN(cert *x509.Certificate) error {
-	if nt.Atts.SSLServerCertDN != "" {
-		return verifyDN(cert, nt.Atts.SSLServerCertDN)
+	if nt.atts.SSLServerCertDN != "" {
+		return verifyDN(cert, nt.atts.SSLServerCertDN)
 	}
 
-	err := cert.VerifyHostname(nt.Hostname)
-	if err != nil && nt.OriginHost != "" {
-		err = cert.VerifyHostname(nt.OriginHost)
+	err := cert.VerifyHostname(nt.hostname)
+	if err != nil && nt.originHost != "" {
+		err = cert.VerifyHostname(nt.originHost)
 	}
-	if err != nil && nt.Atts.SSLAllowWeakDNMatch && nt.Atts.Servicename == cert.Subject.CommonName {
+	if err != nil && nt.atts.SSLAllowWeakDNMatch && nt.atts.Servicename == cert.Subject.CommonName {
 		return nil
 	}
 	return err
@@ -195,7 +195,7 @@ func (nt *nttcps) verifyServerDN(cert *x509.Certificate) error {
 
 // Perform TLS Handshake to establish a TLS connection
 func (nt *nttcps) TLSReneg() {
-	nt.Stream = tls.Client(nt.tcpStream, nt.config)
+	nt.stream = tls.Client(nt.tcpStream, nt.config)
 }
 
 // Clear out sensitive data
@@ -229,8 +229,8 @@ func (nt *nttcps) processWallet() error {
 	var clientCert tls.Certificate
 	var rootCAs *x509.CertPool
 	var err error
-	walletContent := nt.Atts.WalletContent
-	password := nt.Atts.WalletPassword
+	walletContent := nt.atts.WalletContent
+	password := nt.atts.WalletPassword
 
 	rest := walletContent
 	for {
@@ -315,7 +315,7 @@ func (nt *nttcps) processWallet() error {
 	rootCAPEM = nil
 	nt.rootCAs = rootCAs
 	nt.walletProcessed = true
-	nt.Atts.WalletContent = nil
+	nt.atts.WalletContent = nil
 	return nil
 }
 

@@ -126,7 +126,7 @@ func buildReturningWire(positions ...[][]byte) []byte {
 
 func newDMLReturningRXD(numberOfReturningPositions int) *tTIrxd {
 	rxd := newTTIrxd().(*tTIrxd)
-	rxd.SetNumberofReturningArgs(numberOfReturningPositions)
+	rxd.setNumberofReturningArgs(numberOfReturningPositions)
 	rxd.setDmlReturning()
 	return rxd
 }

@@ -55,9 +55,9 @@ type tTIpro struct {
 	svrPortDescription driverCommon.B1Array // Server description/version string (e.g. "x86_64/Linux. 2.4.xx")
 	proSvrVer          driverCommon.UB2     // Server protocol version
 	oVersion           driverCommon.UB2     // Oracle server version
-	NCharCharset       driverCommon.UB2     // Server NCHAR charset (TTC response)
-	ServerCaps         *capability          // Negotiated server runtime and compile-time capabilities
-	ClientCaps         *capability          // Client capabilities updated based on server capabilities
+	nCharCharset       driverCommon.UB2     // Server NCHAR charset (TTC response)
+	serverCaps         *capability          // Negotiated server runtime and compile-time capabilities
+	clientCaps         *capability          // Client capabilities updated based on server capabilities
 }
 
 var (
@@ -71,9 +71,9 @@ var (
 func newTTIpro() driverCommon.Message[driverCommon.MessageType] {
 	common.Odl.Debug("tTIpro.newTTIpro: Creating tTIpro message")
 	return &tTIpro{
-		NCharCharset: 0,
-		ServerCaps:   newCapability(),
-		ClientCaps:   newDefaultCapability(),
+		nCharCharset: 0,
+		serverCaps:   newCapability(),
+		clientCaps:   newDefaultCapability(),
 	}
 }
 
@@ -184,22 +184,22 @@ func (p *tTIpro) UnMarshalFrom(ctx context.Context, mar driverCommon.Marshaller)
 		common.Odl.Warn("Invalid FDO length or offset", "offset", i+4, "length", len(fdo), "error", err)
 		return common.NewOracleError(oracleErrors.FailUnmarshal, err, TTCMsgTypeDescription[p.GetMsgCode()])
 	}
-	p.NCharCharset = driverCommon.UB2((uint16((fdo)[i+3]) & 0xFF) << 8)
-	p.NCharCharset |= driverCommon.UB2((fdo)[i+4]) & 0xFF
+	p.nCharCharset = driverCommon.UB2((uint16((fdo)[i+3]) & 0xFF) << 8)
+	p.nCharCharset |= driverCommon.UB2((fdo)[i+4]) & 0xFF
 
 	if p.proSvrVer < 6 {
 		return nil
 	}
 
-	err = p.ServerCaps.UnMarshalFrom(ctx, mar)
+	err = p.serverCaps.UnMarshalFrom(ctx, mar)
 	if err != nil {
 		common.Odl.Warn("Failed to unmarshal server caps", "error", err)
 		return common.NewOracleError(oracleErrors.FailUnmarshal, err, TTCMsgTypeDescription[p.GetMsgCode()])
 	}
-	p.ClientCaps.adjustCapabilityFrom(p.ServerCaps)
+	p.clientCaps.adjustCapabilityFrom(p.serverCaps)
 
 	// too verbose, do not print this by default
-	// logging.Odl.Debug("tTIpro.UnMarshalFrom: Completed unmarshalling protocol message", "serverCaps", p.ServerCaps, "clientCaps", p.ClientCaps)
+	// logging.Odl.Debug("tTIpro.UnMarshalFrom: Completed unmarshalling protocol message", "serverCaps", p.serverCaps, "clientCaps", p.clientCaps)
 	return nil
 }
 
@@ -228,18 +228,18 @@ func (p *tTIpro) getProtocolVersion() driverCommon.UB2 { return p.proSvrVer }
 func (p *tTIpro) getOracleVersion() driverCommon.UB2 { return p.oVersion }
 
 // getServerRuntimeCapabilities returns the server runtime capability flags.
-func (p *tTIpro) getServerRuntimeCapabilities() *[]byte { return &p.ServerCaps.runTimeCapabilities }
+func (p *tTIpro) getServerRuntimeCapabilities() *[]byte { return &p.serverCaps.runTimeCapabilities }
 
 // getServerCompileTimeCapabilities returns the server compile-time capabilities flags.
 func (p *tTIpro) getServerCompileTimeCapabilities() *[]byte {
-	return &p.ServerCaps.compileTimeCapabilities
+	return &p.serverCaps.compileTimeCapabilities
 }
 
 // getCharacterSet returns the main character set reported by the server.
 func (p *tTIpro) getCharacterSet() driverCommon.UB2 { return p.svrCharSet }
 
 // getNCharCharacterSet returns the NCHAR character set value.
-func (p *tTIpro) getNCharCharacterSet() driverCommon.UB2 { return p.NCharCharset }
+func (p *tTIpro) getNCharCharacterSet() driverCommon.UB2 { return p.nCharCharset }
 
 // getFlags returns tTIpro's protocol flags (bit flags).
 func (p *tTIpro) getFlags() byte { return p.svrFlags }

@@ -122,7 +122,7 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenInstantiatorFails(t *testi
 	connector, err := newOracleConnector(
 		newConnectorTestConfig(t),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option naming.ConnectionAttempt, connectionID string) (driverCommon.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (driverCommon.NetworkSession, error) {
 			return ns, nil
 		},
 		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS driverCommon.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
@@ -160,7 +160,7 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenGetConnectionFails(t *test
 	connector, err := newOracleConnector(
 		newConnectorTestConfig(t),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option naming.ConnectionAttempt, connectionID string) (driverCommon.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (driverCommon.NetworkSession, error) {
 			return ns, nil
 		},
 		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS driverCommon.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
@@ -192,7 +192,7 @@ func TestConnectorConnectLeavesNetworkSessionOpenAfterSuccess(t *testing.T) {
 	connector, err := newOracleConnector(
 		newConnectorTestConfig(t),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option naming.ConnectionAttempt, connectionID string) (driverCommon.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (driverCommon.NetworkSession, error) {
 			return ns, nil
 		},
 		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS driverCommon.NetworkSession) (driverCommon.ConnectionInstantiator, error) {
@@ -222,7 +222,7 @@ func TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess(t *test
 	connector, err := newOracleConnector(
 		newConnectorTestConfigWithConnectString(t, "(DESCRIPTION=(FAILOVER=ON)(LOAD_BALANCE=OFF)(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.2)(PORT=1522)))(CONNECT_DATA=(SERVICE_NAME=test)))"),
 		NewOracleDriverConfig(),
-		func(ctx context.Context, option naming.ConnectionAttempt, connectionID string) (driverCommon.NetworkSession, error) {
+		func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (driverCommon.NetworkSession, error) {
 			attempts++
 			if attempts == 1 {
 				return nil, errors.New("first address failed")

@@ -129,10 +129,10 @@ func TestTTIproGetters(t *testing.T) {
 	p := &tTIpro{
 		oVersion:           123,
 		proSvrVer:          456,
-		ClientCaps:         &capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
-		ServerCaps:         &capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
+		clientCaps:         &capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
+		serverCaps:         &capability{runTimeCapabilities: runtime, compileTimeCapabilities: compile},
 		svrCharSet:         871,
-		NCharCharset:       775,
+		nCharCharset:       775,
 		svrFlags:           1,
 		svrPortDescription: (desc),
 	}
@@ -254,17 +254,17 @@ func TestTTIproUnmarshalFrom_Success(t *testing.T) {
 			if ttipro.svrCharSet != tt.expectedSvrCharSet {
 				t.Errorf("svrCharSet = %d, want %d", ttipro.svrCharSet, tt.expectedSvrCharSet)
 			}
-			if ttipro.NCharCharset != tt.expectedNCharCharset {
-				t.Errorf("NCharCharset = %d, want %d", ttipro.NCharCharset, tt.expectedNCharCharset)
+			if ttipro.nCharCharset != tt.expectedNCharCharset {
+				t.Errorf("nCharCharset = %d, want %d", ttipro.nCharCharset, tt.expectedNCharCharset)
 			}
 			if ttipro.svrFlags != tt.expectedSvrFlags {
 				t.Errorf("svrFlags = %d, want %d", ttipro.svrFlags, tt.expectedSvrFlags)
 			}
-			if tt.expectedCompile != nil && (ttipro.ServerCaps == nil || !bytes.Equal(ttipro.ServerCaps.compileTimeCapabilities, tt.expectedCompile)) {
-				t.Errorf("compile = %v, want %v", ttipro.ServerCaps.compileTimeCapabilities, tt.expectedCompile)
+			if tt.expectedCompile != nil && (ttipro.serverCaps == nil || !bytes.Equal(ttipro.serverCaps.compileTimeCapabilities, tt.expectedCompile)) {
+				t.Errorf("compile = %v, want %v", ttipro.serverCaps.compileTimeCapabilities, tt.expectedCompile)
 			}
-			if tt.expectedRuntime != nil && (ttipro.ServerCaps == nil || !bytes.Equal(ttipro.ServerCaps.runTimeCapabilities, tt.expectedRuntime)) {
-				t.Errorf("runtime = %v, want %v", ttipro.ServerCaps.runTimeCapabilities, tt.expectedRuntime)
+			if tt.expectedRuntime != nil && (ttipro.serverCaps == nil || !bytes.Equal(ttipro.serverCaps.runTimeCapabilities, tt.expectedRuntime)) {
+				t.Errorf("runtime = %v, want %v", ttipro.serverCaps.runTimeCapabilities, tt.expectedRuntime)
 			}
 			if tt.expectedCharSetElem != 0 && ttipro.svrCharSetElem != tt.expectedCharSetElem {
 				t.Errorf("svrCharSetElem = %d, want %d", ttipro.svrCharSetElem, tt.expectedCharSetElem)

@@ -92,23 +92,23 @@ func (rxd *tTIrxd) GetMsgCode() driverCommon.MessageType {
 	return TTIRXD
 }
 
-// SetNumberOfColumns sets the expected column count for RXD row unmarshalling and propagates this to the embedded BVC logic.
-func (rxd *tTIrxd) SetNumberOfColumns(noOfCols driverCommon.UB4) {
+// setNumberOfColumns sets the expected column count for RXD row unmarshalling and propagates this to the embedded BVC logic.
+func (rxd *tTIrxd) setNumberOfColumns(noOfCols driverCommon.UB4) {
 	rxd.numberOfColumns = noOfCols
 }
 
-// SetRowCount sets the index of the row currently being processed in this RXD unmarshal session.
-func (rxd *tTIrxd) SetRowCount(rowCount driverCommon.UB4) {
+// setRowCount sets the index of the row currently being processed in this RXD unmarshal session.
+func (rxd *tTIrxd) setRowCount(rowCount driverCommon.UB4) {
 	rxd.rowCount = rowCount
 }
 
-func (rxd *tTIrxd) SetNumberofReturningArgs(numberofArgs int) {
+func (rxd *tTIrxd) setNumberofReturningArgs(numberofArgs int) {
 	rxd.numberOfReturningPositions = numberofArgs
 }
 
-// SetPrevRow assigns the previous row's column data for BVC carry. The matching
+// setPrevRow assigns the previous row's column data for BVC carry. The matching
 // LOB metadata is supplied separately by setPrevLobColumnContext.
-func (rxd *tTIrxd) SetPrevRow(row []driverCommon.B1Array) {
+func (rxd *tTIrxd) setPrevRow(row []driverCommon.B1Array) {
 	rxd.prevRow = row
 }
 
@@ -118,8 +118,8 @@ func (rxd *tTIrxd) setPrevLobColumnContext(lobColContext []*lobColumnContext) {
 	rxd.prevLobColContext = lobColContext
 }
 
-// SetBvcState sets both the BVC protocol state indicator and the column-sent bitset for BVC column-carry logic.
-func (rxd *tTIrxd) SetBvcState(colSent *driverCommon.BitSet, found bool) {
+// setBvcState sets both the BVC protocol state indicator and the column-sent bitset for BVC column-carry logic.
+func (rxd *tTIrxd) setBvcState(colSent *driverCommon.BitSet, found bool) {
 	rxd.bvcColSent = colSent
 	rxd.bvcFound = found
 }

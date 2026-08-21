@@ -60,7 +60,7 @@ const (
 	NSPHDPSM  = 2 // Packet checksum (deprecated in version 3.15 with large SDU support)
 	NSPHDTYP  = 4 // Packet type
 	NSPHDFLGS = 5 // Packet flags
-	NSPHDHSM  = 6 // header checksum
+	NSPHDHSM  = 6 // Header checksum
 	NSPSIZHD  = 8 // Packet header size
 
 	// Packet flags for NSPHDFLGS
