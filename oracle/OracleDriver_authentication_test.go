@@ -50,7 +50,6 @@ import (
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
-	"github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
@@ -169,14 +168,12 @@ func TestDriver_Authentication_OCIToken(t *testing.T) {
 	tokenLocation := os.Getenv("ORACLE_GO_OCI_TOKEN_LOCATION")
 	expectedUser := os.Getenv("ORACLE_GO_OCI_TOKEN_EXPECTED_USER")
 
-	if connectDescriptor == "" || expectedUser == "" {
+	if connectDescriptor == "" || expectedUser == "" || tokenLocation == "" {
 		t.Skip("OCI token authentication requires ORACLE_GO_OCI_TOKEN_CONNECT_DESCRIPTOR and ORACLE_GO_OCI_TOKEN_EXPECTED_USER")
 	}
 
 	cfg := NewOracleDriverConfig()
 	cfg.ConnectDescriptor = connectDescriptor
-	cfg.Credentials.TokenAuthentication = config.TokenAuthenticationOCI
-	cfg.Credentials.TokenLocation = tokenLocation
 
 	connector, err := NewOracleConnector(cfg)
 	if err != nil {
@@ -216,8 +213,6 @@ func TestDriver_Authentication_OAuth(t *testing.T) {
 
 	cfg := NewOracleDriverConfig()
 	cfg.ConnectDescriptor = connectDescriptor
-	cfg.Credentials.TokenAuthentication = config.TokenAuthenticationOAuth
-	cfg.Credentials.TokenLocation = tokenLocation
 
 	connector, err := NewOracleConnector(cfg)
 	if err != nil {

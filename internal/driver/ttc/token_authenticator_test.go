@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -51,8 +50,6 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOCIToken(t *testing.T) {
 	t.Parallel()
 
 	cfg := oracleconfig.NewOracleDriverConfig()
-	cfg.Credentials.TokenAuthentication = oracleconfig.TokenAuthenticationOCI
-	cfg.Credentials.TokenLocation = t.TempDir()
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
 
 	authenticator, err := GetAuthenticator(cfg, nil)
@@ -68,8 +65,6 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 	t.Parallel()
 
 	cfg := oracleconfig.NewOracleDriverConfig()
-	cfg.Credentials.TokenAuthentication = oracleconfig.TokenAuthenticationOAuth
-	cfg.Credentials.TokenLocation = filepath.Join(t.TempDir(), "token")
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
 
 	authenticator, err := GetAuthenticator(cfg, nil)
@@ -146,8 +141,8 @@ func TestOCITokenProviderGenerateTokenHeader(t *testing.T) {
 	sessContext.UpdateSessionProperties(sessionProperties)
 
 	authenticator := &tokenAuthenticator{
-		tokenProvider: mockOCITokenAuthenticationProvider{},
-		connectString: "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=adb.example.com)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))",
+		tokenProvider:  mockOCITokenAuthenticationProvider{},
+		connectString:  "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=adb.example.com)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))",
 		sessionContext: sessContext,
 	}
 

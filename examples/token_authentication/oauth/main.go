@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/oracle"
-	"github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
@@ -36,7 +35,6 @@ func main() {
 
 	cfg := oracle.NewOracleDriverConfig()
 	cfg.ConnectDescriptor = connectDescriptor
-	cfg.Credentials.TokenAuthentication = config.TokenAuthenticationOAuth
 
 	connector, err := oracle.NewOracleConnector(cfg)
 	if err != nil {
