@@ -48,9 +48,10 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 }
 
 func TestOCITokenProviderResolveTokenPathDefault(t *testing.T) {
-	homeDir := t.TempDir()
-	t.Setenv("USERPROFILE", homeDir)
-	t.Setenv("HOME", homeDir)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("Cannot retrieve user home directory")
+	}
 
 	got, err := (ociTokenProvider{}).resolveTokenPath("")
 	if err != nil {
