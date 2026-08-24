@@ -310,7 +310,6 @@ func TestConfiguration_toNSConnectionParameters(t *testing.T) {
 }
 
 func TestConfiguration_InitLoggingWithConfigFileDestination(t *testing.T) {
-	t.Parallel()
 	defer common.InitLoggingWithConfig(oracleconfig.NewOracleLoggingConfig())
 
 	logPath := filepath.Join(t.TempDir(), "driver.log")
