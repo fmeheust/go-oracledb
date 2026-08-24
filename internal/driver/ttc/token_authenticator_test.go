@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
@@ -46,6 +47,14 @@ func encodePrivateKeyPEM(t *testing.T, privateKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: encoded})
 }
 
+func newTestProviderRegistry(providersToRegister ...oracleProviders.Provider) common.ProviderRegistry {
+	registry := common.NewProviderRegistry()
+	for _, provider := range providersToRegister {
+		registry.RegisterProvider(provider)
+	}
+	return registry
+}
+
 func TestGetAuthenticator_UsesTokenAuthenticatorForOCIToken(t *testing.T) {
 	t.Parallel()
 
@@ -53,11 +62,11 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOCIToken(t *testing.T) {
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
 	cfg.Credentials.Password = "token-value"
 
-	authenticator, err := GetAuthenticator(cfg, []oracleProviders.Provider{
+	authenticator, err := GetAuthenticator(cfg, newTestProviderRegistry(
 		mockOCITokenAuthenticationProvider{
 			mockTokenAuthenticationProvider: mockTokenAuthenticationProvider{token: "token-value"},
 		},
-	})
+	))
 	if err != nil {
 		t.Fatalf("GetAuthenticator returned error: %v", err)
 	}
@@ -73,9 +82,9 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
 	cfg.Credentials.Password = "token-value"
 
-	authenticator, err := GetAuthenticator(cfg, []oracleProviders.Provider{
+	authenticator, err := GetAuthenticator(cfg, newTestProviderRegistry(
 		mockTokenAuthenticationProvider{token: "token-value"},
-	})
+	))
 	if err != nil {
 		t.Fatalf("GetAuthenticator returned error: %v", err)
 	}

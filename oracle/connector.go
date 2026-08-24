@@ -43,7 +43,6 @@ import (
 	"database/sql/driver"
 	"errors"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
@@ -56,9 +55,30 @@ import (
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
-const maxProviders = 10
+// ConnInstantiatorFactory creates a connection instantiator for an established
+// network session and the connector's currently registered providers.
+//
+// Parameters:
+//   - config: the Oracle driver configuration for the connection attempt.
+//   - ns: the established network session to bind to the instantiator.
+//   - providerRegistry: the provider registry registered on the connector for this attempt.
+//
+// Returns:
+//   - a connection instantiator bound to ns.
+//   - an error if the instantiator cannot be created.
+type ConnInstantiatorFactory func(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession, providerRegistry common.ProviderRegistry) (driverCommon.ConnectionInstantiator, error)
 
-type ConnInstantiatorFactory func(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error)
+// ConnCreator opens a network session for a specific connection option and
+// connection identifier.
+//
+// Parameters:
+//   - ctx: the context controlling the network connection attempt.
+//   - option: the resolved connection option to connect to.
+//   - connectionID: the connection identifier associated with the attempt.
+//
+// Returns:
+//   - the connected network session.
+//   - an error if the network session cannot be established.
 type ConnCreator func(ctx context.Context, option *naming.ConnectionOption, connectionID string) (*session.NetworkSession, error)
 
 // connector implements the database/sql/driver.connector interface for Oracle databases,
@@ -69,8 +89,7 @@ type connector struct {
 	connectorConfig         *oracleconfig.OracleDriverConfig
 	connCreator             ConnCreator
 	connInstantiatorFactory ConnInstantiatorFactory
-	providerRegistry        []oracleProviders.Provider
-	providerRegistryMutex   sync.Mutex
+	providerRegistry        common.ProviderRegistry
 }
 
 // used in tests
@@ -94,6 +113,7 @@ func newOracleConnector(cfg *naming.ParsedConfig, drvConfig *oracleconfig.Oracle
 		connectorConfig:         drvConfig,
 		connCreator:             connCreator,
 		connInstantiatorFactory: connInstantiatorFactory,
+		providerRegistry:        common.NewProviderRegistry(),
 	}, nil
 }
 
@@ -182,13 +202,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 
 	common.Odl.Debug("Network session established")
 
-	// Make a copy of the of the providerRegistry
-	c.providerRegistryMutex.Lock()
-	providerRegistryCopy := make([]oracleProviders.Provider, len(c.providerRegistry))
-	copy(providerRegistryCopy, c.providerRegistry)
-	c.providerRegistryMutex.Unlock()
-
-	connInstantiator, err := c.connInstantiatorFactory(c.connectorConfig, ns, providerRegistryCopy)
+	connInstantiator, err := c.connInstantiatorFactory(c.connectorConfig, ns, c.providerRegistry)
 	if err != nil {
 		e := common.NewOracleError(oracleErrors.ConnectFailed, err)
 		return nil, localizationService.LocalizeError(e)
@@ -212,10 +226,5 @@ func (c *connector) Driver() driver.Driver {
 // Parameters:
 //   - provider: the provider to append to the connector registry.
 func (c *connector) RegisterProvider(provider oracleProviders.Provider) {
-	c.providerRegistryMutex.Lock()
-	defer c.providerRegistryMutex.Unlock()
-	if len(c.providerRegistry) == maxProviders {
-		c.providerRegistry = c.providerRegistry[1:maxProviders]
-	}
-	c.providerRegistry = append(c.providerRegistry, provider)
+	c.providerRegistry.RegisterProvider(provider)
 }

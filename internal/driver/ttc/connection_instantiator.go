@@ -48,7 +48,6 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 type connectionInstantiator struct {
@@ -59,7 +58,7 @@ type connectionInstantiator struct {
 	connectionProperties *oracleconfig.OracleDriverProperties
 	newConnection        func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*Connection, error)
 	localizationService  common.LocalizationService
-	providerRegistry     []oracleProviders.Provider
+	providerRegistry     common.ProviderRegistry
 }
 
 // NewTTCConnectionInstantiator creates a new TTC connection instantiator.
@@ -67,12 +66,12 @@ type connectionInstantiator struct {
 // Parameters:
 //   - config: the Oracle driver configuration for the connection attempt.
 //   - ns: the established network session used by TTC.
-//   - providerRegistry: the providers available to the authenticator for this attempt.
+//   - providerRegistry: the provider registry available to the authenticator for this attempt.
 //
 // Returns:
 //   - the TTC connection instantiator bound to ns.
 //   - an error if the authenticator or instantiator cannot be initialized.
-func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession, providerRegistry []oracleProviders.Provider) (driverCommon.ConnectionInstantiator, error) {
+func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession, providerRegistry common.ProviderRegistry) (driverCommon.ConnectionInstantiator, error) {
 	dataBuffer := driverCommon.DataBuffer(ns)
 	negotiator := GetNegotiator(dataBuffer)
 	localizationService := common.NewLocalizationService(config.Locale.ClientLanguage)
@@ -157,12 +156,12 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 //
 // Parameters:
 //   - parameters: the Oracle driver configuration to inspect.
-//   - providerRegistry: the providers available to token-based authentication.
+//   - providerRegistry: the provider registry available to token-based authentication.
 //
 // Returns:
 //   - the authenticator matching the supplied configuration.
 //   - an error if no suitable authenticator can be created.
-func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry []oracleProviders.Provider) (Authenticator, error) {
+func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry common.ProviderRegistry) (Authenticator, error) {
 	common.Odl.Debug("New authenticator requested for", "parameters", parameters)
 
 	if parameters == nil {
@@ -193,7 +192,7 @@ func createPasswordAuthenticator(parameters *oracleconfig.OracleDriverConfig) (A
 		parameters.ConnectDescriptor), nil
 }
 
-func createTokenAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry []oracleProviders.Provider) (Authenticator, error) {
+func createTokenAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry common.ProviderRegistry) (Authenticator, error) {
 	return newTokenAuthenticator(
 		providerRegistry,
 		parameters.ConnectDescriptor,

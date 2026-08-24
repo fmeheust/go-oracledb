@@ -73,6 +73,10 @@ var testCases = []struct {
 	{"TestConstants_GetLogonModeFromString", "unitary", false, TestConstants_GetLogonModeFromString},
 	{"TestConstants_LogonModeEnabled", "unitary", false, TestConstants_LogonModeEnabled},
 	{"TestConstants_LogonModeString", "unitary", false, TestConstants_LogonModeString},
+	{"TestProviderRegistryRegisterProviderPreservesInsertionOrder", "unitary", false, TestProviderRegistryRegisterProviderPreservesInsertionOrder},
+	{"TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded", "unitary", false, TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded},
+	{"TestProviderRegistryProvidersReturnsCopy", "unitary", false, TestProviderRegistryProvidersReturnsCopy},
+	{"TestProviderRegistryProvidersEmptyWhenUninitialized", "unitary", false, TestProviderRegistryProvidersEmptyWhenUninitialized},
 }
 
 func TestCategoryExecutor(t *testing.T) {

@@ -42,9 +42,9 @@ type tokenAuthenticator struct {
 //
 // Returns:
 //   - the configured token authenticator.
-func newTokenAuthenticator(providerRegistry []oracleProviders.Provider, connectString string) *tokenAuthenticator {
+func newTokenAuthenticator(providerRegistry common.ProviderRegistry, connectString string) *tokenAuthenticator {
 	return &tokenAuthenticator{
-		tokenProvider: findFirstTokenAuthenticatorProvider(providerRegistry),
+		tokenProvider: findFirstTokenAuthenticatorProvider(providerRegistry.Providers()),
 		connectString: connectString,
 	}
 }
