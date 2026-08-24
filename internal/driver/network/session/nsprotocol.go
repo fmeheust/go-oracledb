@@ -118,7 +118,7 @@ func (ns *networkSession) transportConnect(ctx context.Context, address transpor
 	ns.sndBuf = make([]byte, ns.sAtts.sdu)
 	ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 
-	err = ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+	err = ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 	if err != nil {
 		return err
 	}
@@ -136,12 +136,12 @@ func (ns *networkSession) handleAccept(ctx context.Context, p *acceptPacket) err
 
 	if ns.sAtts.version >= TNS_VERSION_MIN_DATA_FLAGS {
 		// sanity
-		if len(p.Buf) < NSPACFL2+4 { // we gonna read an Uint32
-			msg := fmt.Sprintf("Unexpected buffer length (%d) in accept packet", len(p.Buf))
+		if len(p.buf) < NSPACFL2+4 { // we gonna read an Uint32
+			msg := fmt.Sprintf("Unexpected buffer length (%d) in accept packet", len(p.buf))
 			common.Odl.Warn(msg)
 			return common.NewOracleError(oracleErrors.InternalError, nil, msg)
 		}
-		acceptFlag2 := binary.BigEndian.Uint32(p.Buf[NSPACFL2:])
+		acceptFlag2 := binary.BigEndian.Uint32(p.buf[NSPACFL2:])
 		ns.endOfRequestSupport = (acceptFlag2&TNS_ACCEPT_FLAG_HAS_END_OF_REQUEST != 0)
 		ns.supportsFastAuth = (acceptFlag2&TNS_ACCEPT_FLAG_FAST_AUTH != 0)
 	}
@@ -161,7 +161,7 @@ func (ns *networkSession) handleAccept(ctx context.Context, p *acceptPacket) err
 	ns.sndBuf = make([]byte, ns.sAtts.sdu)
 	ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 	ns.controlPkt = &controlPacket{}
-	err := ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+	err := ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 	if err != nil {
 		ns.Disconnect(ctx, 0)
 		return err
@@ -216,15 +216,15 @@ func (ns *networkSession) refuseArgs(errCode string, address transport.Address) 
 	}
 }
 func (ns *networkSession) handleRefuse(ctx context.Context, p *refusePacket, address transport.Address) error {
-	if p.Overflow {
+	if p.overflow {
 		_, err := ns.recvPacket(ctx)
 		if err != nil {
 			common.Odl.Error("An error occurred while receiving packet", "error", err)
 			return err
 		}
-		p.DataBuf = string(ns.rcvDatapkt.Buf[ns.rcvDatapkt.Offset:ns.rcvDatapkt.Len])
+		p.dataBuf = string(ns.rcvDatapkt.buf[ns.rcvDatapkt.offset:ns.rcvDatapkt.len])
 	}
-	refuseNode, err := naming.Parse(p.DataBuf)
+	refuseNode, err := naming.Parse(p.dataBuf)
 	if err != nil {
 		return fmt.Errorf("parse error in refuse data: %w", err)
 	}
@@ -234,7 +234,7 @@ func (ns *networkSession) handleRefuse(ctx context.Context, p *refusePacket, add
 	}
 	mappedCode, ok := oracleErrors.OracleRefuseErrorCodes[errCode]
 	if !ok {
-		return fmt.Errorf("connection refused: ERR code ORA-%s, user reason %d, system reason %d", errCode, p.UserReason, p.SystemReason)
+		return fmt.Errorf("connection refused: ERR code ORA-%s, user reason %d, system reason %d", errCode, p.userReason, p.systemReason)
 	}
 
 	args, err := ns.refuseArgs(errCode, address)
@@ -249,16 +249,16 @@ func (ns *networkSession) handleRedirect(ctx context.Context, p *redirectPacket,
 	if ns.redirectCount > maxRedirectCount {
 		return fmt.Errorf("too many redirects: exceeded maximum of %d", maxRedirectCount)
 	}
-	if p.Overflow {
+	if p.overflow {
 		if _, err := ns.recvPacket(ctx); err != nil {
 			return err
 		}
-		p.DataBuf = ns.rcvDatapkt.Buf[ns.rcvDatapkt.Offset:ns.rcvDatapkt.Len]
+		p.dataBuf = ns.rcvDatapkt.buf[ns.rcvDatapkt.offset:ns.rcvDatapkt.len]
 	}
 	var addrStr string
 	var redirectConnectData []byte
 	if (p.hdr.flags & byte(NSPFRDS)) != 0 {
-		parts := bytes.Split(p.DataBuf, []byte{0})
+		parts := bytes.Split(p.dataBuf, []byte{0})
 		if len(parts) > 0 {
 			addrStr = string(parts[0])
 		}
@@ -266,7 +266,7 @@ func (ns *networkSession) handleRedirect(ctx context.Context, p *redirectPacket,
 			redirectConnectData = parts[1]
 		}
 	} else {
-		addrStr = string(p.DataBuf)
+		addrStr = string(p.dataBuf)
 		redirectConnectData = ns.cData
 	}
 	redirAddressNode, err := naming.Parse(addrStr)
@@ -307,8 +307,8 @@ func (ns *networkSession) handleRedirect(ctx context.Context, p *redirectPacket,
 		connectPkt := &connectPacket{}
 		//initializes sndDatapkt with SDU size
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		connectPkt.Marshal(redirectConnectData, ns.sAtts, NSPFRDR)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
+		connectPkt.marshal(redirectConnectData, ns.sAtts, NSPFRDR)
 		err = ns.sendConnect(ctx, connectPkt)
 		if err != nil {
 			return err
@@ -349,7 +349,7 @@ func (ns *networkSession) connect(ctx context.Context, address transport.Address
 		return err
 	}
 	connectPkt := &connectPacket{}
-	connectPkt.Marshal(ns.cData, ns.sAtts, NO_HEADER_FLAGS)
+	connectPkt.marshal(ns.cData, ns.sAtts, NO_HEADER_FLAGS)
 	err = ns.sendConnect(ctx, connectPkt)
 	if err != nil {
 		if disconnectErr := ns.Disconnect(ctx, 0); disconnectErr != nil {
@@ -474,12 +474,12 @@ func ConnectToOptionWithConnectionID(ctx context.Context, option *naming.Connect
 // SendConnect sends the NSPTCN connect packet
 func (ns *networkSession) sendConnect(ctx context.Context, connectPkt *connectPacket) error {
 
-	err := ns.SendPacket(ctx, connectPkt.Buf)
+	err := ns.SendPacket(ctx, connectPkt.buf)
 	if err != nil {
 		return fmt.Errorf("NS send connect packet failed: %w", err)
 	}
-	if connectPkt.Overflow {
-		err = ns.Send(ctx, connectPkt.ConnectData, 0, connectPkt.ConnectDataLen)
+	if connectPkt.overflow {
+		err = ns.Send(ctx, connectPkt.connectData, 0, connectPkt.connectDataLen)
 		if err != nil {
 			return fmt.Errorf("NS send connect packet failed: %w", err)
 		}
@@ -494,19 +494,19 @@ func (ns *networkSession) recvPacket(ctx context.Context) (any, error) {
 		buf := ns.pendingPacket
 		ns.pendingPacket = nil
 		hdr := &header{}
-		err := hdr.Unmarshal(buf, ns.sAtts, nil)
+		err := hdr.unmarshal(buf, ns.sAtts, nil)
 		if err != nil {
 			return nil, err
 		}
 		return ns.processPacket(buf, hdr)
 	}
 
-	if ns.sndDatapkt.Offset > NSPDADAT { /* Flush any data left in send buffer */
+	if ns.sndDatapkt.offset > NSPDADAT { /* Flush any data left in send buffer */
 		err := ns.sndDatapkt.Prepare2Send(0, ns.sAtts)
 		if err != nil {
 			return nil, err
 		}
-		err = ns.SendPacket(ctx, ns.sndDatapkt.Buf[:ns.sndDatapkt.Offset])
+		err = ns.SendPacket(ctx, ns.sndDatapkt.buf[:ns.sndDatapkt.offset])
 		if err != nil {
 			return nil, err
 		}
@@ -543,7 +543,7 @@ func (ns *networkSession) recvPacket(ctx context.Context) (any, error) {
 	PrintPacket(buf, 0, packetLen)
 
 	hdr := &header{}
-	err = hdr.Unmarshal(buf, ns.sAtts, nil)
+	err = hdr.unmarshal(buf, ns.sAtts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -591,19 +591,19 @@ func (ns *networkSession) processPacket(buf []byte, hdr *header) (any, error) {
 	default:
 		return nil, fmt.Errorf("unsupported packet type: %d", hdr.typ)
 	}
-	err := packet.Unmarshal(buf, ns.sAtts, hdr)
+	err := packet.unmarshal(buf, ns.sAtts, hdr)
 	if err != nil {
 		return nil, err
 	}
 	if hdr.typ == NSPTMK {
 		p := packet.(*markerPacket)
-		common.Odl.Debug("marker packet received", "marker-type", p.MarkerType, "data", p.Data)
-		switch p.MarkerType {
+		common.Odl.Debug("marker packet received", "marker-type", p.markerType, "data", p.data)
+		switch p.markerType {
 		case NSPMKTD0:
 			ns.isBreak = true
 		case NSPMKTD1:
 			ns.isBreak = true
-			if p.Data == NIQRMARK {
+			if p.data == NIQRMARK {
 				ns.isReset = true
 			}
 		}
@@ -633,8 +633,8 @@ func (ns *networkSession) Send(ctx context.Context, userBuf []byte, offset, len 
 	// Check if the current send packet has available space (offset < BufLen) to accommodate more data
 	// without needing to send the packet immediately. If true, fill the buffer with as much user data
 	// as possible, update lengths and offsets, and continue processing any remaining data in subsequent iterations.
-	if ns.sndDatapkt.Offset < ns.sndDatapkt.BufLen {
-		bytesCopied = ns.sndDatapkt.FillBuf(userBuf, offset, len, 0, ns.sAtts.largeSDU)
+	if ns.sndDatapkt.offset < ns.sndDatapkt.bufLen {
+		bytesCopied = ns.sndDatapkt.FillBuf(userBuf, offset, len)
 		len -= bytesCopied
 		offset += bytesCopied
 	}
@@ -643,7 +643,7 @@ func (ns *networkSession) Send(ctx context.Context, userBuf []byte, offset, len 
 		if err != nil {
 			return err
 		}
-		err = ns.SendPacket(ctx, ns.sndDatapkt.Buf)
+		err = ns.SendPacket(ctx, ns.sndDatapkt.buf)
 		ns.sndDatapkt.Reset()
 		if err != nil {
 			return err
@@ -651,7 +651,7 @@ func (ns *networkSession) Send(ctx context.Context, userBuf []byte, offset, len 
 		if ns.isBreak {
 			return nil
 		}
-		bytesCopied = ns.sndDatapkt.FillBuf(userBuf, offset, len, 0, ns.sAtts.largeSDU)
+		bytesCopied = ns.sndDatapkt.FillBuf(userBuf, offset, len)
 		len -= bytesCopied
 		offset += bytesCopied
 	}
@@ -670,21 +670,21 @@ func (ns *networkSession) Reset(ctx context.Context) error {
 
 	var markerPkt = &markerPacket{}
 	if ns.breakPosted {
-		err := markerPkt.Marshal(nil, ns.sAtts, NIQBMARK)
+		err := markerPkt.marshal(nil, ns.sAtts, NIQBMARK)
 		if err != nil {
 			return err
 		}
-		err = ns.SendPacket(ctx, markerPkt.Buf)
+		err = ns.SendPacket(ctx, markerPkt.buf)
 		if err != nil {
 			return err
 		}
 		ns.breakPosted = false
 	}
-	err := markerPkt.Marshal(nil, ns.sAtts, NIQRMARK)
+	err := markerPkt.marshal(nil, ns.sAtts, NIQRMARK)
 	if err != nil {
 		return err
 	}
-	err = ns.SendPacket(ctx, markerPkt.Buf)
+	err = ns.SendPacket(ctx, markerPkt.buf)
 	common.Odl.Debug("Reset packet sent")
 	if err != nil {
 		common.Odl.Error("An error occurred while sending reset", "error", err)
@@ -700,8 +700,8 @@ func (ns *networkSession) Reset(ctx context.Context) error {
 	}
 	//reset sndDatapkt
 	ns.sndDatapkt.Reset()
-	ns.rcvDatapkt.Offset = NSPDADAT
-	ns.rcvDatapkt.Len = ns.rcvDatapkt.Offset
+	ns.rcvDatapkt.offset = NSPDADAT
+	ns.rcvDatapkt.len = ns.rcvDatapkt.offset
 	//set break/reset as false
 	ns.isBreak = false
 	ns.isReset = false
@@ -727,7 +727,7 @@ func (ns *networkSession) Disconnect(ctx context.Context, flags int) error {
 	if flags&driverCommon.NSFIMM == 0 {
 		if prepareErr := ns.sndDatapkt.Prepare2Send(NSPDAFEOF, ns.sAtts); prepareErr != nil {
 			err = prepareErr
-		} else if sendErr := ns.SendPacket(ctx, ns.sndDatapkt.Buf); sendErr != nil {
+		} else if sendErr := ns.SendPacket(ctx, ns.sndDatapkt.buf); sendErr != nil {
 			err = sendErr
 		}
 	}
@@ -744,8 +744,8 @@ func (ns *networkSession) Disconnect(ctx context.Context, flags int) error {
 
 func (ns *networkSession) CheckInbandNotification() bool {
 	// Control packet already read
-	if ns.controlPkt.Errno != 0 {
-		if ns.controlPkt.IsNotification {
+	if ns.controlPkt.errno != 0 {
+		if ns.controlPkt.isNotification {
 			ns.controlPkt.Clear() //reset
 			return true
 		}
@@ -783,13 +783,13 @@ func (ns *networkSession) CheckInbandNotification() bool {
 	// Full packet; unmarshal header
 	buf := ns.rcvBuf[:packetLen]
 	hdr := &header{}
-	if err := hdr.Unmarshal(buf, ns.sAtts, nil); err != nil {
+	if err := hdr.unmarshal(buf, ns.sAtts, nil); err != nil {
 		return false
 	}
 
 	if hdr.typ == NSPTCNL {
-		ns.controlPkt.Unmarshal(buf, ns.sAtts, hdr)
-		if ns.controlPkt.IsNotification {
+		ns.controlPkt.unmarshal(buf, ns.sAtts, hdr)
+		if ns.controlPkt.isNotification {
 			ns.controlPkt.Clear() //reset
 			return true
 		}

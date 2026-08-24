@@ -61,9 +61,9 @@ type NSChannel interface {
 // PrepareReadBuffer ensures that the receive buffer has data available for reading
 func (ns *networkSession) PrepareReadBuffer(ctx context.Context) error {
 	//If the current receive packet has no remaining data, it resets
-	if ns.rcvDatapkt.Len-ns.rcvDatapkt.Offset == 0 {
-		ns.rcvDatapkt.Offset = NSPDADAT
-		ns.rcvDatapkt.Len = ns.rcvDatapkt.BufLen
+	if ns.rcvDatapkt.len-ns.rcvDatapkt.offset == 0 {
+		ns.rcvDatapkt.offset = NSPDADAT
+		ns.rcvDatapkt.len = ns.rcvDatapkt.bufLen
 		// fillReadBuffer to populate the buffer with new data from the network.
 		return ns.fillReadBuffer(ctx)
 	}
@@ -275,19 +275,19 @@ func (ns *networkSession) Write(ctx context.Context, bytes []byte) error {
 	return ns.Send(ctx, bytes, 0, len(bytes))
 }
 func (ns *networkSession) WriteUI16(ctx context.Context, value int16, isLSB bool) error {
-	if ns.sndDatapkt.Len-ns.sndDatapkt.Offset < 2 {
+	if ns.sndDatapkt.len-ns.sndDatapkt.offset < 2 {
 		if err := ns.Flush(ctx); err != nil {
 			return err
 		}
 	}
-	buf := ns.sndDatapkt.Buf[ns.sndDatapkt.Offset:]
+	buf := ns.sndDatapkt.buf[ns.sndDatapkt.offset:]
 
 	if isLSB {
 		binary.LittleEndian.PutUint16(buf, uint16(value))
 	} else {
 		binary.BigEndian.PutUint16(buf, uint16(value))
 	}
-	ns.sndDatapkt.Offset += 2
+	ns.sndDatapkt.offset += 2
 	return nil
 }
 
@@ -297,12 +297,12 @@ func (ns *networkSession) WriteBA(ctx context.Context, ba *[]byte) error {
 
 func (ns *networkSession) WriteI32(ctx context.Context, value int32, isLSB bool) error {
 
-	if ns.sndDatapkt.Len-ns.sndDatapkt.Offset < 4 {
+	if ns.sndDatapkt.len-ns.sndDatapkt.offset < 4 {
 		if err := ns.Flush(ctx); err != nil {
 			return err
 		}
 	}
-	buf := ns.sndDatapkt.Buf[ns.sndDatapkt.Offset:]
+	buf := ns.sndDatapkt.buf[ns.sndDatapkt.offset:]
 	if isLSB {
 		binary.LittleEndian.PutUint32(buf, uint32(value))
 
@@ -310,21 +310,21 @@ func (ns *networkSession) WriteI32(ctx context.Context, value int32, isLSB bool)
 		binary.BigEndian.PutUint32(buf, uint32(value))
 
 	}
-	ns.sndDatapkt.Offset += 4
+	ns.sndDatapkt.offset += 4
 	return nil
 
 }
 
 func (ns *networkSession) WriteByteWithContext(ctx context.Context, value byte) error {
 
-	if ns.sndDatapkt.Len-ns.sndDatapkt.Offset < 1 {
+	if ns.sndDatapkt.len-ns.sndDatapkt.offset < 1 {
 		if err := ns.Flush(ctx); err != nil {
 			return err
 		}
 	}
-	b := ns.sndDatapkt.Buf[ns.sndDatapkt.Offset:]
+	b := ns.sndDatapkt.buf[ns.sndDatapkt.offset:]
 	b[0] = value
-	ns.sndDatapkt.Offset++
+	ns.sndDatapkt.offset++
 	return nil
 }
 
@@ -380,11 +380,11 @@ func (ns *networkSession) CancelOperation(ctx context.Context) error {
 	// Build and send break packet
 	ns.isBreak = true
 	var markerPkt = &markerPacket{}
-	err := markerPkt.Marshal(nil, ns.sAtts, NIQIMARK)
+	err := markerPkt.marshal(nil, ns.sAtts, NIQIMARK)
 	if err != nil {
 		return err
 	}
-	err = ns.SendPacket(ctx, markerPkt.Buf)
+	err = ns.SendPacket(ctx, markerPkt.buf)
 	common.Odl.Debug("Break packet sent")
 	if err != nil {
 		common.Odl.Info("An error occurred while sending the break packet", "error", err)
@@ -412,14 +412,14 @@ func (ns *networkSession) Flush(ctx context.Context) error {
 	if ns.isBreak {
 		return nil
 	}
-	if ns.sndDatapkt.Offset <= NSPDADAT {
+	if ns.sndDatapkt.offset <= NSPDADAT {
 		return nil
 	}
 	err := ns.sndDatapkt.Prepare2Send(0, ns.sAtts)
 	if err != nil {
 		return err
 	}
-	err = ns.SendPacket(ctx, ns.sndDatapkt.Buf[:ns.sndDatapkt.Offset])
+	err = ns.SendPacket(ctx, ns.sndDatapkt.buf[:ns.sndDatapkt.offset])
 	if err != nil {
 		if err == io.EOF {
 			return fmt.Errorf("connection closed during flush")

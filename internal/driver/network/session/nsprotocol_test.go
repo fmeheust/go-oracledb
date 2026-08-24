@@ -294,7 +294,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -452,7 +452,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -496,7 +496,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -522,7 +522,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected sendConnect error: %v", err)
@@ -547,7 +547,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected transportConnect error: %v", err)
 		}
 		connectPkt := &connectPacket{}
-		connectPkt.Marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt.marshal([]byte(option.ConnectString), ns.sAtts, NO_HEADER_FLAGS)
 		err = ns.sendConnect(context.Background(), connectPkt)
 		if err == nil || !strings.Contains(err.Error(), "send error") {
 			t.Errorf("Expected send connect error, got %v", err)
@@ -563,10 +563,10 @@ func TestConnectSubtests(t *testing.T) {
 
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
-		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
+		ns.rcvDatapkt.marshal(ns.rcvBuf, ns.sAtts, 0)
 
 		acceptBuf := make([]byte, 50)
 		binary.BigEndian.PutUint16(acceptBuf[0:2], 50)
@@ -593,10 +593,10 @@ func TestConnectSubtests(t *testing.T) {
 
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
-		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
+		ns.rcvDatapkt.marshal(ns.rcvBuf, ns.sAtts, 0)
 
 		refuseBuf := []byte{0x0, 0x5f, 0x0, 0x0, 0x4, 0x0, 0x0, 0x0, 0x22, 0x0, 0x0, 0x53, 0x28, 0x44, 0x45, 0x53, 0x43, 0x52, 0x49, 0x50, 0x54, 0x49, 0x4f, 0x4e, 0x3d, 0x28, 0x54, 0x4d, 0x50, 0x3d, 0x29, 0x28, 0x56, 0x53, 0x4e, 0x4e, 0x55, 0x4d, 0x3d, 0x30, 0x29, 0x28, 0x45, 0x52, 0x52, 0x3d, 0x31, 0x32, 0x35, 0x31, 0x34, 0x29, 0x28, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x5f, 0x53, 0x54, 0x41, 0x43, 0x4b, 0x3d, 0x28, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x3d, 0x28, 0x43, 0x4f, 0x44, 0x45, 0x3d, 0x31, 0x32, 0x35, 0x31, 0x34, 0x29, 0x28, 0x45, 0x4d, 0x46, 0x49, 0x3d, 0x34, 0x29, 0x29, 0x29, 0x29}
 		mock.receivedData = refuseBuf
@@ -620,10 +620,10 @@ func TestConnectSubtests(t *testing.T) {
 
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
-		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
+		ns.rcvDatapkt.marshal(ns.rcvBuf, ns.sAtts, 0)
 
 		redirectBuf := make([]byte, 10)
 		binary.BigEndian.PutUint16(redirectBuf[0:2], 10)
@@ -649,10 +649,10 @@ func TestConnectSubtests(t *testing.T) {
 
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
-		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
+		ns.rcvDatapkt.marshal(ns.rcvBuf, ns.sAtts, 0)
 
 		resendBuf := make([]byte, 10)
 		binary.BigEndian.PutUint16(resendBuf[0:2], 10)
@@ -705,7 +705,7 @@ func TestSend(t *testing.T) {
 	ns.sAtts = &sessionAtts{sdu: 20, largeSDU: false}
 	ns.sndBuf = make([]byte, 20)
 	ns.sndDatapkt = &dataPacket{hdr: &header{}}
-	ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+	ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 
 	userBuf := []byte("testdata that is longer than SDU to test multiple packets")
 	err := ns.Send(context.Background(), userBuf, 0, len(userBuf))
@@ -745,7 +745,7 @@ func TestSend(t *testing.T) {
 	}
 
 	// Test with offset > BufLen
-	ns.sndDatapkt.Offset = ns.sndDatapkt.BufLen + 1
+	ns.sndDatapkt.offset = ns.sndDatapkt.bufLen + 1
 	err = ns.Send(context.Background(), userBuf, 0, len(userBuf))
 	if err == nil || !strings.Contains(err.Error(), "send error") { // assuming sendErr still set
 		t.Errorf("Expected error with offset > BufLen")
@@ -764,8 +764,8 @@ func TestReset(t *testing.T) {
 		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.rcvDatapkt = &dataPacket{Offset: NSPDADAT, Len: NSPDADAT}
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.rcvDatapkt = &dataPacket{offset: NSPDADAT, len: NSPDADAT}
 		ns.breakPosted = true
 		return ns, mock
 	}
@@ -787,7 +787,7 @@ func TestReset(t *testing.T) {
 		if ns.isBreak || ns.isReset || ns.breakPosted {
 			t.Errorf("Flags not reset")
 		}
-		if ns.sndDatapkt.Offset != NSPDADAT || ns.rcvDatapkt.Offset != NSPDADAT || ns.rcvDatapkt.Len != NSPDADAT {
+		if ns.sndDatapkt.offset != NSPDADAT || ns.rcvDatapkt.offset != NSPDADAT || ns.rcvDatapkt.len != NSPDADAT {
 			t.Errorf("Packets not reset")
 		}
 	})
@@ -918,8 +918,8 @@ func TestDisconnect(t *testing.T) {
 		ns.sAtts = &sessionAtts{largeSDU: false}
 		ns.sndBuf = make([]byte, 100)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.sndDatapkt.Offset = 10
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.offset = 10
 		err := ns.Disconnect(context.Background(), 0)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
@@ -988,8 +988,8 @@ func TestDisconnect(t *testing.T) {
 		ns.sAtts = &sessionAtts{largeSDU: false}
 		ns.sndBuf = make([]byte, 100)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.sndDatapkt.Offset = 10
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.offset = 10
 		err := ns.Disconnect(context.Background(), 0)
 		if err == nil || err.Error() != "disconnect error" {
 			t.Errorf("Expected disconnect error, got %v", err)
@@ -1013,8 +1013,8 @@ func TestDisconnect(t *testing.T) {
 		ns.sAtts = &sessionAtts{largeSDU: false}
 		ns.sndBuf = make([]byte, 100)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.sndDatapkt.Offset = 10
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.offset = 10
 
 		err := ns.Disconnect(context.Background(), 0)
 		if err == nil || !strings.Contains(err.Error(), "send error") {
@@ -1088,8 +1088,8 @@ func TestSendConnect(t *testing.T) {
 	ns.sAtts = &sessionAtts{sdu: 8192}
 	ns.sndBuf = make([]byte, ns.sAtts.sdu)
 	ns.sndDatapkt = &dataPacket{}
-	ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-	connectPkt := &connectPacket{Overflow: false, Buf: make([]byte, 100)}
+	ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
+	connectPkt := &connectPacket{overflow: false, buf: make([]byte, 100)}
 	err := ns.sendConnect(context.Background(), connectPkt)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -1099,9 +1099,9 @@ func TestSendConnect(t *testing.T) {
 	}
 
 	// Test overflow
-	connectPkt.Overflow = true
-	connectPkt.ConnectData = []byte("overflow data")
-	connectPkt.ConnectDataLen = len(connectPkt.ConnectData)
+	connectPkt.overflow = true
+	connectPkt.connectData = []byte("overflow data")
+	connectPkt.connectDataLen = len(connectPkt.connectData)
 	ns.connected = true // Set connected for Send
 	err = ns.sendConnect(context.Background(), connectPkt)
 	if err != nil {
@@ -1114,7 +1114,7 @@ func TestSendConnect(t *testing.T) {
 	// Test error on SendPacket
 	mock.sentData = nil
 	mock.sendErr = fmt.Errorf("send error")
-	connectPkt.Overflow = false
+	connectPkt.overflow = false
 	err = ns.sendConnect(context.Background(), connectPkt)
 	if err == nil || !strings.Contains(err.Error(), "send error") {
 		t.Errorf("Expected send error, got %v", err)
@@ -1128,10 +1128,10 @@ func TestSendConnect(t *testing.T) {
 	mock.secondSendErr = fmt.Errorf("overflow send error")
 	mock.sendErr = nil
 	mock.sendCall = 0
-	connectPkt.ConnectDataLen = len(connectPkt.ConnectData)
-	connectPkt.Overflow = true
+	connectPkt.connectDataLen = len(connectPkt.connectData)
+	connectPkt.overflow = true
 	ns.connected = true
-	ns.sndDatapkt.Offset = ns.sndDatapkt.BufLen
+	ns.sndDatapkt.offset = ns.sndDatapkt.bufLen
 	err = ns.sendConnect(context.Background(), connectPkt)
 	if err == nil || !strings.Contains(err.Error(), "overflow send error") {
 		t.Errorf("Expected overflow send error, got %v", err)
@@ -1258,7 +1258,7 @@ func TestRecvPacket(t *testing.T) {
 		ns.sAtts = &sessionAtts{largeSDU: largeSDU, sdu: 8192}
 		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 		return ns, mock
 	}
 
@@ -1330,9 +1330,9 @@ func TestRecvPacket(t *testing.T) {
 	t.Run("FlushSendBuffer", func(t *testing.T) {
 		ns, mock := setupNS(false)
 		ns.sndDatapkt.hdr = &header{}
-		ns.sndDatapkt.Buf = ns.sndBuf
-		ns.sndDatapkt.BufLen = len(ns.sndBuf)
-		ns.sndDatapkt.Offset = NSPDADAT + 1 // Simulate data in send buffer > NSPDADAT
+		ns.sndDatapkt.buf = ns.sndBuf
+		ns.sndDatapkt.bufLen = len(ns.sndBuf)
+		ns.sndDatapkt.offset = NSPDADAT + 1 // Simulate data in send buffer > NSPDADAT
 		// Prepare receive data for a small valid data packet.
 		hdrBuf := make([]byte, NSPDADAT)
 		binary.BigEndian.PutUint16(hdrBuf[0:], NSPDADAT)
@@ -1345,8 +1345,8 @@ func TestRecvPacket(t *testing.T) {
 		if len(mock.sentData) == 0 {
 			t.Errorf("Expected SendPacket to be called")
 		}
-		if ns.sndDatapkt.Offset != NSPDADAT {
-			t.Errorf("Send buffer not reset to NSPDADAT after flush, got %d", ns.sndDatapkt.Offset)
+		if ns.sndDatapkt.offset != NSPDADAT {
+			t.Errorf("Send buffer not reset to NSPDADAT after flush, got %d", ns.sndDatapkt.offset)
 		}
 	})
 
@@ -1407,13 +1407,13 @@ func TestHandleRefuse(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns.ntAdapter = mock
 		ns.rcvBuf = make([]byte, 8192)
-		ns.rcvDatapkt = &dataPacket{Buf: ns.rcvBuf}
+		ns.rcvDatapkt = &dataPacket{buf: ns.rcvBuf}
 		return ns, mock
 	}
 	t.Run("UnknownCode", func(t *testing.T) {
 		ns, _ := setup()
 		address := transport.Address{Address: naming.Address{Host: "host", Port: 1521}}
-		p := &refusePacket{Overflow: false, DataBuf: "(DESCRIPTION=(ERR=99999))"}
+		p := &refusePacket{overflow: false, dataBuf: "(DESCRIPTION=(ERR=99999))"}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 		err := ns.handleRefuse(context.Background(), p, address)
 		if err == nil || !strings.Contains(err.Error(), "connection refused") {
@@ -1424,7 +1424,7 @@ func TestHandleRefuse(t *testing.T) {
 		ns, mock := setup()
 		mock.receiveErr = fmt.Errorf("recv error")
 		address := transport.Address{Address: naming.Address{Host: "host", Port: 1521}}
-		p := &refusePacket{Overflow: true, DataBuf: "(DESCRIPTION=(ERR=12514))"}
+		p := &refusePacket{overflow: true, dataBuf: "(DESCRIPTION=(ERR=12514))"}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 		err := ns.handleRefuse(context.Background(), p, address)
 		if err == nil || !strings.Contains(err.Error(), "recv error") {
@@ -1434,7 +1434,7 @@ func TestHandleRefuse(t *testing.T) {
 	t.Run("ParseError", func(t *testing.T) {
 		ns, _ := setup()
 		address := transport.Address{Address: naming.Address{Host: "host", Port: 1521}}
-		p := &refusePacket{Overflow: false, DataBuf: "invalid"}
+		p := &refusePacket{overflow: false, dataBuf: "invalid"}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 		err := ns.handleRefuse(context.Background(), p, address)
 		if err == nil || !strings.Contains(err.Error(), "parse error") {
@@ -1450,8 +1450,8 @@ func TestHandleResend(t *testing.T) {
 		ns := newNetworkSession()
 		ns.sAtts = &sessionAtts{sdu: 8192}
 		ns.ntAdapter = &mockNTAdapter{}
-		connectPkt := &connectPacket{Buf: make([]byte, 100)}
-		connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt := &connectPacket{buf: make([]byte, 100)}
+		connectPkt.marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS)
 		p := &resendPacket{hdr: &header{flags: 0}}
 		err := ns.handleResend(context.Background(), p, connectPkt)
 		if err != nil {
@@ -1465,11 +1465,11 @@ func TestHandleResend(t *testing.T) {
 		ns.sAtts = &sessionAtts{sdu: 8192}
 		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
-		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
+		ns.sndDatapkt.marshal(ns.sndBuf, ns.sAtts, 0)
 		mock := &mockNTAdapter{sendErr: fmt.Errorf("send error")}
 		ns.ntAdapter = mock
-		connectPkt := &connectPacket{Buf: make([]byte, 100)}
-		connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS)
+		connectPkt := &connectPacket{buf: make([]byte, 100)}
+		connectPkt.marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS)
 		p := &resendPacket{hdr: &header{flags: 0}}
 		err := ns.handleResend(context.Background(), p, connectPkt)
 		fmt.Println(err)
@@ -1482,8 +1482,8 @@ func TestHandleResend(t *testing.T) {
 		ns := newNetworkSession()
 		ns.sAtts = &sessionAtts{sdu: 8192}
 		ns.ntAdapter = &mockNTAdapter{}
-		connectPkt := &connectPacket{Buf: make([]byte, 100)}
-		if err := connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS); err != nil {
+		connectPkt := &connectPacket{buf: make([]byte, 100)}
+		if err := connectPkt.marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS); err != nil {
 			t.Fatalf("Marshal connect packet: %v", err)
 		}
 		p := &resendPacket{hdr: &header{flags: NSPFSRN}}
@@ -1498,8 +1498,8 @@ func TestHandleResend(t *testing.T) {
 		ns.sAtts = &sessionAtts{sdu: 8192}
 		mockTCPS := &mockNTTCPS{}
 		ns.ntAdapter = mockTCPS
-		connectPkt := &connectPacket{Buf: make([]byte, 100)}
-		if err := connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS); err != nil {
+		connectPkt := &connectPacket{buf: make([]byte, 100)}
+		if err := connectPkt.marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS); err != nil {
 			t.Fatalf("Marshal connect packet: %v", err)
 		}
 		p := &resendPacket{hdr: &header{flags: NSPFSRN}}
@@ -1542,8 +1542,8 @@ func TestCheckInbandNotification(t *testing.T) {
 			if (len(ns.pendingPacket) > 0) != tt.expectPending {
 				t.Errorf("pendingPacket pushed = %v, want %v", len(ns.pendingPacket) > 0, tt.expectPending)
 			}
-			if tt.expectReset && ns.controlPkt.Errno != 0 {
-				t.Errorf("controlPkt not reset, Errno = %d", ns.controlPkt.Errno)
+			if tt.expectReset && ns.controlPkt.errno != 0 {
+				t.Errorf("controlPkt not reset, Errno = %d", ns.controlPkt.errno)
 			}
 		})
 	}
