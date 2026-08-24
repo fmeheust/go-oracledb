@@ -58,24 +58,24 @@ type packet interface {
 
 // header represents a packet header
 type header struct {
-	PacketLength   uint32
-	PacketChecksum uint16
-	Type           int
-	Flags          byte
-	HeaderChecksum uint16
+	packetLength   uint32
+	packetChecksum uint16
+	typ            int
+	flags          byte
+	headerChecksum uint16
 }
 
 // Marshal serializes the header into a buffer
 func (h *header) Marshal(buffer []byte, sAtts *sessionAtts, flags uint8) error {
-	if sAtts.LargeSDU {
-		binary.BigEndian.PutUint32(buffer[0:], h.PacketLength)
+	if sAtts.largeSDU {
+		binary.BigEndian.PutUint32(buffer[0:], h.packetLength)
 	} else {
-		binary.BigEndian.PutUint16(buffer[0:], uint16(h.PacketLength))
+		binary.BigEndian.PutUint16(buffer[0:], uint16(h.packetLength))
 		binary.BigEndian.PutUint16(buffer[2:], 0) // packet checksum
 	}
-	buffer[4] = uint8(h.Type)
+	buffer[4] = uint8(h.typ)
 	buffer[5] = flags
-	binary.BigEndian.PutUint16(buffer[6:], h.HeaderChecksum)
+	binary.BigEndian.PutUint16(buffer[6:], h.headerChecksum)
 	return nil
 }
 
@@ -84,15 +84,15 @@ func (h *header) Unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header) error
 	if len(buffer) < 8 {
 		return fmt.Errorf("buffer too short for header")
 	}
-	if sAtts.LargeSDU {
-		h.PacketLength = binary.BigEndian.Uint32(buffer[0:])
+	if sAtts.largeSDU {
+		h.packetLength = binary.BigEndian.Uint32(buffer[0:])
 	} else {
-		h.PacketLength = uint32(binary.BigEndian.Uint16(buffer[0:]))
-		h.PacketChecksum = binary.BigEndian.Uint16(buffer[2:])
+		h.packetLength = uint32(binary.BigEndian.Uint16(buffer[0:]))
+		h.packetChecksum = binary.BigEndian.Uint16(buffer[2:])
 	}
-	h.Type = int(buffer[4])
-	h.Flags = buffer[5]
-	h.HeaderChecksum = binary.BigEndian.Uint16(buffer[6:])
+	h.typ = int(buffer[4])
+	h.flags = buffer[5]
+	h.headerChecksum = binary.BigEndian.Uint16(buffer[6:])
 	return nil
 }
 
@@ -126,9 +126,9 @@ func (cp *connectPacket) Marshal(connectData []byte, sAtts *sessionAtts, flags u
 	}
 	cp.Buf = make([]byte, size)
 	cp.hdr = header{
-		PacketLength: uint32(size),
-		Type:         NSPTCN,
-		Flags:        flags,
+		packetLength: uint32(size),
+		typ:          NSPTCN,
+		flags:        flags,
 	}
 	if err := cp.hdr.Marshal(cp.Buf, sAtts, 0); err != nil {
 		return err
@@ -140,13 +140,13 @@ func (cp *connectPacket) Marshal(connectData []byte, sAtts *sessionAtts, flags u
 	options := NSGDONTCARE
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNOPT:], uint16(options))
 
-	sdu := sAtts.SDU
+	sdu := sAtts.sdu
 	if sdu > NSPMXSDULN {
 		sdu = NSPMXSDULN
 	}
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNSDU:], uint16(sdu))
 
-	tdu := sAtts.TDU
+	tdu := sAtts.tdu
 	if tdu > NSPMXSDULN {
 		tdu = NSPMXSDULN
 	}
@@ -157,19 +157,19 @@ func (cp *connectPacket) Marshal(connectData []byte, sAtts *sessionAtts, flags u
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNONE:], 1)
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNLEN:], uint16(cp.ConnectDataLen))
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNOFF:], NSPCNDAT)
-	cp.Buf[NSPCNFL0] = uint8(sAtts.NAFlags)
-	cp.Buf[NSPCNFL1] = uint8(sAtts.NAFlags)
+	cp.Buf[NSPCNFL0] = uint8(sAtts.naFlags)
+	cp.Buf[NSPCNFL1] = uint8(sAtts.naFlags)
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNTMO:], 0)
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNTCK:], 0)
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNADL:], 0)
 	binary.BigEndian.PutUint16(cp.Buf[NSPCNAOF:], 0)
-	binary.BigEndian.PutUint32(cp.Buf[NSPCNLSD:], uint32(sAtts.SDU))
-	binary.BigEndian.PutUint32(cp.Buf[NSPCNLTD:], uint32(sAtts.TDU))
+	binary.BigEndian.PutUint32(cp.Buf[NSPCNLSD:], uint32(sAtts.sdu))
+	binary.BigEndian.PutUint32(cp.Buf[NSPCNLTD:], uint32(sAtts.tdu))
 
 	var compressionField uint16
-	if sAtts.NetworkCompression {
+	if sAtts.networkCompression {
 		compressionField = NSPACCFON << 8
-		if contains(sAtts.NetworkCompressionLevels, "high") {
+		if contains(sAtts.networkCompressionLevels, "high") {
 			compressionField |= NETWORK_COMPRESSION_ZLIB << 10
 		}
 	}
@@ -225,8 +225,8 @@ func (dp *dataPacket) Marshal(buf []byte, sAtts *sessionAtts, flags uint8) error
 	dp.BufLen = len(buf)
 	dp.Len = dp.BufLen
 	dp.hdr = &header{
-		Type:  NSPTDA,
-		Flags: 0,
+		typ:   NSPTDA,
+		flags: 0,
 	}
 	dp.Offset = NSPDADAT
 	return nil
@@ -248,7 +248,7 @@ func (dp *dataPacket) FillBuf(userBuf []byte, offset, len int, flags uint16, isL
 
 // Prepare2Send prepares the data packet for sending
 func (dp *dataPacket) Prepare2Send(flags uint16, sAtts *sessionAtts) error {
-	dp.hdr.PacketLength = uint32(dp.Offset)
+	dp.hdr.packetLength = uint32(dp.Offset)
 	if err := dp.hdr.Marshal(dp.Buf, sAtts, 0); err != nil {
 		return err
 	}
@@ -263,13 +263,13 @@ func (dp *dataPacket) Reset() {
 
 // Unmarshal constructs a data packet from received data
 func (dp *dataPacket) Unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header) error {
-	if int(hdr.PacketLength) < NSPDADAT {
-		return fmt.Errorf("data packet too short: got %d, need >= %d", hdr.PacketLength, NSPDADAT)
+	if int(hdr.packetLength) < NSPDADAT {
+		return fmt.Errorf("data packet too short: got %d, need >= %d", hdr.packetLength, NSPDADAT)
 	}
 	dp.hdr = hdr
 	dp.Buf = buffer
 	dp.Offset = NSPDADAT
-	dp.Len = int(hdr.PacketLength)
+	dp.Len = int(hdr.packetLength)
 	return nil
 }
 
@@ -297,16 +297,16 @@ func (ap *acceptPacket) Unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header
 	ap.hdr = hdr
 	ap.Buf = buffer
 	ap.Len = len(buffer)
-	sAtts.Version = int(binary.BigEndian.Uint16(buffer[NSPACVSN:]))
-	sAtts.Options = int(binary.BigEndian.Uint16(buffer[NSPACOPT:]))
+	sAtts.version = int(binary.BigEndian.Uint16(buffer[NSPACVSN:]))
+	sAtts.options = int(binary.BigEndian.Uint16(buffer[NSPACOPT:]))
 	sdu := int(binary.BigEndian.Uint16(buffer[NSPACSDU:]))
 	tdu := int(binary.BigEndian.Uint16(buffer[NSPACTDU:]))
 	sdu = clamp(sdu, NSPMNSDULN, NSPMXSDULN)
 	tdu = clamp(tdu, NSPMNTDULN, NSPMXTDULN)
 
-	if sAtts.Version >= 315 {
+	if sAtts.version >= 315 {
 		if len(buffer) < minAcceptLargeSDULen {
-			return fmt.Errorf("accept packet too short for large SDU/TDU: got %d, need >= %d", len(buffer), minAcceptLargeSDULen)
+			return fmt.Errorf("accept packet too short for large SDU/tdu: got %d, need >= %d", len(buffer), minAcceptLargeSDULen)
 		}
 		sdu = int(binary.BigEndian.Uint32(buffer[NSPACLSD:]))
 		tdu = int(binary.BigEndian.Uint32(buffer[NSPACLTD:]))
@@ -314,22 +314,22 @@ func (ap *acceptPacket) Unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header
 		// or exceed the driver’s safe maxima before we store them or size any buffers.
 		sdu = clamp(sdu, NSPMNSDULN, NSPABSSDULN)
 		tdu = clamp(tdu, NSPMNTDULN, NSPMXTDULN)
-		sAtts.LargeSDU = true
+		sAtts.largeSDU = true
 		if len(buffer) < minAcceptCflagLen {
 			return fmt.Errorf("accept packet too short for compression flag: got %d, need >= %d", len(buffer), minAcceptCflagLen)
 		}
 		ap.Cflag = buffer[NSPACCFL]
 		if ap.Cflag&NSPACCFON != 0 {
-			sAtts.NegotiatedNetworkCompressionScheme = int((ap.Cflag & 0x3c) >> 2)
-			sAtts.NetworkCompressionEnabled = true
-			sAtts.FirstRecvCompressedPacket = true
-			sAtts.FirstSendCompressedPacket = true
+			sAtts.negotiatedNetworkCompressionScheme = int((ap.Cflag & 0x3c) >> 2)
+			sAtts.networkCompressionEnabled = true
+			sAtts.firstRecvCompressedPacket = true
+			sAtts.firstSendCompressedPacket = true
 		} else {
-			sAtts.NetworkCompressionEnabled = false
+			sAtts.networkCompressionEnabled = false
 		}
 	}
-	sAtts.SDU = sdu
-	sAtts.TDU = tdu
+	sAtts.sdu = sdu
+	sAtts.tdu = tdu
 	ap.Flag0 = buffer[NSPACFL0]
 	ap.Flag1 = buffer[NSPACFL1]
 	return nil
@@ -363,8 +363,8 @@ func (rp *refusePacket) Unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header
 	rp.SystemReason = buffer[NSPRFSRS]
 	rp.DataLen = int(binary.BigEndian.Uint16(buffer[NSPRFLEN:]))
 	rp.DataOff = NSPRFDAT
-	if int(rp.hdr.PacketLength) > rp.DataOff {
-		rp.DataBuf = string(buffer[rp.DataOff:rp.hdr.PacketLength])
+	if int(rp.hdr.packetLength) > rp.DataOff {
+		rp.DataBuf = string(buffer[rp.DataOff:rp.hdr.packetLength])
 		rp.Overflow = false
 	} else {
 		rp.Overflow = true
@@ -396,8 +396,8 @@ func (rp *redirectPacket) Unmarshal(buffer []byte, sAtts *sessionAtts, hdr *head
 	rp.Buf = buffer
 	rp.DataLen = int(binary.BigEndian.Uint16(buffer[NSPRDLEN:]))
 	rp.DataOff = NSPRDDAT
-	if int(rp.hdr.PacketLength) > rp.DataOff {
-		rp.DataBuf = buffer[rp.DataOff:rp.hdr.PacketLength]
+	if int(rp.hdr.packetLength) > rp.DataOff {
+		rp.DataBuf = buffer[rp.DataOff:rp.hdr.packetLength]
 		rp.Overflow = false
 	} else {
 		rp.Overflow = true
@@ -422,9 +422,9 @@ type markerPacket struct {
 func (mp *markerPacket) Marshal(buf []byte, sAtts *sessionAtts, data uint8) error {
 	mp.Buf = make([]byte, NSPMKDAT+1)
 	mp.hdr = &header{
-		PacketLength: uint32(NSPMKDAT + 1),
-		Type:         NSPTMK,
-		Flags:        0,
+		packetLength: uint32(NSPMKDAT + 1),
+		typ:          NSPTMK,
+		flags:        0,
 	}
 	if err := mp.hdr.Marshal(mp.Buf, sAtts, 0); err != nil {
 

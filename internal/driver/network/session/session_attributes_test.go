@@ -66,20 +66,20 @@ func TestGenUUID(t *testing.T) {
 func TestNewSessionAttsDefaults(t *testing.T) {
 	t.Parallel()
 	satt := newSessionAtts("custom")
-	if satt.UUID != "custom" {
-		t.Fatalf("expected custom UUID, got %s", satt.UUID)
+	if satt.uuid != "custom" {
+		t.Fatalf("expected custom UUID, got %s", satt.uuid)
 	}
-	if satt.SDU != NSPDFSDULN || satt.TDU != NSPDFTDULN {
-		t.Fatalf("unexpected defaults: SDU %d TDU %d", satt.SDU, satt.TDU)
+	if satt.sdu != NSPDFSDULN || satt.tdu != NSPDFTDULN {
+		t.Fatalf("unexpected defaults: SDU %d TDU %d", satt.sdu, satt.tdu)
 	}
-	if satt.NT.TCPNODelay != true || satt.NT.SSLServerDNMatch != true {
-		t.Fatalf("unexpected NT defaults: %+v", satt.NT)
+	if satt.nt.TCPNODelay != true || satt.nt.SSLServerDNMatch != true {
+		t.Fatalf("unexpected NT defaults: %+v", satt.nt)
 	}
-	if satt.NetworkCompressionThreshold != 1024 {
-		t.Fatalf("unexpected NetworkCompressionThreshold: %d", satt.NetworkCompressionThreshold)
+	if satt.networkCompressionThreshold != 1024 {
+		t.Fatalf("unexpected networkCompressionThreshold: %d", satt.networkCompressionThreshold)
 	}
-	if satt.NAFlags != NSINANOSERVICES {
-		t.Fatalf("unexpected NAFlags: %d", satt.NAFlags)
+	if satt.naFlags != NSINANOSERVICES {
+		t.Fatalf("unexpected naFlags: %d", satt.naFlags)
 	}
 }
 
@@ -106,40 +106,40 @@ func TestSessionAttsSetFromDescription(t *testing.T) {
 	satt := newSessionAtts("uuid")
 	satt.setFrom(desc)
 
-	if satt.SDU != 4096 {
-		t.Fatalf("expected sdu 4096 got %d", satt.SDU)
+	if satt.sdu != 4096 {
+		t.Fatalf("expected sdu 4096 got %d", satt.sdu)
 	}
-	if !satt.NetworkCompression || len(satt.NetworkCompressionLevels) != 2 || satt.NetworkCompressionLevels[0] != "low" {
+	if !satt.networkCompression || len(satt.networkCompressionLevels) != 2 || satt.networkCompressionLevels[0] != "low" {
 		t.Fatalf("unexpected compression fields: %+v", satt)
 	}
-	if satt.NT.ExpireTime != 120000 {
-		t.Fatalf("unexpected expire time: %d", satt.NT.ExpireTime)
+	if satt.nt.ExpireTime != 120000 {
+		t.Fatalf("unexpected expire time: %d", satt.nt.ExpireTime)
 	}
-	if satt.ConnectTimeout != 3 {
-		t.Fatalf("unexpected connect timeout: %d", satt.ConnectTimeout)
+	if satt.connectTimeout != 3 {
+		t.Fatalf("unexpected connect timeout: %d", satt.connectTimeout)
 	}
-	if satt.NT.Transportconnecttimeout != 10 {
-		t.Fatalf("unexpected transport connect timeout: %d", satt.NT.Transportconnecttimeout)
+	if satt.nt.Transportconnecttimeout != 10 {
+		t.Fatalf("unexpected transport connect timeout: %d", satt.nt.Transportconnecttimeout)
 	}
-	if satt.NT.RecvTimeout != 4 {
-		t.Fatalf("unexpected recv timeout: %d", satt.RecvTimeout)
+	if satt.nt.RecvTimeout != 4 {
+		t.Fatalf("unexpected recv timeout: %d", satt.recvTimeout)
 	}
-	if satt.NT.Connectionidprefix != "prefix" {
-		t.Fatalf("unexpected Connectionidprefix: %s", satt.NT.Connectionidprefix)
+	if satt.nt.Connectionidprefix != "prefix" {
+		t.Fatalf("unexpected Connectionidprefix: %s", satt.nt.Connectionidprefix)
 	}
-	if !satt.NT.EnabledDCD {
+	if !satt.nt.EnabledDCD {
 		t.Fatalf("expected EnabledDCD to be true")
 	}
-	if satt.NT.WalletLocation != "/tmp/wallet" {
-		t.Fatalf("wallet location not set: %s", satt.NT.WalletLocation)
+	if satt.nt.WalletLocation != "/tmp/wallet" {
+		t.Fatalf("wallet location not set: %s", satt.nt.WalletLocation)
 	}
-	if satt.NT.SSLServerCertDN != "CN=example" {
-		t.Fatalf("SSLServerCertDN unexpected: %s", satt.NT.SSLServerCertDN)
+	if satt.nt.SSLServerCertDN != "CN=example" {
+		t.Fatalf("SSLServerCertDN unexpected: %s", satt.nt.SSLServerCertDN)
 	}
-	if !satt.NT.SSLAllowWeakDNMatch {
+	if !satt.nt.SSLAllowWeakDNMatch {
 		t.Fatalf("expected weak dn match true")
 	}
-	if !satt.NT.UseSNI {
+	if !satt.nt.UseSNI {
 		t.Fatalf("expected UseSNI true")
 	}
 }
@@ -160,7 +160,7 @@ func TestSessionAttsSetFromParsedDescriptionKeepsDefaultDNMatch(t *testing.T) {
 
 	satt := newSessionAtts("uuid")
 	satt.setFrom(ctx.Description)
-	if !satt.NT.SSLServerDNMatch {
+	if !satt.nt.SSLServerDNMatch {
 		t.Fatal("expected SSLServerDNMatch to remain true when SECURITY node is absent")
 	}
 }
@@ -184,8 +184,8 @@ func TestSessionAttsSetFromCompressionDefaultLevel(t *testing.T) {
 	desc := &naming.Description{Compression: true, CompressionLevels: nil}
 	satt := newSessionAtts("uuid")
 	satt.setFrom(desc)
-	if !satt.NetworkCompression || len(satt.NetworkCompressionLevels) != 1 || satt.NetworkCompressionLevels[0] != "high" {
-		t.Fatalf("expected default compression level, got %+v", satt.NetworkCompressionLevels)
+	if !satt.networkCompression || len(satt.networkCompressionLevels) != 1 || satt.networkCompressionLevels[0] != "high" {
+		t.Fatalf("expected default compression level, got %+v", satt.networkCompressionLevels)
 	}
 }
 
@@ -194,8 +194,8 @@ func TestSessionAttsSetFromCompressionThreshold(t *testing.T) {
 	desc := &naming.Description{Compression: true, CompressionLevels: []string{"low"}}
 	satt := newSessionAtts("uuid")
 	satt.setFrom(desc)
-	if satt.NetworkCompressionThreshold != 1024 {
-		t.Fatalf("expected default threshold 1024, got %d", satt.NetworkCompressionThreshold)
+	if satt.networkCompressionThreshold != 1024 {
+		t.Fatalf("expected default threshold 1024, got %d", satt.networkCompressionThreshold)
 	}
 }
 
@@ -204,7 +204,7 @@ func TestSessionAttsSetFromEnableNotBroken(t *testing.T) {
 	desc := &naming.Description{Enable: "notbroken"}
 	satt := newSessionAtts("")
 	satt.setFrom(desc)
-	if satt.NT.EnabledDCD {
+	if satt.nt.EnabledDCD {
 		t.Fatalf("expected EnabledDCD false for enable not 'broken'")
 	}
 }
@@ -214,7 +214,7 @@ func TestSessionAttsSetFromSSLAllowWeakDNMatchNo(t *testing.T) {
 	desc := &naming.Description{Security: naming.Security{SSLAllowWeakDNMatch: false}}
 	satt := newSessionAtts("")
 	satt.setFrom(desc)
-	if satt.NT.SSLAllowWeakDNMatch {
+	if satt.nt.SSLAllowWeakDNMatch {
 		t.Fatalf("expected SSLAllowWeakDNMatch false")
 	}
 }
@@ -224,7 +224,7 @@ func TestSessionAttsSetFromUseSNINo(t *testing.T) {
 	desc := &naming.Description{UseSNI: false}
 	satt := newSessionAtts("")
 	satt.setFrom(desc)
-	if satt.NT.UseSNI {
+	if satt.nt.UseSNI {
 		t.Fatalf("expected UseSNI false")
 	}
 }
@@ -238,7 +238,7 @@ func TestReadWalletFile(t *testing.T) {
 		t.Fatalf("failed to write wallet file: %v", err)
 	}
 	satt := newSessionAtts("uuid")
-	satt.NT.WalletLocation = dir
+	satt.nt.WalletLocation = dir
 	data, err := satt.readWalletFile()
 	if err != nil {
 		t.Fatalf("ReadWalletFile error: %v", err)
@@ -251,7 +251,7 @@ func TestReadWalletFile(t *testing.T) {
 func TestReadWalletFileError(t *testing.T) {
 	t.Parallel()
 	satt := newSessionAtts("uuid")
-	satt.NT.WalletLocation = "/nonexistent"
+	satt.nt.WalletLocation = "/nonexistent"
 	_, err := satt.readWalletFile()
 	if err == nil {
 		t.Fatalf("expected error for nonexistent wallet")
@@ -264,26 +264,26 @@ func TestReadWalletFileError(t *testing.T) {
 func TestPrepare(t *testing.T) {
 	t.Parallel()
 	satt := newSessionAtts("")
-	satt.NT.Connectionidprefix = "pref-"
-	satt.NT.WalletLocation = ""
-	satt.NT.WalletContent = []byte("existing")
-	satt.NT.Transportconnecttimeout = 1000
-	satt.ConnectTimeout = 0
+	satt.nt.Connectionidprefix = "pref-"
+	satt.nt.WalletLocation = ""
+	satt.nt.WalletContent = []byte("existing")
+	satt.nt.Transportconnecttimeout = 1000
+	satt.connectTimeout = 0
 	err := satt.prepare(common.ProtocolTCP)
 	if err != nil {
 		t.Fatalf("Prepare error: %v", err)
 	}
-	if satt.UUID == "" {
+	if satt.uuid == "" {
 		t.Fatalf("Prepare should set UUID")
 	}
-	if !strings.HasPrefix(satt.NT.Connectionid, "pref-") {
-		t.Fatalf("Connectionid not prefixed: %s", satt.NT.Connectionid)
+	if !strings.HasPrefix(satt.nt.Connectionid, "pref-") {
+		t.Fatalf("Connectionid not prefixed: %s", satt.nt.Connectionid)
 	}
-	if string(satt.NT.WalletContent) != "existing" {
-		t.Fatalf("wallet content changed: %s", satt.NT.WalletContent)
+	if string(satt.nt.WalletContent) != "existing" {
+		t.Fatalf("wallet content changed: %s", satt.nt.WalletContent)
 	}
-	if satt.NT.Transportconnecttimeout != 1000 {
-		t.Fatalf("expected transport timeout unchanged, got %d", satt.NT.Transportconnecttimeout)
+	if satt.nt.Transportconnecttimeout != 1000 {
+		t.Fatalf("expected transport timeout unchanged, got %d", satt.nt.Transportconnecttimeout)
 	}
 }
 
@@ -295,27 +295,27 @@ func TestPrepareWithWallet(t *testing.T) {
 		t.Fatalf("write wallet error: %v", err)
 	}
 	satt := newSessionAtts("")
-	satt.NT.WalletLocation = dir
-	satt.NT.Transportconnecttimeout = 0
-	satt.ConnectTimeout = 0
+	satt.nt.WalletLocation = dir
+	satt.nt.Transportconnecttimeout = 0
+	satt.connectTimeout = 0
 	err := satt.prepare(common.ProtocolTCPS)
 	if err != nil {
 		t.Fatalf("Prepare error: %v", err)
 	}
-	if satt.UUID == "" {
+	if satt.uuid == "" {
 		t.Fatalf("UUID not set")
 	}
-	if satt.NT.Connectionid != satt.UUID {
-		t.Fatalf("unexpected Connectionid: %s", satt.NT.Connectionid)
+	if satt.nt.Connectionid != satt.uuid {
+		t.Fatalf("unexpected Connectionid: %s", satt.nt.Connectionid)
 	}
-	if string(satt.NT.WalletContent) != "wallet" {
-		t.Fatalf("wallet not loaded: %s", satt.NT.WalletContent)
+	if string(satt.nt.WalletContent) != "wallet" {
+		t.Fatalf("wallet not loaded: %s", satt.nt.WalletContent)
 	}
-	if satt.NT.UseSystemTrust {
+	if satt.nt.UseSystemTrust {
 		t.Fatal("expected a configured wallet to provide its own trust anchors")
 	}
-	if satt.NT.Transportconnecttimeout != DEFAULT_TRANSPORT_CONNECT_TIMEOUT {
-		t.Fatalf("expected default transport timeout, got %d", satt.NT.Transportconnecttimeout)
+	if satt.nt.Transportconnecttimeout != DEFAULT_TRANSPORT_CONNECT_TIMEOUT {
+		t.Fatalf("expected default transport timeout, got %d", satt.nt.Transportconnecttimeout)
 	}
 }
 
@@ -364,17 +364,17 @@ func TestPrepareWithSystemTrust(t *testing.T) {
 
 			satt := newSessionAtts("")
 			satt.setFrom(desc)
-			if satt.NT.WalletLocation != tt.walletLocation {
-				t.Fatalf("expected wallet location %q, got %q", tt.walletLocation, satt.NT.WalletLocation)
+			if satt.nt.WalletLocation != tt.walletLocation {
+				t.Fatalf("expected wallet location %q, got %q", tt.walletLocation, satt.nt.WalletLocation)
 			}
 			if err := satt.prepare(common.ProtocolTCPS); err != nil {
 				t.Fatalf("Prepare should use system trust: %v", err)
 			}
-			if !satt.NT.UseSystemTrust {
+			if !satt.nt.UseSystemTrust {
 				t.Fatal("expected system trust to be enabled")
 			}
-			if satt.NT.WalletContent != nil {
-				t.Fatalf("expected no wallet content, got %q", string(satt.NT.WalletContent))
+			if satt.nt.WalletContent != nil {
+				t.Fatalf("expected no wallet content, got %q", string(satt.nt.WalletContent))
 			}
 		})
 	}
@@ -383,16 +383,16 @@ func TestPrepareWithSystemTrust(t *testing.T) {
 func TestPrepareDefaultTimeout(t *testing.T) {
 	t.Parallel()
 	satt := newSessionAtts("")
-	satt.NT.Transportconnecttimeout = 0
-	satt.ConnectTimeout = 0
+	satt.nt.Transportconnecttimeout = 0
+	satt.connectTimeout = 0
 	err := satt.prepare(common.ProtocolTCP)
 	if err != nil {
 		t.Fatalf("Prepare error: %v", err)
 	}
-	if satt.NT.Transportconnecttimeout != DEFAULT_TRANSPORT_CONNECT_TIMEOUT {
-		t.Fatalf("expected default transport timeout, got %d", satt.NT.Transportconnecttimeout)
+	if satt.nt.Transportconnecttimeout != DEFAULT_TRANSPORT_CONNECT_TIMEOUT {
+		t.Fatalf("expected default transport timeout, got %d", satt.nt.Transportconnecttimeout)
 	}
-	if satt.NT.UseSystemTrust {
+	if satt.nt.UseSystemTrust {
 		t.Fatal("expected system TLS trust to remain disabled for TCP")
 	}
 }
@@ -411,12 +411,12 @@ func TestPrepareClampsSDU(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			satt := newSessionAtts("")
-			satt.SDU = tt.sdu
+			satt.sdu = tt.sdu
 			if err := satt.prepare(common.ProtocolTCP); err != nil {
 				t.Fatalf("Prepare error: %v", err)
 			}
-			if satt.SDU != tt.want {
-				t.Fatalf("expected SDU %d, got %d", tt.want, satt.SDU)
+			if satt.sdu != tt.want {
+				t.Fatalf("expected SDU %d, got %d", tt.want, satt.sdu)
 			}
 		})
 	}
@@ -425,7 +425,7 @@ func TestPrepareClampsSDU(t *testing.T) {
 func TestPrepareWalletError(t *testing.T) {
 	t.Parallel()
 	satt := newSessionAtts("")
-	satt.NT.WalletLocation = "/nonexistent"
+	satt.nt.WalletLocation = "/nonexistent"
 	err := satt.prepare(common.ProtocolTCPS)
 	if err == nil {
 		t.Fatalf("expected Prepare error for bad wallet path")
@@ -444,20 +444,20 @@ func TestPrepareNoPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Prepare error: %v", err)
 	}
-	if satt.NT.Connectionid != satt.UUID {
-		t.Fatalf("Connectionid should be UUID without prefix: %s", satt.NT.Connectionid)
+	if satt.nt.Connectionid != satt.uuid {
+		t.Fatalf("Connectionid should be UUID without prefix: %s", satt.nt.Connectionid)
 	}
 }
 
 func TestPrepareNonTCPSNoWalletLoad(t *testing.T) {
 	t.Parallel()
 	satt := newSessionAtts("")
-	satt.NT.WalletLocation = "/some/path"
+	satt.nt.WalletLocation = "/some/path"
 	err := satt.prepare(common.ProtocolTCP)
 	if err != nil {
 		t.Fatalf("Prepare error: %v", err)
 	}
-	if satt.NT.WalletContent != nil {
+	if satt.nt.WalletContent != nil {
 		t.Fatalf("wallet should not be loaded for non-tcps")
 	}
 }

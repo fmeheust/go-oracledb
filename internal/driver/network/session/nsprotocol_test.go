@@ -151,7 +151,7 @@ func TestNewNetworkSession(t *testing.T) {
 func TestTransportConnect(t *testing.T) {
 	t.Parallel()
 	ns := newNetworkSession()
-	ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, SDU: 8192}
+	ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, sdu: 8192}
 
 	// Test HTTPS proxy with TCP
 	address := transport.Address{
@@ -279,7 +279,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: 314, SDU: 8192} // low version
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: 314, sdu: 8192} // low version
 		acceptBuf := make([]byte, 50)
 		binary.BigEndian.PutUint16(acceptBuf[0:2], 50) // packet len for !LargeSDU
 		acceptBuf[4] = NSPTAC
@@ -306,8 +306,8 @@ func TestConnectSubtests(t *testing.T) {
 		if _, ok := pkt.(*acceptPacket); !ok {
 			t.Errorf("Expected acceptPacket")
 		}
-		if ns.sAtts.Version < TNS_VERSION_MINIMUM {
-			err = fmt.Errorf("unsupported TNS version: %d (minimum required: %d)", ns.sAtts.Version, TNS_VERSION_MINIMUM)
+		if ns.sAtts.version < TNS_VERSION_MINIMUM {
+			err = fmt.Errorf("unsupported TNS version: %d (minimum required: %d)", ns.sAtts.version, TNS_VERSION_MINIMUM)
 		}
 		if err == nil || !strings.Contains(err.Error(), "unsupported TNS version") {
 			t.Errorf("Expected low version error, got %v", err)
@@ -319,7 +319,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		// mock redirect packet from server without overflow
 		redirectData := []byte("(ADDRESS=(PROTOCOL=tcp)(HOST=redirecthost)(PORT=1522))")
 		dataLen := len(redirectData)
@@ -354,7 +354,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		// mock redirect packet from server
 		data := []byte{0x0, 0xa, 0x0, 0x0, 0x5, 0x2, 0x0, 0x0, 0x1, 0x61}
 		// redirect packet overflow data
@@ -376,7 +376,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=redirect_probe)))")
 		ns.redirectCount = maxRedirectCount
 
@@ -403,7 +403,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=freepdb1)))")
 		// mock refuse packet buf from the server
 		mock.receivedData = []byte{0x0, 0x5f, 0x0, 0x0, 0x4, 0x0, 0x0, 0x0, 0x22, 0x0, 0x0, 0x53, 0x28, 0x44, 0x45, 0x53, 0x43, 0x52, 0x49, 0x50, 0x54, 0x49, 0x4f, 0x4e, 0x3d, 0x28, 0x54, 0x4d, 0x50, 0x3d, 0x29, 0x28, 0x56, 0x53, 0x4e, 0x4e, 0x55, 0x4d, 0x3d, 0x30, 0x29, 0x28, 0x45, 0x52, 0x52, 0x3d, 0x31, 0x32, 0x35, 0x31, 0x34, 0x29, 0x28, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x5f, 0x53, 0x54, 0x41, 0x43, 0x4b, 0x3d, 0x28, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x3d, 0x28, 0x43, 0x4f, 0x44, 0x45, 0x3d, 0x31, 0x32, 0x35, 0x31, 0x34, 0x29, 0x28, 0x45, 0x4d, 0x46, 0x49, 0x3d, 0x34, 0x29, 0x29, 0x29, 0x29}
@@ -420,7 +420,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=freepdb1)))")
 		refuseHdr := []byte{0x00, 0x0c, 0x00, 0x00, 0x04, 0x02, 0x00, 0x00, 0x22, 0x00, 0x00, 0x00}
 		overflowPkt := []byte{0x00, 0x5d, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x28, 0x44, 0x45, 0x53, 0x43, 0x52, 0x49, 0x50, 0x54, 0x49, 0x4f, 0x4e, 0x3d, 0x28, 0x54, 0x4d, 0x50, 0x3d, 0x29, 0x28, 0x56, 0x53, 0x4e, 0x4e, 0x55, 0x4d, 0x3d, 0x30, 0x29, 0x28, 0x45, 0x52, 0x52, 0x3d, 0x31, 0x32, 0x35, 0x31, 0x34, 0x29, 0x28, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x5f, 0x53, 0x54, 0x41, 0x43, 0x4b, 0x3d, 0x28, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x3d, 0x28, 0x43, 0x4f, 0x44, 0x45, 0x3d, 0x31, 0x32, 0x35, 0x31, 0x34, 0x29, 0x28, 0x45, 0x4d, 0x46, 0x49, 0x3d, 0x34, 0x29, 0x29, 0x29, 0x29}
@@ -438,7 +438,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		resendBuf := make([]byte, 10)
 		binary.BigEndian.PutUint16(resendBuf[0:2], 10)
 		resendBuf[4] = NSPTRS
@@ -462,7 +462,7 @@ func TestConnectSubtests(t *testing.T) {
 			t.Errorf("Unexpected recvPacket error: %v", err)
 		}
 		if p, ok := pkt.(*resendPacket); ok {
-			if p.hdr.Flags&NSPFSRN != 0 {
+			if p.hdr.flags&NSPFSRN != 0 {
 				// Simulate TLS reneg if needed
 			}
 			err = ns.sendConnect(context.Background(), connectPkt)
@@ -482,7 +482,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		unknownBuf := make([]byte, 10)
 		binary.BigEndian.PutUint16(unknownBuf[0:2], 10)
 		unknownBuf[4] = 99 // unknown type
@@ -513,7 +513,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{receiveErr: fmt.Errorf("recv error")}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		// Simulate connect flow
 		err := ns.transportConnect(context.Background(), transport.Address{
 			Address: naming.Address{Protocol: driverCommon.ProtocolTCP, Host: "localhost", Port: 1521},
@@ -538,7 +538,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{sendErr: fmt.Errorf("send error")}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		// Simulate connect flow
 		err := ns.transportConnect(context.Background(), transport.Address{
 			Address: naming.Address{Protocol: driverCommon.ProtocolTCP, Host: "localhost", Port: 1521},
@@ -558,13 +558,13 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.rcvBuf = make([]byte, ns.sAtts.SDU)
+		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
 		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
 
@@ -588,13 +588,13 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.rcvBuf = make([]byte, ns.sAtts.SDU)
+		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
 		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
 
@@ -615,13 +615,13 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.rcvBuf = make([]byte, ns.sAtts.SDU)
+		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
 		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
 
@@ -644,13 +644,13 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{sendErr: fmt.Errorf("send error")}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
-		ns.rcvBuf = make([]byte, ns.sAtts.SDU)
+		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 		ns.rcvDatapkt = &dataPacket{}
 		ns.rcvDatapkt.Marshal(ns.rcvBuf, ns.sAtts, 0)
 
@@ -672,7 +672,7 @@ func TestConnectSubtests(t *testing.T) {
 		mock := &mockNTAdapter{}
 		ns := newNetworkSession()
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{}, Version: TNS_VERSION_MINIMUM, SDU: 8192}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{}, version: TNS_VERSION_MINIMUM, sdu: 8192}
 		ns.cData = []byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))")
 
 		resendBuf := make([]byte, 8)
@@ -702,7 +702,7 @@ func TestSend(t *testing.T) {
 	ns.connected = true
 	mock := &mockNTAdapter{}
 	ns.ntAdapter = mock
-	ns.sAtts = &sessionAtts{SDU: 20, LargeSDU: false}
+	ns.sAtts = &sessionAtts{sdu: 20, largeSDU: false}
 	ns.sndBuf = make([]byte, 20)
 	ns.sndDatapkt = &dataPacket{hdr: &header{}}
 	ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
@@ -760,9 +760,9 @@ func TestReset(t *testing.T) {
 		ns.connected = true
 		mock := &mockNTAdapter{}
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{LargeSDU: false, SDU: 8192}
-		ns.rcvBuf = make([]byte, ns.sAtts.SDU)
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sAtts = &sessionAtts{largeSDU: false, sdu: 8192}
+		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
 		ns.rcvDatapkt = &dataPacket{Offset: NSPDADAT, Len: NSPDADAT}
@@ -915,7 +915,7 @@ func TestDisconnect(t *testing.T) {
 		ns.connected = true
 		mock := &mockNTAdapter{}
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{LargeSDU: false}
+		ns.sAtts = &sessionAtts{largeSDU: false}
 		ns.sndBuf = make([]byte, 100)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
@@ -985,7 +985,7 @@ func TestDisconnect(t *testing.T) {
 		ns.connected = true
 		mock := &mockNTAdapter{disconnectErr: fmt.Errorf("disconnect error")}
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{LargeSDU: false}
+		ns.sAtts = &sessionAtts{largeSDU: false}
 		ns.sndBuf = make([]byte, 100)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
@@ -1010,7 +1010,7 @@ func TestDisconnect(t *testing.T) {
 		ns.connected = true
 		mock := &mockNTAdapter{sendErr: fmt.Errorf("send error")}
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{LargeSDU: false}
+		ns.sAtts = &sessionAtts{largeSDU: false}
 		ns.sndBuf = make([]byte, 100)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
@@ -1085,8 +1085,8 @@ func TestSendConnect(t *testing.T) {
 	ns := newNetworkSession()
 	mock := &mockNTAdapter{}
 	ns.ntAdapter = mock
-	ns.sAtts = &sessionAtts{SDU: 8192}
-	ns.sndBuf = make([]byte, ns.sAtts.SDU)
+	ns.sAtts = &sessionAtts{sdu: 8192}
+	ns.sndBuf = make([]byte, ns.sAtts.sdu)
 	ns.sndDatapkt = &dataPacket{}
 	ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
 	connectPkt := &connectPacket{Overflow: false, Buf: make([]byte, 100)}
@@ -1142,9 +1142,9 @@ func TestSendConnect(t *testing.T) {
 func TestProcessPacket(t *testing.T) {
 	t.Parallel()
 	ns := newNetworkSession()
-	ns.sAtts = &sessionAtts{Version: 315, LargeSDU: true}
+	ns.sAtts = &sessionAtts{version: 315, largeSDU: true}
 	buf := make([]byte, 50) // Larger buffer to avoid index errors
-	hdr := &header{Type: NSPTAC, PacketLength: 50}
+	hdr := &header{typ: NSPTAC, packetLength: 50}
 	binary.BigEndian.PutUint16(buf[NSPACVSN:], 315)
 	binary.BigEndian.PutUint32(buf[NSPACLSD:], 8192)
 	binary.BigEndian.PutUint32(buf[NSPACLTD:], 8192)
@@ -1157,7 +1157,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test marker
-	hdr.Type = NSPTMK
+	hdr.typ = NSPTMK
 	buf[NSPMKTYP] = NSPMKTD1
 	buf[NSPMKDAT] = NIQRMARK
 	_, err = ns.processPacket(buf, hdr)
@@ -1169,14 +1169,14 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test unsupported type
-	hdr.Type = 99
+	hdr.typ = 99
 	_, err = ns.processPacket(buf, hdr)
 	if err == nil || err.Error() != "unsupported packet type: 99" {
 		t.Errorf("Expected unsupported type error")
 	}
 
 	// Test refuse
-	hdr.Type = NSPTRF
+	hdr.typ = NSPTRF
 	pkt, err = ns.processPacket(buf, hdr)
 	if err != nil {
 		t.Errorf("Unexpected error for refuse")
@@ -1186,7 +1186,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test redirect
-	hdr.Type = NSPTRD
+	hdr.typ = NSPTRD
 	pkt, err = ns.processPacket(buf, hdr)
 	if err != nil {
 		t.Errorf("Unexpected error for redirect")
@@ -1196,7 +1196,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test resend
-	hdr.Type = NSPTRS
+	hdr.typ = NSPTRS
 	pkt, err = ns.processPacket(buf, hdr)
 	if err != nil {
 		t.Errorf("Unexpected error for resend")
@@ -1206,7 +1206,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test control
-	hdr.Type = NSPTCNL
+	hdr.typ = NSPTCNL
 	binary.BigEndian.PutUint16(buf[NSPCTLCMD:], NSPCTL_SERR)
 	binary.BigEndian.PutUint32(buf[NSPCTLDAT:], 0)       // emfi
 	binary.BigEndian.PutUint32(buf[NSPCTLDAT+4:], 12572) // err1
@@ -1220,7 +1220,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test data packet
-	hdr.Type = NSPTDA
+	hdr.typ = NSPTDA
 	pkt, err = ns.processPacket(buf, hdr)
 	if err != nil {
 		t.Errorf("Unexpected error for data: %v", err)
@@ -1230,7 +1230,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test marker D0
-	hdr.Type = NSPTMK
+	hdr.typ = NSPTMK
 	buf[NSPMKTYP] = NSPMKTD0
 	_, err = ns.processPacket(buf, hdr)
 	if err != nil {
@@ -1241,7 +1241,7 @@ func TestProcessPacket(t *testing.T) {
 	}
 
 	// Test unmarshal error
-	hdr.Type = NSPTAC
+	hdr.typ = NSPTAC
 	// Corrupt version to cause unmarshal error
 	binary.BigEndian.PutUint16(buf[NSPACVSN:], 0)
 	_, err = ns.processPacket(buf, hdr)
@@ -1255,9 +1255,9 @@ func TestRecvPacket(t *testing.T) {
 		ns := newNetworkSession()
 		mock := &mockNTAdapter{}
 		ns.ntAdapter = mock
-		ns.sAtts = &sessionAtts{LargeSDU: largeSDU, SDU: 8192}
-		ns.rcvBuf = make([]byte, ns.sAtts.SDU)
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sAtts = &sessionAtts{largeSDU: largeSDU, sdu: 8192}
+		ns.rcvBuf = make([]byte, ns.sAtts.sdu)
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
 		return ns, mock
 	}
@@ -1355,7 +1355,7 @@ func TestRefuseArgs(t *testing.T) {
 	t.Parallel()
 	ns := newNetworkSession()
 	address := transport.Address{Address: naming.Address{Host: "host", Port: 1521}, Hostname: "hostname"}
-	ns.sAtts = &sessionAtts{NT: transport.NTattributes{Connectionid: "connid"}}
+	ns.sAtts = &sessionAtts{nt: transport.NTattributes{Connectionid: "connid"}}
 
 	tests := []struct {
 		name      string
@@ -1403,7 +1403,7 @@ func TestHandleRefuse(t *testing.T) {
 	t.Parallel()
 	setup := func() (*networkSession, *mockNTAdapter) {
 		ns := newNetworkSession()
-		ns.sAtts = &sessionAtts{NT: transport.NTattributes{Connectionid: "testconnid"}}
+		ns.sAtts = &sessionAtts{nt: transport.NTattributes{Connectionid: "testconnid"}}
 		mock := &mockNTAdapter{}
 		ns.ntAdapter = mock
 		ns.rcvBuf = make([]byte, 8192)
@@ -1448,11 +1448,11 @@ func TestHandleResend(t *testing.T) {
 	t.Parallel()
 	t.Run("No SRN", func(t *testing.T) {
 		ns := newNetworkSession()
-		ns.sAtts = &sessionAtts{SDU: 8192}
+		ns.sAtts = &sessionAtts{sdu: 8192}
 		ns.ntAdapter = &mockNTAdapter{}
 		connectPkt := &connectPacket{Buf: make([]byte, 100)}
 		connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS)
-		p := &resendPacket{hdr: &header{Flags: 0}}
+		p := &resendPacket{hdr: &header{flags: 0}}
 		err := ns.handleResend(context.Background(), p, connectPkt)
 		if err != nil {
 			t.Errorf("Unexpected error without SRN: %v", err)
@@ -1462,15 +1462,15 @@ func TestHandleResend(t *testing.T) {
 	t.Run("SendConnect Error", func(t *testing.T) {
 		ns := newNetworkSession()
 		ns.connected = true
-		ns.sAtts = &sessionAtts{SDU: 8192}
-		ns.sndBuf = make([]byte, ns.sAtts.SDU)
+		ns.sAtts = &sessionAtts{sdu: 8192}
+		ns.sndBuf = make([]byte, ns.sAtts.sdu)
 		ns.sndDatapkt = &dataPacket{}
 		ns.sndDatapkt.Marshal(ns.sndBuf, ns.sAtts, 0)
 		mock := &mockNTAdapter{sendErr: fmt.Errorf("send error")}
 		ns.ntAdapter = mock
 		connectPkt := &connectPacket{Buf: make([]byte, 100)}
 		connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS)
-		p := &resendPacket{hdr: &header{Flags: 0}}
+		p := &resendPacket{hdr: &header{flags: 0}}
 		err := ns.handleResend(context.Background(), p, connectPkt)
 		fmt.Println(err)
 		if err == nil || !strings.Contains(err.Error(), "send error") {
@@ -1480,13 +1480,13 @@ func TestHandleResend(t *testing.T) {
 
 	t.Run("SRNOnNonTCPS", func(t *testing.T) {
 		ns := newNetworkSession()
-		ns.sAtts = &sessionAtts{SDU: 8192}
+		ns.sAtts = &sessionAtts{sdu: 8192}
 		ns.ntAdapter = &mockNTAdapter{}
 		connectPkt := &connectPacket{Buf: make([]byte, 100)}
 		if err := connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS); err != nil {
 			t.Fatalf("Marshal connect packet: %v", err)
 		}
-		p := &resendPacket{hdr: &header{Flags: NSPFSRN}}
+		p := &resendPacket{hdr: &header{flags: NSPFSRN}}
 		err := ns.handleResend(context.Background(), p, connectPkt)
 		if err == nil || !strings.Contains(err.Error(), "invalid resend flag") {
 			t.Errorf("Expected invalid resend flag error, got %v", err)
@@ -1495,14 +1495,14 @@ func TestHandleResend(t *testing.T) {
 
 	t.Run("SRNOnTCPS", func(t *testing.T) {
 		ns := newNetworkSession()
-		ns.sAtts = &sessionAtts{SDU: 8192}
+		ns.sAtts = &sessionAtts{sdu: 8192}
 		mockTCPS := &mockNTTCPS{}
 		ns.ntAdapter = mockTCPS
 		connectPkt := &connectPacket{Buf: make([]byte, 100)}
 		if err := connectPkt.Marshal([]byte("(DESCRIPTION=(CONNECT_DATA=(SERVICE_NAME=orcl)))"), ns.sAtts, NO_HEADER_FLAGS); err != nil {
 			t.Fatalf("Marshal connect packet: %v", err)
 		}
-		p := &resendPacket{hdr: &header{Flags: NSPFSRN}}
+		p := &resendPacket{hdr: &header{flags: NSPFSRN}}
 		err := ns.handleResend(context.Background(), p, connectPkt)
 		if err != nil {
 			t.Fatalf("Unexpected error for TCPS resend: %v", err)
@@ -1530,8 +1530,8 @@ func TestCheckInbandNotification(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ns := newNetworkSession()
 			ns.controlPkt = &controlPacket{}
-			ns.sAtts = &sessionAtts{LargeSDU: false, SDU: 8192}
-			ns.rcvBuf = make([]byte, ns.sAtts.SDU)
+			ns.sAtts = &sessionAtts{largeSDU: false, sdu: 8192}
+			ns.rcvBuf = make([]byte, ns.sAtts.sdu)
 			mock := &mockNTAdapter{receivedData: tt.mockData}
 			ns.ntAdapter = mock
 
