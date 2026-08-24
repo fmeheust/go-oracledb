@@ -51,8 +51,13 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOCIToken(t *testing.T) {
 
 	cfg := oracleconfig.NewOracleDriverConfig()
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
+	cfg.Credentials.Password = "token-value"
 
-	authenticator, err := GetAuthenticator(cfg, nil)
+	authenticator, err := GetAuthenticator(cfg, []oracleProviders.Provider{
+		mockOCITokenAuthenticationProvider{
+			mockTokenAuthenticationProvider: mockTokenAuthenticationProvider{token: "token-value"},
+		},
+	})
 	if err != nil {
 		t.Fatalf("GetAuthenticator returned error: %v", err)
 	}
@@ -66,8 +71,11 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 
 	cfg := oracleconfig.NewOracleDriverConfig()
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
+	cfg.Credentials.Password = "token-value"
 
-	authenticator, err := GetAuthenticator(cfg, nil)
+	authenticator, err := GetAuthenticator(cfg, []oracleProviders.Provider{
+		mockTokenAuthenticationProvider{token: "token-value"},
+	})
 	if err != nil {
 		t.Fatalf("GetAuthenticator returned error: %v", err)
 	}
