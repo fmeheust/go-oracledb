@@ -48,6 +48,7 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 type connectionInstantiator struct {
@@ -169,6 +170,13 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 		return nil, common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	var tokenProvider oracleProviders.TokenAuthenticationProvider
+	if providerRegistry != nil {
+		tokenProvider = findFirstTokenAuthenticatorProvider(providerRegistry.Providers())
+	}
+	if len(parameters.Credentials.User) == 0 && tokenProvider != nil {
+		return createTokenAuthenticator(parameters, providerRegistry)
+	}
 	if len(parameters.Credentials.Password) > 0 {
 		if len(parameters.Credentials.User) == 0 {
 			return createTokenAuthenticator(parameters, providerRegistry)

@@ -117,7 +117,7 @@ func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 	if err != nil {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
-	signature, err := ta.signHeader(ctx, tokenHeader)
+	signature, err := ta.signHeader(ctx, tokenHeader, token)
 	if err != nil {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
 	}
@@ -180,17 +180,16 @@ func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 	}
 }
 
-// expectsHeader reports whether the provider requires OCI-style signed token
-// header fields.
+// expectsHeader reports whether the provider requires signed token header fields.
 //
 // Parameters:
-//   - tokenProvider: the token provider being used for authentication.
+//   - tokenProvider: the provider being used for authentication.
 //
 // Returns:
-//   - true when tokenProvider implements OCITokenAuthenticationProvider.
+//   - true when tokenProvider implements SignedTokenAuthenticationProvider.
 //   - false otherwise.
 func expectsHeader(tokenProvider oracleProviders.TokenAuthenticationProvider) bool {
-	_, ok := tokenProvider.(oracleProviders.OCITokenAuthenticationProvider)
+	_, ok := tokenProvider.(oracleProviders.SignedTokenAuthenticationProvider)
 	return ok
 }
 
@@ -209,8 +208,8 @@ func logonMode(tokenProvider oracleProviders.TokenAuthenticationProvider) int64 
 	}
 }
 
-// generateTokenHeader builds the signed OCI token header when the active
-// provider requires one.
+// generateTokenHeader builds the signed token header when the active provider
+// requires one.
 //
 // Parameters:
 //   - none.
@@ -238,19 +237,20 @@ func (ta *tokenAuthenticator) generateTokenHeader() (string, error) {
 	return "", nil
 }
 
-// signHeader signs the OCI token header when the active provider supports
+// signHeader signs the token header when the active provider supports
 // private-key signing.
 //
 // Parameters:
 //   - ctx: the context controlling private key retrieval.
 //   - header: the token header payload to sign.
+//   - token: the token whose matching private key is required.
 //
 // Returns:
 //   - the base64-encoded signature, or an empty string when signing is not required.
 //   - an error if key retrieval, parsing, or signing fails.
-func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string) (string, error) {
-	if expectsHeader(ta.tokenProvider) && len(header) > 0 {
-		keyPEM, err := ta.tokenProvider.(oracleProviders.OCITokenAuthenticationProvider).PrivateKey(ctx)
+func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string, token string) (string, error) {
+	if provider, ok := ta.tokenProvider.(oracleProviders.SignedTokenAuthenticationProvider); ok && len(header) > 0 {
+		keyPEM, err := provider.PrivateKeyForToken(ctx, token)
 		if err != nil {
 			return "", err
 		}
@@ -373,7 +373,7 @@ func validateJWTExpiration(token string) error {
 		return nil
 	}
 
-	common.Odl.Debug("JWTToken", "token", token, "payload", payload)
+	// The token and decoded claims are credentials and must not be logged.
 	var claims struct {
 		Exp *int64 `json:"exp"`
 	}
