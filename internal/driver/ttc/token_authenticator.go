@@ -33,13 +33,31 @@ type tokenAuthenticator struct {
 	connectString  string
 }
 
-func NewTokenAuthenticator(providerRegistry []oracleProviders.Provider, connectString string) *tokenAuthenticator {
+// newTokenAuthenticator creates a token authenticator backed by the first
+// token authentication provider found in the supplied provider registry.
+//
+// Parameters:
+//   - providerRegistry: the providers available for this connection attempt.
+//   - connectString: the connect descriptor used to derive token header fields.
+//
+// Returns:
+//   - the configured token authenticator.
+func newTokenAuthenticator(providerRegistry []oracleProviders.Provider, connectString string) *tokenAuthenticator {
 	return &tokenAuthenticator{
 		tokenProvider: findFirstTokenAuthenticatorProvider(providerRegistry),
 		connectString: connectString,
 	}
 }
 
+// findFirstTokenAuthenticatorProvider returns the first provider in the
+// registry that implements token authentication.
+//
+// Parameters:
+//   - providerRegistry: the providers available for the connection attempt.
+//
+// Returns:
+//   - the first token authentication provider found in the registry.
+//   - nil when no token authentication provider is registered.
 func findFirstTokenAuthenticatorProvider(providerRegistry []oracleProviders.Provider) oracleProviders.TokenAuthenticationProvider {
 	for _, provider := range providerRegistry {
 		if tokenProvider, ok := provider.(oracleProviders.TokenAuthenticationProvider); ok {
@@ -49,14 +67,33 @@ func findFirstTokenAuthenticatorProvider(providerRegistry []oracleProviders.Prov
 	return nil
 }
 
+// SetShelf stores the TTC shelf used to create and exchange authentication
+// messages.
+//
+// Parameters:
+//   - shelf: the TTC shelf bound to the current connection attempt.
 func (ta *tokenAuthenticator) SetShelf(shelf *ttiShelf[driverCommon.MessageType]) {
 	ta.shelf = *shelf
 }
 
+// SetSessionContext stores the session context used during token
+// authentication.
+//
+// Parameters:
+//   - sessCtx: the session context associated with the current connection attempt.
 func (ta *tokenAuthenticator) SetSessionContext(sessCtx *driverCommon.SessionContext) {
 	ta.sessionContext = sessCtx
 }
 
+// Authenticate performs token-based authentication over TTC and updates the
+// session context with the server response.
+//
+// Parameters:
+//   - ctx: the context controlling message exchange, cancellation, and timeout.
+//
+// Returns:
+//   - nil when authentication succeeds.
+//   - an error if token resolution, signing, message exchange, or server validation fails.
 func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 	common.Odl.Debug("Start TOKEN authentication")
 	if ta.tokenProvider == nil {
@@ -143,11 +180,27 @@ func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 	}
 }
 
+// expectsHeader reports whether the provider requires OCI-style signed token
+// header fields.
+//
+// Parameters:
+//   - tokenProvider: the token provider being used for authentication.
+//
+// Returns:
+//   - true when tokenProvider implements OCITokenAuthenticationProvider.
+//   - false otherwise.
 func expectsHeader(tokenProvider oracleProviders.TokenAuthenticationProvider) bool {
 	_, ok := tokenProvider.(oracleProviders.OCITokenAuthenticationProvider)
 	return ok
 }
 
+// logonMode returns the OAUTH logon mode bits for the supplied token provider.
+//
+// Parameters:
+//   - tokenProvider: the token provider being used for authentication.
+//
+// Returns:
+//   - the logon mode flags required for the provider type.
 func logonMode(tokenProvider oracleProviders.TokenAuthenticationProvider) int64 {
 	if expectsHeader(tokenProvider) {
 		return common.KpzLogon.Value() | common.KpzLogonToken.Value()
@@ -156,6 +209,15 @@ func logonMode(tokenProvider oracleProviders.TokenAuthenticationProvider) int64 
 	}
 }
 
+// generateTokenHeader builds the signed OCI token header when the active
+// provider requires one.
+//
+// Parameters:
+//   - none.
+//
+// Returns:
+//   - the generated token header, or an empty string when no header is required.
+//   - an error if required session or connect descriptor values cannot be derived.
 func (ta *tokenAuthenticator) generateTokenHeader() (string, error) {
 	if expectsHeader(ta.tokenProvider) {
 		serviceName, err := extractServiceName(ta.connectString)
@@ -176,6 +238,16 @@ func (ta *tokenAuthenticator) generateTokenHeader() (string, error) {
 	return "", nil
 }
 
+// signHeader signs the OCI token header when the active provider supports
+// private-key signing.
+//
+// Parameters:
+//   - ctx: the context controlling private key retrieval.
+//   - header: the token header payload to sign.
+//
+// Returns:
+//   - the base64-encoded signature, or an empty string when signing is not required.
+//   - an error if key retrieval, parsing, or signing fails.
 func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string) (string, error) {
 	if expectsHeader(ta.tokenProvider) && len(header) > 0 {
 		keyPEM, err := ta.tokenProvider.(oracleProviders.OCITokenAuthenticationProvider).PrivateKey(ctx)
@@ -195,6 +267,16 @@ func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string) (st
 	return "", nil
 }
 
+// getRequiredSessionProperty returns a non-empty string property from the
+// session context.
+//
+// Parameters:
+//   - sessionContext: the session context holding the property snapshot.
+//   - key: the property name to retrieve.
+//
+// Returns:
+//   - the trimmed string property value.
+//   - an error if the property is missing, not a string, or empty.
 func getRequiredSessionProperty(sessionContext *driverCommon.SessionContext, key string) (string, error) {
 	value, ok := sessionContext.GetSessionProperties().GetProperty(key).(string)
 	if !ok {
@@ -207,11 +289,29 @@ func getRequiredSessionProperty(sessionContext *driverCommon.SessionContext, key
 	return value, nil
 }
 
+// extractServiceName extracts the SERVICE_NAME value from a connect descriptor.
+//
+// Parameters:
+//   - connectString: the connect descriptor to inspect.
+//
+// Returns:
+//   - the extracted service name.
+//   - an error if SERVICE_NAME cannot be found or parsed.
 func extractServiceName(connectString string) (string, error) {
 	common.Odl.Debug("ConnectionString", "connectString", connectString)
 	return extractAddressValue(connectString, "SERVICE_NAME")
 }
 
+// extractAddressValue extracts a descriptor value identified by key from the
+// supplied connect descriptor.
+//
+// Parameters:
+//   - connectString: the connect descriptor to inspect.
+//   - key: the descriptor key to locate.
+//
+// Returns:
+//   - the trimmed value associated with key.
+//   - an error if key cannot be found or its value cannot be parsed.
 func extractAddressValue(connectString, key string) (string, error) {
 	upper := strings.ToUpper(connectString)
 	idx := strings.Index(upper, key+"=")
@@ -226,6 +326,14 @@ func extractAddressValue(connectString, key string) (string, error) {
 	return strings.TrimSpace(connectString[start : start+end]), nil
 }
 
+// getSigner parses a PEM-encoded PKCS#8 RSA private key into a crypto.Signer.
+//
+// Parameters:
+//   - keyPEM: the PEM-encoded private key bytes.
+//
+// Returns:
+//   - the parsed crypto.Signer implementation.
+//   - an error if keyPEM is missing, malformed, or not an RSA signing key.
 func getSigner(keyPEM []byte) (crypto.Signer, error) {
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
@@ -245,6 +353,15 @@ func getSigner(keyPEM []byte) (crypto.Signer, error) {
 	return signer, nil
 }
 
+// validateJWTExpiration checks the JWT exp claim when the token payload is a
+// decodable JWT.
+//
+// Parameters:
+//   - token: the token string to inspect.
+//
+// Returns:
+//   - nil when the token is not a decodable JWT or when it is not expired.
+//   - an error if the JWT contains an exp claim that is already in the past.
 func validateJWTExpiration(token string) error {
 	parts := strings.Split(token, ".")
 	if len(parts) < 2 {
@@ -269,6 +386,16 @@ func validateJWTExpiration(token string) error {
 	return nil
 }
 
+// signTokenHeader signs the supplied header using SHA-256 and returns the
+// base64-encoded signature.
+//
+// Parameters:
+//   - header: the header payload to sign.
+//   - signer: the private key signer used to produce the signature.
+//
+// Returns:
+//   - the base64-encoded signature for header.
+//   - an error if the signing operation fails.
 func signTokenHeader(header string, signer crypto.Signer) (string, error) {
 	sum := sha256.Sum256([]byte(header))
 	signature, err := signer.Sign(rand.Reader, sum[:], crypto.SHA256)

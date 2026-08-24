@@ -139,12 +139,9 @@ oci iam db-token get \
 
 The token is short-lived. Regenerate it when it expires.
 
-## 4. Put the token and private key on disk
+## 4. Put the token bundle on disk
 
-The sample registers a token provider on the connector. That provider reads the OCI IAM token bundle from two file paths supplied through environment variables:
-
-- `ORACLE_GO_OCI_TOKEN_FILE`: path to the token file
-- `ORACLE_GO_OCI_PRIVATE_KEY_FILE`: path to the private key PEM file
+The sample registers a token provider on the connector. That provider reads the OCI IAM token bundle from the directory in `ORACLE_GO_OCI_TOKEN_LOCATION`.
 
 The OCI CLI default bundle directory is:
 
@@ -162,15 +159,13 @@ In that directory the expected files are:
 The sample reads its configuration from these environment variables:
 
 - `ORACLE_GO_OCI_TOKEN_CONNECT_DESCRIPTOR`: the TCPS connect descriptor for the target database
-- `ORACLE_GO_OCI_TOKEN_FILE`: the OCI IAM token file
-- `ORACLE_GO_OCI_PRIVATE_KEY_FILE`: the OCI IAM private key PEM file
+- `ORACLE_GO_OCI_TOKEN_LOCATION`: the OCI IAM token bundle directory containing `token` and `oci_db_key.pem`
 
 Set them before running [main.go](C:/work/driver/go-driver/go-oracledb/examples/token_authentication/oci_token/main.go).
 
 ```bash
 export ORACLE_GO_OCI_TOKEN_CONNECT_DESCRIPTOR="(description=(address=(protocol=tcps)(port=1522)(host=<adb-host>))(connect_data=(service_name=<service-name>))(security=(ssl_server_dn_match=yes)))"
-export ORACLE_GO_OCI_TOKEN_FILE="$HOME/.oci/db-token/token"
-export ORACLE_GO_OCI_PRIVATE_KEY_FILE="$HOME/.oci/db-token/oci_db_key.pem"
+export ORACLE_GO_OCI_TOKEN_LOCATION="$HOME/.oci/db-token"
 go run ./examples/token_authentication/oci_token
 ```
 
@@ -186,8 +181,7 @@ Username: <database user>
 - Confirm that the policy includes `database-connections`.
 - Confirm that `identity_provider_type` is `OCI_IAM`.
 - Confirm that the database user is mapped with the correct `IAM_PRINCIPAL_NAME` or `IAM_GROUP_NAME`.
-- Confirm that `ORACLE_GO_OCI_TOKEN_FILE` points to a fresh `token` file.
-- Confirm that `ORACLE_GO_OCI_PRIVATE_KEY_FILE` points to `oci_db_key.pem`.
+- Confirm that `ORACLE_GO_OCI_TOKEN_LOCATION` points to a directory containing a fresh `token` file and `oci_db_key.pem`.
 - Confirm that the connect descriptor uses TCPS and the correct Autonomous Database service name.
 
 ## References

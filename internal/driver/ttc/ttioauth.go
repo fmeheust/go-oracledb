@@ -399,6 +399,11 @@ func (o *oAuth) prepareForOAUTH(luser driverCommon.B1Array,
 	return nil
 }
 
+// prepareForTokenOAUTH initializes the OAUTH request fields used for token
+// authentication flows.
+//
+// Parameters:
+//   - luser: the optional user payload to include in the logon mode setup.
 func (o *oAuth) prepareForTokenOAUTH(luser driverCommon.B1Array) {
 	o.initializeLogonModeForOAUTH(luser, o.logonMode, nil)
 	o.setVSessionKeyValsForOAUTH()
@@ -441,6 +446,16 @@ func (o *oAuth) setPasswordKeyValsForOAUTH(lpassword []byte, speedyKey []byte) {
 	}
 }
 
+// setTokenKeyValsForOAUTH adds token-based authentication values to the OAUTH
+// request, and includes the signed header fields when provided.
+//
+// Parameters:
+//   - token: the bearer or OCI IAM token to send to the server.
+//   - header: the optional token header payload to send for signed OCI flows.
+//   - signature: the optional signature for header when header is provided.
+//
+// Returns:
+//   - an error if the key/value list cannot be updated.
 func (o *oAuth) setTokenKeyValsForOAUTH(token string, header string, signature string) error {
 	o.keyValList.PushBack(&driverCommon.KeyValue{
 		Key:   _authTokenKey,

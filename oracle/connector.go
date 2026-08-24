@@ -206,6 +206,11 @@ func (c *connector) Driver() driver.Driver {
 	return c.driver
 }
 
+// RegisterProvider adds a runtime provider that will be made available to
+// future connection attempts created from this connector.
+//
+// Parameters:
+//   - provider: the provider to append to the connector registry.
 func (c *connector) RegisterProvider(provider oracleProviders.Provider) {
 	c.providerRegistryMutex.Lock()
 	defer c.providerRegistryMutex.Unlock()

@@ -4,8 +4,8 @@
 ** The Universal Permissive License (UPL), Version 1.0
  */
 
-// Package main demonstrates connecting to Oracle using OCI IAM token
-// authentication and verifying the session with SELECT USER FROM SYS.DUAL.
+// Package main shows OCI IAM token authentication using a file-backed
+// provider registered on an Oracle connector.
 package main
 
 import (
@@ -14,11 +14,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/oracle"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
+)
+
+const (
+	tokenFileName         = "token"
+	ociPrivateKeyFileName = "oci_db_key.pem"
 )
 
 type fileOCITokenProvider struct {
@@ -40,8 +46,10 @@ func (p fileOCITokenProvider) PrivateKey(context.Context) ([]byte, error) {
 
 func main() {
 	connectDescriptor := requiredEnv("ORACLE_GO_OCI_TOKEN_CONNECT_DESCRIPTOR")
-	tokenPath := requiredEnv("ORACLE_GO_OCI_TOKEN_FILE")
-	privateKeyPath := requiredEnv("ORACLE_GO_OCI_PRIVATE_KEY_FILE")
+	tokenLocation := requiredEnv("ORACLE_GO_OCI_TOKEN_LOCATION")
+
+	tokenPath := filepath.Join(tokenLocation, tokenFileName)
+	privateKeyPath := filepath.Join(tokenLocation, ociPrivateKeyFileName)
 
 	cfg := oracle.NewOracleDriverConfig()
 	cfg.ConnectDescriptor = connectDescriptor

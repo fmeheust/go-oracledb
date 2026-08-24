@@ -4,8 +4,8 @@
 ** The Universal Permissive License (UPL), Version 1.0
  */
 
-// Package main demonstrates connecting to Oracle using OAuth token
-// authentication and verifying the session with SELECT USER FROM SYS.DUAL.
+// Package main shows OAuth token authentication using a file-backed
+// provider registered on an Oracle connector.
 package main
 
 import (
