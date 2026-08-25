@@ -70,7 +70,7 @@ func (s *SessionContext) SetSessionCharacterSets(driverCS, ncharCS UB2) {
 
 // DriverCharacterSet returns the negotiated driver character set identifier (cliRIN/cliROUT).
 func (s *SessionContext) DriverCharacterSet() UB2 {
-	if s.clientProperties.ContainsKey(DriverCharacterSet) {
+	if s.clientProperties != nil && s.clientProperties.ContainsKey(DriverCharacterSet) {
 		if ub2value, ok := s.clientProperties.GetProperty(DriverCharacterSet).(UB2); ok {
 			return ub2value
 		}
@@ -80,7 +80,7 @@ func (s *SessionContext) DriverCharacterSet() UB2 {
 
 // SessionNCharCharacterSet returns the negotiated NCHAR character set identifier (TTIPRO.NCharCharset).
 func (s *SessionContext) SessionNCharCharacterSet() UB2 {
-	if s.clientProperties.ContainsKey(SessionNCharCharacterSet) {
+	if s.clientProperties != nil && s.clientProperties.ContainsKey(SessionNCharCharacterSet) {
 		if ub2value, ok := s.clientProperties.GetProperty(SessionNCharCharacterSet).(UB2); ok {
 			return ub2value
 		}
