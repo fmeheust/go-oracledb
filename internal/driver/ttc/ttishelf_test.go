@@ -206,7 +206,7 @@ func (t *testCodecFactory) getDefineOac(_ DtyType, _ columnContext, _ driverComm
 func TestTTIShelf_StatementDrain(t *testing.T) {
 	t.Parallel()
 	shelf := newShelf[driverCommon.MessageType]()
-	sessCtx := &driverCommon.SessionContext{}
+	sessCtx := driverCommon.NewSessionContext()
 	s1, _ := newStatement(shelf, sessCtx, "SELECT * FROM DUAL")
 	s2, _ := newStatement(shelf, sessCtx, "SELECT * FROM DUAL")
 	s3, _ := newStatement(shelf, sessCtx, "SELECT * FROM DUAL")
