@@ -48,18 +48,17 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 type connectionInstantiator struct {
-	negotiator           Negotiator
-	authenticator        Authenticator
-	dataBuffer           driverCommon.DataBuffer
-	ns                   driverCommon.NetworkSession
-	connectionProperties *oracleconfig.OracleDriverProperties
-	newConnection        func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*Connection, error)
-	localizationService  common.LocalizationService
-	providerRegistry     common.ProviderRegistry
+	negotiator          Negotiator
+	authenticator       Authenticator
+	dataBuffer          driverCommon.DataBuffer
+	ns                  driverCommon.NetworkSession
+	drvierConfig        *oracleconfig.OracleDriverConfig
+	newConnection       func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*Connection, error)
+	localizationService common.LocalizationService
+	providerRegistry    common.ProviderRegistry
 }
 
 // NewTTCConnectionInstantiator creates a new TTC connection instantiator.
@@ -82,14 +81,14 @@ func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *s
 		return nil, err
 	}
 	return &connectionInstantiator{
-		negotiator:           negotiator,
-		authenticator:        authenticator,
-		dataBuffer:           dataBuffer,
-		ns:                   ns,
-		connectionProperties: &config.DriverProperties,
-		newConnection:        NewConnection,
-		localizationService:  localizationService,
-		providerRegistry:     providerRegistry,
+		negotiator:          negotiator,
+		authenticator:       authenticator,
+		dataBuffer:          dataBuffer,
+		ns:                  ns,
+		drvierConfig:        config,
+		newConnection:       NewConnection,
+		localizationService: localizationService,
+		providerRegistry:    providerRegistry,
 	}, nil
 }
 
@@ -113,12 +112,13 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 		return nil, connInstantiator.localizationService.LocalizeError(err)
 	}
 
-	remoteAddsProperty := driverCommon.NewProperties[string]()
-	remoteAddsProperty.SetProperty("REMOTE_ADDRESS", connInstantiator.ns.GetRemoteAddress())
-	sessCtx.UpdateSessionProperties(remoteAddsProperty)
+	// After the session context is created, set client properties that will be needed
+	// by the client for authentication
+	sessCtx.GetClientProperties().SetProperty(driverCommon.RemoteAddress, connInstantiator.ns.GetRemoteAddress())
+	sessCtx.GetClientProperties().SetProperty(driverCommon.ConnectDescriptor, connInstantiator.drvierConfig.ConnectDescriptor)
 
 	// Add connection properties to shelf for downstream consumers
-	shelf.UpdateConnectionProperties(connInstantiator.connectionProperties)
+	shelf.UpdateConnectionProperties(connInstantiator.drvierConfig.DriverProperties)
 	shelf.RegisterLocalizationService(connInstantiator.localizationService)
 
 	// register server to client piggyback callbacks
@@ -170,18 +170,17 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 		return nil, common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
-	var tokenProvider oracleProviders.TokenAuthenticationProvider
-	if providerRegistry != nil {
-		tokenProvider = findFirstTokenAuthenticatorProvider(providerRegistry.Providers())
-	}
-	if len(parameters.Credentials.User) == 0 && tokenProvider != nil {
-		return createTokenAuthenticator(parameters, providerRegistry)
-	}
 	if len(parameters.Credentials.Password) > 0 {
 		if len(parameters.Credentials.User) == 0 {
-			return createTokenAuthenticator(parameters, providerRegistry)
+			return nil, common.NewOracleError(oracleErrors.EmptyUsernameError, nil, nil)
 		}
 		return createPasswordAuthenticator(parameters)
+	}
+	if providerRegistry != nil {
+		tokenProvider := findFirstTokenAuthenticatorProvider(providerRegistry.Providers())
+		if tokenProvider != nil {
+			return newTokenAuthenticator(tokenProvider), nil
+		}
 	}
 	return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, nil, nil)
 }
@@ -198,13 +197,6 @@ func createPasswordAuthenticator(parameters *oracleconfig.OracleDriverConfig) (A
 	return NewPasswordAuthenticator(parameters.Credentials.User,
 		parameters.Credentials.Password,
 		parameters.ConnectDescriptor), nil
-}
-
-func createTokenAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry common.ProviderRegistry) (Authenticator, error) {
-	return newTokenAuthenticator(
-		providerRegistry,
-		parameters.ConnectDescriptor,
-	), nil
 }
 
 // *** Negotiator Factory ***

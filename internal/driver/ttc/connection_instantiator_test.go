@@ -125,17 +125,19 @@ func TestGetConnection(t *testing.T) {
 			shelf := newShelf[driverCommon.MessageType]()
 			shelf.RegisterMessageStreamer(mockStr)
 			shelf.RegisterMessageFactory(mockFac)
-			ciConnectionProps := &oracleconfig.OracleDriverProperties{}
+			oracleconfig := &oracleconfig.OracleDriverConfig{
+				DriverProperties: oracleconfig.OracleDriverProperties{},
+			}
 			ci := &connectionInstantiator{
 				negotiator: &mockNegotiator{
 					sessCtx: driverCommon.NewSessionContext(),
 					shelf:   shelf,
 					err:     tt.negotiatorErr,
 				},
-				authenticator:        &mockAuthenticator{err: tt.authErr},
-				ns:                   ns,
-				connectionProperties: ciConnectionProps,
-				localizationService:  common.NewLocalizationService(language.English),
+				authenticator:       &mockAuthenticator{err: tt.authErr},
+				ns:                  ns,
+				drvierConfig:        oracleconfig,
+				localizationService: common.NewLocalizationService(language.English),
 				newConnection: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*Connection, error) {
 					return newTestConnection(shelf, sessCtx, ns), nil
 				},
@@ -182,14 +184,18 @@ func TestGetConnectionMissingLocalizationService(t *testing.T) {
 	shelf.RegisterMessageStreamer(&mockStreamer{pullMsg: &mockOer{err: nil}})
 	shelf.RegisterMessageFactory(&mockFactory{returnMsg: NewOall18()})
 
+	oracleconfig := &oracleconfig.OracleDriverConfig{
+		DriverProperties: oracleconfig.OracleDriverProperties{},
+	}
+
 	ci := &connectionInstantiator{
 		negotiator: &mockNegotiator{
 			sessCtx: driverCommon.NewSessionContext(),
 			shelf:   shelf,
 		},
-		authenticator:        &mockAuthenticator{},
-		ns:                   &mockNetworkSession{},
-		connectionProperties: &oracleconfig.OracleDriverProperties{},
+		authenticator: &mockAuthenticator{},
+		ns:            &mockNetworkSession{},
+		drvierConfig:  oracleconfig,
 		newConnection: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*Connection, error) {
 			return newTestConnection(shelf, sessCtx, ns), nil
 		},
