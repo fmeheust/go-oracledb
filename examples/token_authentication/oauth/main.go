@@ -53,10 +53,12 @@ import (
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
+// fileOAuthTokenProvider implements TokenAuthenticationProvider interface.
 type fileOAuthTokenProvider struct {
 	tokenPath string
 }
 
+// Token returns the token used for token authentication
 func (p fileOAuthTokenProvider) Token(context.Context) (string, error) {
 	return readTrimmedFile(p.tokenPath)
 }
@@ -72,10 +74,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Check that the connector implements ProviderRegistrar
 	registrar, ok := connector.(oracleProviders.ProviderRegistrar)
 	if !ok {
 		log.Fatal("connector does not support provider registration")
 	}
+	// register the provider, the provider methods will be called by
+	// the driver during token-based authentication
 	registrar.RegisterProvider(fileOAuthTokenProvider{tokenPath: tokenPath})
 
 	db := sql.OpenDB(connector)

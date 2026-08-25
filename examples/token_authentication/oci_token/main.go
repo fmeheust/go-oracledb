@@ -59,16 +59,19 @@ const (
 	ociPrivateKeyFileName = "oci_db_key.pem"
 )
 
+// fileOAuthTokenProvider implements SignedTokenAuthenticationProvider interface.
 type fileOCITokenProvider struct {
 	tokenPath      string
 	privateKeyPath string
 }
 
-func (p fileOCITokenProvider) Token(context.Context) (string, error) {
+// Token returns the token used for token authentication
+func (p fileOCITokenProvider) Token(_ context.Context) (string, error) {
 	return readTrimmedFile(p.tokenPath)
 }
 
-func (p fileOCITokenProvider) PrivateKey(context.Context) ([]byte, error) {
+// PrivateKeyForToken return the private key associated to the token
+func (p fileOCITokenProvider) PrivateKeyForToken(_ context.Context, token string) ([]byte, error) {
 	keyPEM, err := os.ReadFile(p.privateKeyPath)
 	if err != nil {
 		return nil, err
@@ -90,10 +93,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Check that the connector implements ProviderRegistrar
 	registrar, ok := connector.(oracleProviders.ProviderRegistrar)
 	if !ok {
 		log.Fatal("connector does not support provider registration")
 	}
+	// register the provider, the provider methods will be called by
+	// the driver during token-based authentication
 	registrar.RegisterProvider(fileOCITokenProvider{
 		tokenPath:      tokenPath,
 		privateKeyPath: privateKeyPath,
