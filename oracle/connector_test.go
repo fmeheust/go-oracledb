@@ -43,6 +43,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"reflect"
 	"testing"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
@@ -51,6 +52,7 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/transport"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 type mockConnectorNTAdapter struct {
@@ -128,6 +130,15 @@ func newConnectorTestSession(t *testing.T, adapter transport.NTAdapter) *session
 	return ns
 }
 
+func assertNoTokenProviderRegistered(t *testing.T, providerRegistry common.ProviderRegistry) {
+	t.Helper()
+
+	provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+	if err == nil {
+		t.Fatalf("expected empty provider registry, got token provider %T", provider)
+	}
+}
+
 // TestConnectorConnectDisconnectsNetworkSessionWhenInstantiatorFails verifies
 // that Connector.Connect closes an already-open network session if TTC
 // connection instantiator creation fails.
@@ -145,9 +156,7 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenInstantiatorFails(t *testi
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
 			}
-			if providers := providerRegistry.Providers(); len(providers) != 0 {
-				t.Fatalf("expected empty provider registry, got %d providers", len(providers))
-			}
+			assertNoTokenProviderRegistered(t, providerRegistry)
 			return nil, errors.New("instantiator failed")
 		},
 	)
@@ -187,9 +196,7 @@ func TestConnectorConnectDisconnectsNetworkSessionWhenGetConnectionFails(t *test
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
 			}
-			if providers := providerRegistry.Providers(); len(providers) != 0 {
-				t.Fatalf("expected empty provider registry, got %d providers", len(providers))
-			}
+			assertNoTokenProviderRegistered(t, providerRegistry)
 			return mockConnectorConnectionInstantiator{err: errors.New("authentication failed")}, nil
 		},
 	)
@@ -226,9 +233,7 @@ func TestConnectorConnectLeavesNetworkSessionOpenAfterSuccess(t *testing.T) {
 			return ns, nil
 		},
 		func(drvConfig *oracleconfig.OracleDriverConfig, connectedNS *session.NetworkSession, providerRegistry common.ProviderRegistry) (driverCommon.ConnectionInstantiator, error) {
-			if providers := providerRegistry.Providers(); len(providers) != 0 {
-				t.Fatalf("expected empty provider registry, got %d providers", len(providers))
-			}
+			assertNoTokenProviderRegistered(t, providerRegistry)
 			return mockConnectorConnectionInstantiator{conn: mockConnectorDriverConn{}}, nil
 		},
 	)
@@ -270,9 +275,7 @@ func TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess(t *test
 			if connectedNS != ns {
 				t.Fatalf("got network session %p, want %p", connectedNS, ns)
 			}
-			if providers := providerRegistry.Providers(); len(providers) != 0 {
-				t.Fatalf("expected empty provider registry, got %d providers", len(providers))
-			}
+			assertNoTokenProviderRegistered(t, providerRegistry)
 			return mockConnectorConnectionInstantiator{conn: mockConnectorDriverConn{}}, nil
 		},
 	)

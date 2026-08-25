@@ -39,18 +39,29 @@
 package common
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
+type namedProvider interface {
+	oracleProviders.Provider
+	Name() string
+}
+
 type mockProviderRegistryProvider struct {
 	name string
 }
 
-// TestProviderRegistryRegisterProviderPreservesInsertionOrder verifies that
-// providers are returned in the same order they were registered.
-func TestProviderRegistryRegisterProviderPreservesInsertionOrder(t *testing.T) {
+func (m mockProviderRegistryProvider) Name() string {
+	return m.name
+}
+
+// TestProviderRegistryGetProviderReturnsFirstMatch verifies that GetProvider
+// returns the first registered provider matching the requested type.
+func TestProviderRegistryGetProviderReturnsFirstMatch(t *testing.T) {
 	t.Parallel()
 
 	registry := NewProviderRegistry()
@@ -60,21 +71,19 @@ func TestProviderRegistryRegisterProviderPreservesInsertionOrder(t *testing.T) {
 	registry.RegisterProvider(first)
 	registry.RegisterProvider(second)
 
-	got := registry.Providers()
-	if len(got) != 2 {
-		t.Fatalf("expected 2 providers, got %d", len(got))
+	gotProvider, err := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
+	if err != nil {
+		t.Fatalf("GetProvider returned error: %v", err)
 	}
-	if provider, ok := got[0].(mockProviderRegistryProvider); !ok || provider.name != "first" {
-		t.Fatalf("unexpected first provider: got %#v", got[0])
-	}
-	if provider, ok := got[1].(mockProviderRegistryProvider); !ok || provider.name != "second" {
-		t.Fatalf("unexpected second provider: got %#v", got[1])
+	got := gotProvider.(namedProvider)
+	if got.Name() != "first" {
+		t.Fatalf("expected first provider, got %q", got.Name())
 	}
 }
 
 // TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded
 // verifies that registering more than maxProviders providers removes the
-// oldest provider and preserves the order of the remaining providers.
+// oldest provider, so the next matching provider becomes visible.
 func TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -84,55 +93,48 @@ func TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded(t *tes
 	}
 	registry.RegisterProvider(mockProviderRegistryProvider{name: "overflow"})
 
-	got := registry.Providers()
-	if len(got) != maxProviders {
-		t.Fatalf("expected %d providers after overflow, got %d", maxProviders, len(got))
+	gotProvider, err := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
+	if err != nil {
+		t.Fatalf("GetProvider returned error: %v", err)
 	}
-	if provider, ok := got[0].(mockProviderRegistryProvider); !ok || provider.name != "b" {
-		t.Fatalf("expected oldest provider to be evicted, got first provider %#v", got[0])
-	}
-	if provider, ok := got[len(got)-1].(mockProviderRegistryProvider); !ok || provider.name != "overflow" {
-		t.Fatalf("expected newest provider at the end, got %#v", got[len(got)-1])
+	got := gotProvider.(namedProvider)
+	if got.Name() != "b" {
+		t.Fatalf("expected oldest provider to be evicted, got %q", got.Name())
 	}
 }
 
-// TestProviderRegistryProvidersReturnsCopy verifies that Providers returns a
-// defensive copy, so callers cannot mutate the registry's internal slice.
-func TestProviderRegistryProvidersReturnsCopy(t *testing.T) {
+// TestProviderRegistryGetProviderReturnsRequestedInterface verifies that
+// GetProvider can populate a requested provider interface from the registry.
+func TestProviderRegistryGetProviderReturnsRequestedInterface(t *testing.T) {
 	t.Parallel()
 
 	registry := NewProviderRegistry()
 	original := mockProviderRegistryProvider{name: "original"}
 	registry.RegisterProvider(original)
 
-	snapshot := registry.Providers()
-	if len(snapshot) != 1 {
-		t.Fatalf("expected 1 provider in snapshot, got %d", len(snapshot))
+	gotProvider, err := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
+	if err != nil {
+		t.Fatalf("GetProvider returned error: %v", err)
 	}
-
-	snapshot[0] = mockProviderRegistryProvider{name: "mutated"}
-	got := registry.Providers()
-	if len(got) != 1 {
-		t.Fatalf("expected 1 provider after snapshot mutation, got %d", len(got))
-	}
-	if provider, ok := got[0].(mockProviderRegistryProvider); !ok || provider.name != "original" {
-		t.Fatalf("expected registry to remain unchanged, got %#v", got[0])
+	got := gotProvider.(namedProvider)
+	if got.Name() != "original" {
+		t.Fatalf("expected original provider, got %q", got.Name())
 	}
 }
 
-// TestProviderRegistryProvidersEmptyWhenUninitialized verifies that a newly
-// created registry reports no providers and returns an empty slice.
-func TestProviderRegistryProvidersEmptyWhenUninitialized(t *testing.T) {
+// TestProviderRegistryGetProviderReturnsErrorWhenUninitialized verifies that a
+// newly created registry reports that no matching provider is registered.
+func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) {
 	t.Parallel()
 
 	registry := NewProviderRegistry()
 
-	got := registry.Providers()
-	if len(got) != 0 {
-		t.Fatalf("expected no providers, got %d", len(got))
+	_, err := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
+	if err == nil {
+		t.Fatal("expected GetProvider to fail for empty registry")
 	}
-	if got == nil {
-		t.Fatal("expected Providers to return an empty slice copy, got nil")
+	if !strings.Contains(err.Error(), "no provider found") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

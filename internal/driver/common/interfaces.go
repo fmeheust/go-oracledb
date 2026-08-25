@@ -64,9 +64,13 @@ type NetworkSession interface {
 	// Returns: true if an inband notification has been received otherwise false.
 	CheckInbandNotification() bool
 
-	// GetRemoteAddress returns the remote network endpoint formatted as
-	// "ip:port" when it is available, or an empty string otherwise.
+	// GetRemoteAddress returns the remote network address when it is available,
+	// or an empty string otherwise.
 	GetRemoteAddress() string
+
+	// GetRemotePort returns the remote network port when it is available, or 0
+	// otherwise.
+	GetRemotePort() int
 }
 
 // DataBuffer The Marshaller uses this interface to marshal data

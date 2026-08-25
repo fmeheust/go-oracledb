@@ -49,6 +49,8 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -77,24 +79,6 @@ func newTokenAuthenticator(tokenProvider oracleProviders.TokenAuthenticationProv
 	return &tokenAuthenticator{
 		tokenProvider: tokenProvider,
 	}
-}
-
-// findFirstTokenAuthenticatorProvider returns the first provider in the
-// registry that implements token authentication.
-//
-// Parameters:
-//   - providerRegistry: the providers available for the connection attempt.
-//
-// Returns:
-//   - the first token authentication provider found in the registry.
-//   - nil when no token authentication provider is registered.
-func findFirstTokenAuthenticatorProvider(providerRegistry []oracleProviders.Provider) oracleProviders.TokenAuthenticationProvider {
-	for _, provider := range providerRegistry {
-		if tokenProvider, ok := provider.(oracleProviders.TokenAuthenticationProvider); ok {
-			return tokenProvider
-		}
-	}
-	return nil
 }
 
 // SetShelf stores the TTC shelf used to create and exchange authentication
@@ -137,6 +121,9 @@ func (ta *tokenAuthenticator) Authenticate(ctx context.Context) error {
 	token, err := ta.tokenProvider.Token(ctx)
 	if err != nil {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
+	}
+	if len(token) == 0 {
+		return common.NewOracleError(oracleErrors.EmptyTokenError, nil)
 	}
 	if err := validateJWTExpiration(token); err != nil {
 		return common.NewOracleError(oracleErrors.AuthenticatorError, err, nil)
@@ -248,23 +235,27 @@ func logonMode(tokenProvider oracleProviders.TokenAuthenticationProvider) int64 
 //   - an error if required session or connect descriptor values cannot be derived.
 func (ta *tokenAuthenticator) generateTokenHeader() (string, error) {
 	if expectsHeader(ta.tokenProvider) {
-		connectDescriptor, err := getRequiredSessionProperty(ta.sessionContext, driverCommon.ConnectDescriptor)
+		connectDescriptor, err := getRequiredClientProperty(ta.sessionContext, driverCommon.ConnectDescriptor)
 		if err != nil {
-			return "", err
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 		}
 		serviceName, err := extractServiceName(connectDescriptor)
 		if err != nil {
-			return "", err
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 		}
-		remoteAddr, err := getRequiredSessionProperty(ta.sessionContext, driverCommon.RemoteAddress)
+		remoteAddr, err := getRequiredClientProperty(ta.sessionContext, driverCommon.RemoteAddress)
 		if err != nil {
-			return "", err
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
+		}
+		remotePort, err := getRequiredClientIntProperty(ta.sessionContext, driverCommon.RemotePort)
+		if err != nil {
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 		}
 		return fmt.Sprintf(
 			"date: %s\n(request-target): %s\nhost: %s",
 			time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT"),
 			serviceName,
-			remoteAddr,
+			net.JoinHostPort(remoteAddr, strconv.Itoa(remotePort)),
 		), nil
 	}
 	return "", nil
@@ -285,22 +276,22 @@ func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string, tok
 	if provider, ok := ta.tokenProvider.(oracleProviders.SignedTokenAuthenticationProvider); ok && len(header) > 0 {
 		keyPEM, err := provider.PrivateKeyForToken(ctx, token)
 		if err != nil {
-			return "", err
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 		}
 		signer, err := getSigner(keyPEM)
 		if err != nil {
-			return "", err
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 		}
 		signature, err := signTokenHeader(header, signer)
 		if err != nil {
-			return "", err
+			return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 		}
 		return signature, nil
 	}
 	return "", nil
 }
 
-// getRequiredSessionProperty returns a non-empty string property from the
+// getRequiredClientProperty returns a non-empty string property from the
 // session context.
 //
 // Parameters:
@@ -310,14 +301,32 @@ func (ta *tokenAuthenticator) signHeader(ctx context.Context, header string, tok
 // Returns:
 //   - the trimmed string property value.
 //   - an error if the property is missing, not a string, or empty.
-func getRequiredSessionProperty(sessionContext *driverCommon.SessionContext, key string) (string, error) {
-	value, ok := sessionContext.GetSessionProperties().GetProperty(key).(string)
+func getRequiredClientProperty(sessionContext *driverCommon.SessionContext, key string) (string, error) {
+	value, ok := sessionContext.GetClientProperties().GetProperty(key).(string)
 	if !ok {
 		return "", common.NewOracleError(oracleErrors.ValueRetrievalError, nil, key)
 	}
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return "", common.NewOracleError(oracleErrors.ValueRetrievalError, nil, key)
+	}
+	return value, nil
+}
+
+// getRequiredClientIntProperty returns a non-zero int property from the
+// session context.
+//
+// Parameters:
+//   - sessionContext: the session context holding the property snapshot.
+//   - key: the property name to retrieve.
+//
+// Returns:
+//   - the int property value.
+//   - an error if the property is missing, not an int, or zero.
+func getRequiredClientIntProperty(sessionContext *driverCommon.SessionContext, key string) (int, error) {
+	value, ok := sessionContext.GetClientProperties().GetProperty(key).(int)
+	if !ok || value == 0 {
+		return 0, common.NewOracleError(oracleErrors.ValueRetrievalError, nil, key)
 	}
 	return value, nil
 }
@@ -370,18 +379,18 @@ func extractAddressValue(connectString, key string) (string, error) {
 func getSigner(keyPEM []byte) (crypto.Signer, error) {
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
-		return nil, common.NewOracleError(oracleErrors.InvalidPrivateKey, nil)
+		return nil, common.NewOracleError(oracleErrors.InvalidSignedTokenPrivateKey, nil)
 	}
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return nil, err
+		return nil, common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 	}
 	signer, ok := key.(crypto.Signer)
 	if !ok {
-		return nil, common.NewOracleError(oracleErrors.InvalidPrivateKey, nil)
+		return nil, common.NewOracleError(oracleErrors.InvalidSignedTokenPrivateKey, nil)
 	}
 	if _, ok := signer.(*rsa.PrivateKey); !ok {
-		return nil, common.NewOracleError(oracleErrors.InvalidPrivateKey, nil)
+		return nil, common.NewOracleError(oracleErrors.InvalidSignedTokenPrivateKey, nil)
 	}
 	return signer, nil
 }
@@ -433,7 +442,7 @@ func signTokenHeader(header string, signer crypto.Signer) (string, error) {
 	sum := sha256.Sum256([]byte(header))
 	signature, err := signer.Sign(rand.Reader, sum[:], crypto.SHA256)
 	if err != nil {
-		return "", err
+		return "", common.NewOracleError(oracleErrors.TokenAuthenticationError, err)
 	}
 	return base64.StdEncoding.EncodeToString(signature), nil
 }

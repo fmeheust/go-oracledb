@@ -39,15 +39,18 @@
 package common
 
 import (
+	"reflect"
 	"sync"
 
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
-const maxProviders = 10
+// maxProviders maximum number of provider allowed
+const maxProviders = 50
 
 // ProviderRegistry stores connector runtime providers and exposes safe access
-// to registered providers for future connection attempts.
+// to registered providers.
 type ProviderRegistry interface {
 	// RegisterProvider appends provider to the registry.
 	// When the registry already contains maxProviders entries, the oldest
@@ -56,11 +59,17 @@ type ProviderRegistry interface {
 	// Parameters:
 	//   - provider: the provider to register.
 	RegisterProvider(provider providers.Provider)
-	// Providers returns a copy of the currently registered providers.
+	// Provider gets the first provider found in the registry that implements
+	// the desired type
+	//
+	// Parameters:
+	//   - providerType: the interface or concrete provider type to resolve from
+	//     the registry.
 	//
 	// Returns:
-	//   - the registered providers in insertion order.
-	Providers() []providers.Provider
+	//   - the first registered provider matching providerType.
+	//   - an error if providerType is invalid or no matching provider exists.
+	Provider(providerType reflect.Type) (providers.Provider, error)
 }
 
 // providerRegistry is the default thread-safe ProviderRegistry implementation.
@@ -87,19 +96,34 @@ func (providerRegistry *providerRegistry) RegisterProvider(provider providers.Pr
 	providerRegistry.providerRegistryMutex.Lock()
 	defer providerRegistry.providerRegistryMutex.Unlock()
 	if len(providerRegistry.providers) >= maxProviders {
+		Odl.Warn("Number of provider exceeded the maximum allowed, removing the oldest provider")
 		providerRegistry.providers = providerRegistry.providers[1:]
 	}
 	providerRegistry.providers = append(providerRegistry.providers, provider)
 }
 
-// Providers returns a copy of the currently registered providers.
+// Provider returns the first registered provider that implements the
+// requested provider interface or matches the requested concrete type.
+//
+// Parameters:
+//   - providerType: the interface or concrete provider type to resolve from
+//     the registry.
 //
 // Returns:
-//   - the registered providers in insertion order.
-func (providerRegistry *providerRegistry) Providers() []providers.Provider {
+//   - the first registered provider matching providerType.
+//   - an error if providerType is invalid or no matching provider exists.
+func (providerRegistry *providerRegistry) Provider(providerType reflect.Type) (providers.Provider, error) {
 	providerRegistry.providerRegistryMutex.RLock()
 	defer providerRegistry.providerRegistryMutex.RUnlock()
-	providerRegistryCopy := make([]providers.Provider, len(providerRegistry.providers))
-	copy(providerRegistryCopy, providerRegistry.providers)
-	return providerRegistryCopy
+
+	if providerType == nil {
+		return nil, NewOracleError(oracleErrors.ProviderNotFound, nil, "provider type")
+	}
+	for _, item := range providerRegistry.providers {
+		itemType := reflect.TypeOf(item)
+		if itemType.AssignableTo(providerType) || (providerType.Kind() == reflect.Interface && itemType.Implements(providerType)) {
+			return item, nil
+		}
+	}
+	return nil, NewOracleError(oracleErrors.ProviderNotFound, nil, providerType)
 }

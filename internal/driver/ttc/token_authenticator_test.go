@@ -45,6 +45,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -79,8 +80,6 @@ func (m mockSignedTokenAuthenticationProvider) PrivateKeyForToken(
 	}
 	return m.privateKey, m.privateKeyErr
 }
-
-type mockNonTokenProvider struct{}
 
 func encodePrivateKeyPEM(t *testing.T, privateKey *rsa.PrivateKey) []byte {
 	t.Helper()
@@ -153,17 +152,19 @@ func TestGetAuthenticator_AcceptsLegacyDummyPasswordForTokenProvider(t *testing.
 	}
 }
 
-func TestFindFirstTokenAuthenticatorProviderReturnsFirstMatch(t *testing.T) {
+func TestProviderRegistryReturnsFirstRegisteredTokenProvider(t *testing.T) {
 	t.Parallel()
 
-	provider := findFirstTokenAuthenticatorProvider([]oracleProviders.Provider{
-		mockNonTokenProvider{},
+	registry := newTestProviderRegistry(
+		struct{}{},
 		mockTokenAuthenticationProvider{token: "first-token"},
 		mockTokenAuthenticationProvider{token: "second-token"},
-	})
-	if provider == nil {
-		t.Fatal("expected token authentication provider, got nil")
+	)
+	gotProvider, err := registry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+	if err != nil {
+		t.Fatalf("GetProvider returned error: %v", err)
 	}
+	provider := gotProvider.(oracleProviders.TokenAuthenticationProvider)
 
 	got, err := provider.Token(context.Background())
 	if err != nil {
@@ -213,7 +214,8 @@ func TestSignedTokenProviderGenerateTokenHeader(t *testing.T) {
 	t.Parallel()
 
 	sessContext := driverCommon.NewSessionContext()
-	sessContext.GetClientProperties().SetProperty(driverCommon.RemoteAddress, "192.0.2.10:1522")
+	sessContext.GetClientProperties().SetProperty(driverCommon.RemoteAddress, "192.0.2.10")
+	sessContext.GetClientProperties().SetProperty(driverCommon.RemotePort, 1522)
 	sessContext.GetClientProperties().SetProperty(driverCommon.ConnectDescriptor, "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=adb.example.com)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))")
 
 	authenticator := &tokenAuthenticator{
@@ -236,15 +238,15 @@ func TestSignedTokenProviderGenerateTokenHeader(t *testing.T) {
 	}
 }
 
-func TestFindFirstTokenAuthenticatorProviderReturnsNilWhenMissing(t *testing.T) {
+func TestProviderRegistryReturnsErrorWhenTokenProviderMissing(t *testing.T) {
 	t.Parallel()
 
-	provider := findFirstTokenAuthenticatorProvider([]oracleProviders.Provider{
-		mockNonTokenProvider{},
+	registry := newTestProviderRegistry(
 		struct{}{},
-	})
-	if provider != nil {
-		t.Fatalf("expected nil token authentication provider, got %T", provider)
+		struct{}{},
+	)
+	if _, err := registry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem()); err == nil {
+		t.Fatal("expected missing token provider error, got nil")
 	}
 }
 

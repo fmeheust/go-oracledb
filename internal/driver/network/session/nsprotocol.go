@@ -99,19 +99,46 @@ func NewNetworkSession() *NetworkSession {
 	}
 }
 
-// GetRemoteAddress returns the connected remote TCP endpoint as "ip:port"
-// when the session is using a TCPS transport, or an empty string if the
-// remote address is not available.
+// GetRemoteAddress returns the connected remote network address when it is
+// available, or an empty string otherwise.
 func (ns *NetworkSession) GetRemoteAddress() string {
-	tlsAdapter, ok := ns.NTAdapter.(*transport.NTTCPS)
-	if !ok || tlsAdapter.Stream == nil {
+	remoteAddr := ns.getRemoteTCPAddr()
+	if remoteAddr == nil {
 		return ""
 	}
-	remoteAddr, ok := tlsAdapter.Stream.RemoteAddr().(*net.TCPAddr)
-	if !ok || remoteAddr == nil {
-		return ""
+	return remoteAddr.IP.String()
+}
+
+// GetRemotePort returns the connected remote network port when it is
+// available, or 0 otherwise.
+func (ns *NetworkSession) GetRemotePort() int {
+	remoteAddr := ns.getRemoteTCPAddr()
+	if remoteAddr == nil {
+		return 0
 	}
-	return fmt.Sprintf("%s:%d", remoteAddr.IP, remoteAddr.Port)
+	return remoteAddr.Port
+}
+
+func (ns *NetworkSession) getRemoteTCPAddr() *net.TCPAddr {
+	switch adapter := ns.NTAdapter.(type) {
+	case *transport.NTTCP:
+		return remoteTCPAddrFromConn(adapter.Stream)
+	case *transport.NTTCPS:
+		return remoteTCPAddrFromConn(adapter.Stream)
+	default:
+		return nil
+	}
+}
+
+func remoteTCPAddrFromConn(conn net.Conn) *net.TCPAddr {
+	if conn == nil {
+		return nil
+	}
+	remoteAddr, ok := conn.RemoteAddr().(*net.TCPAddr)
+	if !ok {
+		return nil
+	}
+	return remoteAddr
 }
 
 // transportConnect establishes the transport-level connection

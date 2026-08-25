@@ -507,9 +507,9 @@ func initMessagesEn() {
 	message.SetString(language.English, string(oracleErrors.EmptyTokenError), "empty token for %s")
 
 	// Document: No
-	// Cause:    Token-based authentication requires a token location, but no token location was configured.
-	// Action:   Set TokenLocation or provide AccessToken directly.
-	message.SetString(language.English, string(oracleErrors.MissingTokenLocationError), "missing token location")
+	// Cause:    An error occured during Token-based authentication
+	// Action:   Verify that the token provider returns a valid token and private key (for signed token providers)
+	message.SetString(language.English, string(oracleErrors.TokenAuthenticationError), "an error occured during token authentication")
 
 	// Document: No
 	// Cause:    A required value could not be retrieved or was empty.
@@ -518,13 +518,15 @@ func initMessagesEn() {
 	message.SetString(language.English, string(oracleErrors.ValueRetrievalError), "failed to retrieve value %s")
 
 	// Document: No
-	// Cause:    The OCI private key is missing, malformed, or not a supported RSA signing key.
+	// Cause:    The signed token private key is missing, malformed, or not a supported RSA signing key.
 	// Action:   Verify that oci_db_key.pem exists, is valid PEM/PKCS8, and contains an RSA private key.
-	message.SetString(language.English, string(oracleErrors.InvalidPrivateKey), "invalid OCI private key")
+	message.SetString(language.English, string(oracleErrors.InvalidSignedTokenPrivateKey), "invalid signed token private key")
 
 	// Document: No
-	// Cause:    The configured access token has expired according to its JWT exp claim.
+	// Cause:    The access token has expired according to its JWT exp claim.
 	// Action:   Generate or retrieve a fresh access token and try the connection again.
-	message.SetString(language.English, string(oracleErrors.ExpiredToken), "configured access token has expired")
+	message.SetString(language.English, string(oracleErrors.ExpiredToken), "access token has expired")
+
+	message.SetString(language.English, string(oracleErrors.ProviderNotFound), "no provider found of type: %s")
 
 }

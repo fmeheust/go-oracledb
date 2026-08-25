@@ -43,6 +43,7 @@ const (
 	DriverCharacterSet       = "driverCharacterSet"
 	SessionNCharCharacterSet = "sessionNCharCharacterSet"
 	RemoteAddress            = "remoteAddress"
+	RemotePort               = "remotePort"
 	ConnectDescriptor        = "connectDescriptor"
 )
 

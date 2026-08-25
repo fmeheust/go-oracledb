@@ -233,10 +233,10 @@ var testCases = []struct {
 	{"TestStatementExecutor_Others_FaultyPush", "unitary", false, TestStatementExecutor_Others_FaultyPush},
 	{"TestPasswordAuthenticator_doOSESSKEY_Golden", "unitary", false, TestPasswordAuthenticator_doOSESSKEY_Golden},
 	{"TestPasswordAuthenticator_doOAuth_Golden", "unitary", false, TestPasswordAuthenticator_doOAuth_Golden},
-	{"TestFindFirstTokenAuthenticatorProviderReturnsFirstMatch", "unitary", false, TestFindFirstTokenAuthenticatorProviderReturnsFirstMatch},
+	{"TestProviderRegistryReturnsFirstRegisteredTokenProvider", "unitary", false, TestProviderRegistryReturnsFirstRegisteredTokenProvider},
 	{"TestOAuthSetTokenKeyValsForOAUTHAddsTokenHeaderAndSignature", "unitary", false, TestOAuthSetTokenKeyValsForOAUTHAddsTokenHeaderAndSignature},
 	{"TestSignedTokenProviderGenerateTokenHeader", "unitary", false, TestSignedTokenProviderGenerateTokenHeader},
-	{"TestFindFirstTokenAuthenticatorProviderReturnsNilWhenMissing", "unitary", false, TestFindFirstTokenAuthenticatorProviderReturnsNilWhenMissing},
+	{"TestProviderRegistryReturnsErrorWhenTokenProviderMissing", "unitary", false, TestProviderRegistryReturnsErrorWhenTokenProviderMissing},
 	{"TestOAuthSetTokenKeyValsForOAUTHAddsTokenOnlyWithoutHeader", "unitary", false, TestOAuthSetTokenKeyValsForOAUTHAddsTokenOnlyWithoutHeader},
 	{"TestTokenAuthenticatorSignHeaderForSignedProvider", "unitary", false, TestTokenAuthenticatorSignHeaderForSignedProvider},
 	{"TestTokenAuthenticatorSignHeaderForOAuthProviderReturnsEmpty", "unitary", false, TestTokenAuthenticatorSignHeaderForOAuthProviderReturnsEmpty},
@@ -1083,6 +1083,7 @@ type mockNetworkSession struct {
 	cancelErr       error
 	inband          bool
 	remoteAddress   string
+	remotePort      int
 }
 
 // newTestConnection creates a connection without querying DBTIMEZONE. Tests that
@@ -1112,6 +1113,10 @@ func (m *mockNetworkSession) CheckInbandNotification() bool {
 
 func (m *mockNetworkSession) GetRemoteAddress() string {
 	return m.remoteAddress
+}
+
+func (m *mockNetworkSession) GetRemotePort() int {
+	return m.remotePort
 }
 
 func (m *mockNetworkSession) CancelOperation(ctx context.Context) error {

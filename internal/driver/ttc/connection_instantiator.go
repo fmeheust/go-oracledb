@@ -42,12 +42,14 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"reflect"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 type connectionInstantiator struct {
@@ -115,11 +117,13 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 	// After the session context is created, set client properties that will be needed
 	// by the client for authentication
 	sessCtx.GetClientProperties().SetProperty(driverCommon.RemoteAddress, connInstantiator.ns.GetRemoteAddress())
+	sessCtx.GetClientProperties().SetProperty(driverCommon.RemotePort, connInstantiator.ns.GetRemotePort())
 	sessCtx.GetClientProperties().SetProperty(driverCommon.ConnectDescriptor, connInstantiator.drvierConfig.ConnectDescriptor)
 
 	// Add connection properties to shelf for downstream consumers
 	shelf.UpdateConnectionProperties(connInstantiator.drvierConfig.DriverProperties)
 	shelf.RegisterLocalizationService(connInstantiator.localizationService)
+	shelf.registerProviderRegistry(connInstantiator.providerRegistry)
 
 	// register server to client piggyback callbacks
 	registerServerToClientPiggybacks(shelf, sessCtx)
@@ -177,10 +181,12 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 		return createPasswordAuthenticator(parameters)
 	}
 	if providerRegistry != nil {
-		tokenProvider := findFirstTokenAuthenticatorProvider(providerRegistry.Providers())
-		if tokenProvider != nil {
+		provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+		if err == nil {
+			tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
 			return newTokenAuthenticator(tokenProvider), nil
 		}
+		return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, err, nil)
 	}
 	return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, nil, nil)
 }

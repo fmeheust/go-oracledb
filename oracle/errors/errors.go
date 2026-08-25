@@ -161,18 +161,21 @@ const (
 	// EmptyTokenError indicates that the configured token value is empty after
 	// resolution from AccessToken or TokenLocation.
 	EmptyTokenError ErrorCode = "OGD-00201"
-	// MissingTokenLocationError indicates that token-based authentication
-	// requires a token location, but none was provided.
-	MissingTokenLocationError ErrorCode = "OGD-00202"
+	// TokenAuthenticationError indicates that an error occurred during token
+	// authentication
+	TokenAuthenticationError ErrorCode = "OGD-00202"
 	// ValueRetrievalError indicates that a required session or descriptor value
 	// could not be retrieved or was empty.
 	ValueRetrievalError ErrorCode = "OGD-00203"
-	// InvalidPrivateKey indicates that the OCI private key is missing,
+	// InvalidSignedTokenPrivateKey indicates that the signed token private key is missing,
 	// malformed, or not an RSA signing key.
-	InvalidPrivateKey ErrorCode = "OGD-00204"
+	InvalidSignedTokenPrivateKey ErrorCode = "OGD-00204"
 	// ExpiredToken indicates that the resolved access token has expired
 	// according to its JWT exp claim.
 	ExpiredToken ErrorCode = "OGD-00205"
+	// ProviderNotFound indicates that no provider was found in the registry for
+	// the wanted provider type
+	ProviderNotFound ErrorCode = "OGD-00206"
 )
 
 // OracleRefuseErrorCodes maps ORA error numbers to the driver error
