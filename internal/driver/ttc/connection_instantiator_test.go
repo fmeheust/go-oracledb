@@ -193,8 +193,8 @@ func TestGetConnectionMissingLocalizationService(t *testing.T) {
 			sessCtx: driverCommon.NewSessionContext(),
 			shelf:   shelf,
 		},
-		authenticator:        &mockAuthenticator{},
-		ns:                   &mockNetworkSession{},
+		authenticator: &mockAuthenticator{},
+		ns:            &mockNetworkSession{},
 		newConnectionFunc: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*connection, error) {
 			return newTestConnection(shelf, sessCtx, ns), nil
 		},

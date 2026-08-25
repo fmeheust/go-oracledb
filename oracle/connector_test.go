@@ -132,6 +132,7 @@ func assertNoTokenProviderRegistered(t *testing.T, providerRegistry common.Provi
 		t.Fatalf("expected empty provider registry, got token provider %T", provider)
 	}
 }
+
 // TestConnectorConnectDisconnectsNetworkSessionWhenInstantiatorFails verifies
 // that Connector.Connect closes an already-open network session if TTC
 // connection instantiator creation fails.

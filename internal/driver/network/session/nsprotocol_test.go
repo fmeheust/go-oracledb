@@ -176,13 +176,13 @@ func TestGetRemoteEndpoint(t *testing.T) {
 		wantPort    int
 	}{
 		{
-			name: "TCP",
+			name:        "TCP",
 			adapter:     &remoteAddrNTAdapter{remoteAddr: &net.TCPAddr{IP: net.ParseIP("192.0.2.10"), Port: 1521}},
 			wantAddress: "192.0.2.10",
 			wantPort:    1521,
 		},
 		{
-			name: "TCPS",
+			name:        "TCPS",
 			adapter:     &remoteAddrNTAdapter{remoteAddr: &net.TCPAddr{IP: net.ParseIP("2001:db8::10"), Port: 2484}},
 			wantAddress: "2001:db8::10",
 			wantPort:    2484,
