@@ -66,6 +66,9 @@ func (e *blobBindExecutor) materialize(ctx context.Context, data []byte) (blobLo
 	if err != nil {
 		return nil, err
 	}
+	if len(data) == 0 {
+		return blobLocator(locatorBytes), nil
+	}
 	locator := newLocator(locatorBytes, 1)
 	if _, err := e.write(ctx, locator, driverCommon.B1Array(data), driverCommon.UB8(len(data))); err != nil {
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), blobBindCleanupTimeout)

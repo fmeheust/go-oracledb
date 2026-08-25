@@ -519,10 +519,6 @@ func (e *statementExecutorDML) materializeBlobBinds(
 			cleanup = &blobBindCleanup{executor: executor}
 		}
 		data := blob.OracleBlobValue()
-		if len(data) == 0 {
-			materialized[index].Value = []byte{}
-			continue
-		}
 		locator, err := cleanup.executor.materialize(ctx, data)
 		if err != nil {
 			e.cleanupBlobBinds(ctx, cleanup)

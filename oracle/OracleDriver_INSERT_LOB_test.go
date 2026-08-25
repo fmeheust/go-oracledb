@@ -121,6 +121,11 @@ func TestDriver_Prepared_Insert_Blob_Small(t *testing.T) {
 	t.Parallel()
 	rows := []blobRowData{
 		{
+			id: 0,
+			n:  "empty",
+			b:  []byte{},
+		},
+		{
 			id: 1,
 			n:  "aaa",
 			b:  []byte("hello prepared"),
@@ -309,12 +314,27 @@ func runPreparedInsertBlob(t *testing.T, table string, rows []blobRowData) {
 		if len(rr.b) > 33554432 {
 			continue
 		}
-		var gotBlob []byte
+		var (
+			gotBlob    []byte
+			isNull     int64
+			blobLength int64
+		)
 		err = tx.QueryRowContext(ctx,
-			fmt.Sprintf("SELECT blob FROM %s WHERE id = %d", table, rr.id),
-		).Scan(&gotBlob)
+			fmt.Sprintf(
+				"SELECT CASE WHEN blob IS NULL THEN 1 ELSE 0 END, "+
+					"NVL(DBMS_LOB.GETLENGTH(blob), -1), blob FROM %s WHERE id = %d",
+				table,
+				rr.id,
+			),
+		).Scan(&isNull, &blobLength, &gotBlob)
 		if err != nil {
 			t.Fatalf("select inserted row failed for id=%d: %v", rr.id, err)
+		}
+		if isNull != 0 {
+			t.Fatalf("inserted BLOB is NULL for id=%d", rr.id)
+		}
+		if blobLength != int64(len(rr.b)) {
+			t.Fatalf("unexpected BLOB length for id=%d: got %d want %d", rr.id, blobLength, len(rr.b))
 		}
 		if !bytes.Equal(gotBlob, rr.b) {
 			t.Fatalf("unexpected blob for id=%d: got length %d want %d", rr.id, len(gotBlob), len(rr.b))
