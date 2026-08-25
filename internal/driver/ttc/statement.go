@@ -291,8 +291,8 @@ func (s *Statement) NumInput() int {
 	return len(s.qualifiedQuery.binds.bindNames)
 }
 
-// CheckNamedValue allows sql.Out binds to pass through database/sql conversion.
-// For all other values, we delegate back to database/sql default conversion.
+// CheckNamedValue admits Oracle BLOB markers and validates sql.Out binds.
+// Other values are delegated to database/sql's default conversion.
 func (s *Statement) CheckNamedValue(nv *driver.NamedValue) error {
 	return s.shelf.LocalizeError(checkNamedValue(nv))
 }

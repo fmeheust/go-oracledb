@@ -235,15 +235,18 @@ func (c *Connection) notify(event eventType) {
 	}
 }
 
-// CheckNamedValue allows sql.Out binds to pass through database/sql conversion.
-// For all other values, we delegate back to database/sql default conversion.
+// CheckNamedValue admits Oracle BLOB markers and validates sql.Out binds.
+// Other values are delegated to database/sql's default conversion.
 func (c *Connection) CheckNamedValue(nv *driver.NamedValue) error {
 	return c.shelf.LocalizeError(checkNamedValue(nv))
 }
 
-// checkNamedValue validates sql.Out destinations and returns shelf-localized
-// Oracle errors for binding problems.
+// checkNamedValue admits driver-specific BLOB markers, validates sql.Out
+// destinations, and delegates all other values to database/sql.
 func checkNamedValue(nv *driver.NamedValue) error {
+	if _, ok := nv.Value.(oracleBlobValue); ok {
+		return nil
+	}
 	if out, ok := nv.Value.(sql.Out); ok {
 		// Destination must be provided for output binding.
 		if out.Dest == nil {
