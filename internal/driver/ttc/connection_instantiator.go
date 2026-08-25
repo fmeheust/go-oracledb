@@ -46,7 +46,6 @@ import (
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
@@ -58,7 +57,7 @@ type connectionInstantiator struct {
 	dataBuffer          driverCommon.DataBuffer
 	ns                  driverCommon.NetworkSession
 	drvierConfig        *oracleconfig.OracleDriverConfig
-	newConnection       func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*Connection, error)
+	newConnectionFunc   func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*connection, error)
 	localizationService common.LocalizationService
 	providerRegistry    common.ProviderRegistry
 }
@@ -73,8 +72,8 @@ type connectionInstantiator struct {
 // Returns:
 //   - the TTC connection instantiator bound to ns.
 //   - an error if the authenticator or instantiator cannot be initialized.
-func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *session.NetworkSession, providerRegistry common.ProviderRegistry) (driverCommon.ConnectionInstantiator, error) {
-	dataBuffer := driverCommon.DataBuffer(ns)
+func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns driverCommon.NetworkSession, providerRegistry common.ProviderRegistry) (driverCommon.ConnectionInstantiator, error) {
+	dataBuffer := ns.(driverCommon.DataBuffer)
 	negotiator := GetNegotiator(dataBuffer)
 	localizationService := common.NewLocalizationService(config.Locale.ClientLanguage)
 
@@ -88,7 +87,7 @@ func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns *s
 		dataBuffer:          dataBuffer,
 		ns:                  ns,
 		drvierConfig:        config,
-		newConnection:       NewConnection,
+		newConnectionFunc:   newConnection,
 		localizationService: localizationService,
 		providerRegistry:    providerRegistry,
 	}, nil
@@ -145,13 +144,8 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 	// snapshot session
 	sessCtx.GetSessionProperties().Snapshot()
 
-	// conn = drv.NewConnection(ctx, *c.config, sessCtx, shelf)
 	common.Odl.Debug("Connect end")
-	newConnection := connInstantiator.newConnection
-	if newConnection == nil {
-		newConnection = NewConnection
-	}
-	return newConnection(ctx, shelf, sessCtx, connInstantiator.ns)
+	return connInstantiator.newConnectionFunc(ctx, shelf, sessCtx, connInstantiator.ns)
 }
 
 // *** Authenticator Factory ***
@@ -172,6 +166,16 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 	if parameters == nil {
 		// this should never happen
 		return nil, common.NewOracleError(oracleErrors.InternalError, nil)
+	}
+
+	if providerRegistry != nil {
+		provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+		if err == nil {
+			tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
+			if len(parameters.Credentials.Password) == 0 || len(parameters.Credentials.User) == 0 {
+				return newTokenAuthenticator(tokenProvider), nil
+			}
+		}
 	}
 
 	if len(parameters.Credentials.Password) > 0 {
@@ -195,12 +199,12 @@ func createPasswordAuthenticator(parameters *oracleconfig.OracleDriverConfig) (A
 	if len(parameters.Credentials.LogonMode) > 0 {
 		var mode, _ = common.GetLogonModeFromString(parameters.Credentials.LogonMode)
 		common.Odl.Debug(fmt.Sprintf("logonMode set to [%s]", mode))
-		return NewPasswordAuthenticatorWithLogonMode(parameters.Credentials.User,
+		return newPasswordAuthenticatorWithLogonMode(parameters.Credentials.User,
 			parameters.Credentials.Password,
 			mode,
 			parameters.ConnectDescriptor), nil
 	}
-	return NewPasswordAuthenticator(parameters.Credentials.User,
+	return newPasswordAuthenticator(parameters.Credentials.User,
 		parameters.Credentials.Password,
 		parameters.ConnectDescriptor), nil
 }
@@ -210,7 +214,7 @@ func createPasswordAuthenticator(parameters *oracleconfig.OracleDriverConfig) (A
 // GetNegotiator returns the default Negotiator implementation.
 // TODO : we should not have to pass the buffer here...
 func GetNegotiator(transport driverCommon.DataBuffer) Negotiator {
-	n := NewConnectionNegotiator()
+	n := newConnectionNegotiator()
 	n.SetDataBuffer(transport)
 	return n
 }

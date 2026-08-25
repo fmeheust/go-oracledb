@@ -138,7 +138,7 @@ func TestGetConnection(t *testing.T) {
 				ns:                  ns,
 				drvierConfig:        oracleconfig,
 				localizationService: common.NewLocalizationService(language.English),
-				newConnection: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*Connection, error) {
+				newConnectionFunc: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*connection, error) {
 					return newTestConnection(shelf, sessCtx, ns), nil
 				},
 			}
@@ -168,7 +168,7 @@ func TestGetConnection(t *testing.T) {
 					t.Error("expected a connection, got nil")
 				}
 
-				_, ok := conn.(*Connection)
+				_, ok := conn.(*connection)
 				if !ok {
 					t.Errorf("Wrong connection type")
 				}
@@ -193,12 +193,12 @@ func TestGetConnectionMissingLocalizationService(t *testing.T) {
 			sessCtx: driverCommon.NewSessionContext(),
 			shelf:   shelf,
 		},
-		authenticator: &mockAuthenticator{},
-		ns:            &mockNetworkSession{},
-		drvierConfig:  oracleconfig,
-		newConnection: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*Connection, error) {
+		authenticator:        &mockAuthenticator{},
+		ns:                   &mockNetworkSession{},
+		newConnectionFunc: func(_ context.Context, shelf *ttiShelf[driverCommon.MessageType], sessCtx *driverCommon.SessionContext, ns driverCommon.NetworkSession) (*connection, error) {
 			return newTestConnection(shelf, sessCtx, ns), nil
 		},
+		drvierConfig:        oracleconfig,
 		localizationService: nil,
 	}
 

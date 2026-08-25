@@ -250,11 +250,12 @@ func TestDriver_OpenConnectorUsesNSProperty(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	if option.Description == nil {
+	desc := option.Description
+	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
-	if option.Description.Security.WalletLocation != walletLocation {
-		t.Fatalf("expected wallet location %q, got %q", walletLocation, option.Description.Security.WalletLocation)
+	if desc.Security.WalletLocation != walletLocation {
+		t.Fatalf("expected wallet location %q, got %q", walletLocation, desc.Security.WalletLocation)
 	}
 }
 
@@ -290,14 +291,15 @@ func TestDriver_OpenConnectorUsesNSParamOverConfig(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	if option.Description == nil {
+	desc := option.Description
+	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
-	if option.Description.TransportConnectTimeout != expectedTransportConnectTimeoutMS {
+	if desc.TransportConnectTimeout != expectedTransportConnectTimeoutMS {
 		t.Fatalf(
 			"expected transport connect timeout %dms, got %dms",
 			expectedTransportConnectTimeoutMS,
-			option.Description.TransportConnectTimeout,
+			desc.TransportConnectTimeout,
 		)
 	}
 }
@@ -319,11 +321,12 @@ func TestDriver_OpenConnectorUsesParam(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	if option.Description == nil {
+	desc := option.Description
+	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
-	if option.Description.Security.WalletLocation != walletLocation {
-		t.Fatalf("expected wallet location %q, got %q", walletLocation, option.Description.Security.WalletLocation)
+	if desc.Security.WalletLocation != walletLocation {
+		t.Fatalf("expected wallet location %q, got %q", walletLocation, desc.Security.WalletLocation)
 	}
 }
 
@@ -346,11 +349,12 @@ func TestDriver_OpenConnectorUsesNSParam(t *testing.T) {
 		t.Fatal("expected a connection attempt")
 	}
 	option := iterator.Next()
-	if option.Description == nil {
+	desc := option.Description
+	if desc == nil {
 		t.Fatal("expected parsed description")
 	}
-	if option.Description.Security.WalletLocation != walletLocation {
-		t.Fatalf("expected wallet location %q, got %q", walletLocation, option.Description.Security.WalletLocation)
+	if desc.Security.WalletLocation != walletLocation {
+		t.Fatalf("expected wallet location %q, got %q", walletLocation, desc.Security.WalletLocation)
 	}
 
 	if oracleConnector.connectorConfig.Credentials.LogonMode != logonMode {

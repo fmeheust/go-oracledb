@@ -179,7 +179,7 @@ func TestOAuthSetTokenKeyValsForOAUTHAddsTokenHeaderAndSignature(t *testing.T) {
 	t.Parallel()
 
 	oauth := NewOAuth().(*oAuth)
-	oauth.keyValList = NewKeyValueList()
+	oauth.keyValList = newKeyValueList()
 	header := "date: Mon, 10 Aug 2026 10:00:00 GMT\n(request-target): freepdb1\nhost: 127.0.0.1:1521"
 	signature := base64.StdEncoding.EncodeToString([]byte("signature"))
 	if err := oauth.setTokenKeyValsForOAUTH("token-value", header, signature); err != nil {
@@ -254,7 +254,7 @@ func TestOAuthSetTokenKeyValsForOAUTHAddsTokenOnlyWithoutHeader(t *testing.T) {
 	t.Parallel()
 
 	oauth := NewOAuth().(*oAuth)
-	oauth.keyValList = NewKeyValueList()
+	oauth.keyValList = newKeyValueList()
 
 	if err := oauth.setTokenKeyValsForOAUTH("token-value", "", ""); err != nil {
 		t.Fatalf("setTokenKeyValsForOAUTH returned error: %v", err)

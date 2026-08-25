@@ -56,27 +56,27 @@ const walletPasswordEnvVar = "oracle.go.wallet_password"
 const walletPasswordEnvVarAlt = "ORACLE_GO_WALLET_PASSWORD"
 const systemWalletLocation = "SYSTEM"
 
-// SessionAtts represents network session attributes
-type SessionAtts struct {
-	LargeSDU                           bool
-	SDU                                int
-	TDU                                int
-	NT                                 transport.NTattributes
-	UUID                               string
-	NetworkCompressionThreshold        int
-	NetworkCompression                 bool
-	NetworkCompressionLevels           []string
-	ConnectTimeout                     int
-	RecvTimeout                        int
-	SendTimeout                        int
-	NAFlags                            int
-	CDataNVPair                        interface{} // Placeholder for nvStrToNvPair data
-	NegotiatedNetworkCompressionScheme int
-	NetworkCompressionEnabled          bool
-	FirstRecvCompressedPacket          bool
-	FirstSendCompressedPacket          bool
-	Version                            int
-	Options                            int
+// sessionAtts represents network session attributes
+type sessionAtts struct {
+	largeSDU                           bool
+	sdu                                int
+	tdu                                int
+	nt                                 transport.NTattributes
+	uuid                               string
+	networkCompressionThreshold        int
+	networkCompression                 bool
+	networkCompressionLevels           []string
+	connectTimeout                     int
+	recvTimeout                        int
+	sendTimeout                        int
+	naFlags                            int
+	cDataNVPair                        interface{} // Placeholder for nvStrToNvPair data
+	negotiatedNetworkCompressionScheme int
+	networkCompressionEnabled          bool
+	firstRecvCompressedPacket          bool
+	firstSendCompressedPacket          bool
+	version                            int
+	options                            int
 }
 
 // GenUUID generates a UUID for connection ID
@@ -89,20 +89,20 @@ func GenUUID() (string, error) {
 	return base64.StdEncoding.EncodeToString(buf), nil
 }
 
-// NewSessionAtts creates a new SessionAtts instance
-func NewSessionAtts(uuid string) *SessionAtts {
-	return &SessionAtts{
-		LargeSDU:                    false,
-		SDU:                         NSPDFSDULN,
-		TDU:                         NSPDFTDULN,
-		NT:                          transport.NTattributes{Connectionidprefix: "", TCPNODelay: true, SSLServerDNMatch: true},
-		UUID:                        uuid,
-		NetworkCompressionThreshold: 1024,
-		NAFlags:                     NSINANOSERVICES,
+// newSessionAtts creates a new sessionAtts instance
+func newSessionAtts(uuid string) *sessionAtts {
+	return &sessionAtts{
+		largeSDU:                    false,
+		sdu:                         NSPDFSDULN,
+		tdu:                         NSPDFTDULN,
+		nt:                          transport.NTattributes{Connectionidprefix: "", TCPNODelay: true, SSLServerDNMatch: true},
+		uuid:                        uuid,
+		networkCompressionThreshold: 1024,
+		naFlags:                     NSINANOSERVICES,
 	}
 }
 
-func (sa *SessionAtts) SetFrom(source interface{}) {
+func (sa *sessionAtts) setFrom(source interface{}) {
 	if source == nil {
 		return
 	}
@@ -162,97 +162,96 @@ func (sa *SessionAtts) SetFrom(source interface{}) {
 
 	// Set from extracted values
 	if sdu > 0 {
-		sa.SDU = int(sdu)
+		sa.sdu = int(sdu)
 	}
 	if networkCompression {
-		sa.NetworkCompression = true
-		sa.NetworkCompressionLevels = networkCompressionLevels
+		sa.networkCompression = true
+		sa.networkCompressionLevels = networkCompressionLevels
 
-		if len(sa.NetworkCompressionLevels) == 0 {
-			sa.NetworkCompressionLevels = []string{"high"}
+		if len(sa.networkCompressionLevels) == 0 {
+			sa.networkCompressionLevels = []string{"high"}
 		}
 	}
 	if networkCompressionThreshold >= 200 {
-		sa.NetworkCompressionThreshold = int(networkCompressionThreshold)
+		sa.networkCompressionThreshold = int(networkCompressionThreshold)
 	}
 	if expireTime > 0 {
-		sa.NT.ExpireTime = int(expireTime * 1000 * 60)
+		sa.nt.ExpireTime = int(expireTime * 1000 * 60)
 	}
 	if connectTimeout > 0 {
-		sa.ConnectTimeout = int(connectTimeout)
+		sa.connectTimeout = int(connectTimeout)
 	}
 	if transportConnectTimeout > 0 {
-		sa.NT.Transportconnecttimeout = int(transportConnectTimeout)
+		sa.nt.Transportconnecttimeout = int(transportConnectTimeout)
 	}
 	if recvTimeout > 0 {
-		sa.NT.RecvTimeout = int(recvTimeout)
+		sa.nt.RecvTimeout = int(recvTimeout)
 	}
 	if sendTimeout > 0 {
-		sa.NT.SendTimeout = int(sendTimeout)
+		sa.nt.SendTimeout = int(sendTimeout)
 	}
 	if connectionIDPrefix != "" {
-		sa.NT.Connectionidprefix = connectionIDPrefix
+		sa.nt.Connectionidprefix = connectionIDPrefix
 	}
-	sa.NT.TCPNODelay = tcpNoDelay
+	sa.nt.TCPNODelay = tcpNoDelay
 
 	if strings.ToUpper(enable) == "BROKEN" {
-		sa.NT.EnabledDCD = true
+		sa.nt.EnabledDCD = true
 	}
 	if httpsProxy != "" {
-		sa.NT.HttpsProxy = httpsProxy
+		sa.nt.HttpsProxy = httpsProxy
 	}
 	if httpsProxyPort >= 0 {
-		sa.NT.HttpsProxyPort = int(httpsProxyPort)
+		sa.nt.HttpsProxyPort = int(httpsProxyPort)
 	}
-	sa.NT.WalletLocation = walletLocation
-	sa.NT.SSLAllowWeakDNMatch = sslAllowWeakDNMatch
-	sa.NT.SSLServerDNMatch = sslServerDNMatch
-	sa.NT.SSLServerCertDN = sslServerCertDN
-	sa.NT.WalletPassword = walletPassword
-	sa.NT.UseSNI = useSNI // Assuming NT has UseSNI; add if not
+	sa.nt.WalletLocation = walletLocation
+	sa.nt.SSLAllowWeakDNMatch = sslAllowWeakDNMatch
+	sa.nt.SSLServerDNMatch = sslServerDNMatch
+	sa.nt.SSLServerCertDN = sslServerCertDN
+	sa.nt.WalletPassword = walletPassword
+	sa.nt.UseSNI = useSNI // Assuming NT has UseSNI; add if not
 
 }
 
-// ReadWalletFile reads the wallet file
-func (sa *SessionAtts) ReadWalletFile() ([]byte, error) {
-	path := filepath.Join(sa.NT.WalletLocation, PEM_WALLET_FILE_NAME)
+// readWalletFile reads the wallet file
+func (sa *sessionAtts) readWalletFile() ([]byte, error) {
+	path := filepath.Join(sa.nt.WalletLocation, PEM_WALLET_FILE_NAME)
 	return os.ReadFile(path)
 }
 
-// Prepare prepares attributes for connection
-func (sa *SessionAtts) Prepare(protocol driverCommon.Protocol) error {
-	sa.SDU = clamp(sa.SDU, NSPMNSDULN, NSPABSSDULN)
+// prepare prepares attributes for connection
+func (sa *sessionAtts) prepare(protocol driverCommon.Protocol) error {
+	sa.sdu = clamp(sa.sdu, NSPMNSDULN, NSPABSSDULN)
 
-	if sa.UUID == "" {
+	if sa.uuid == "" {
 		uuid, err := GenUUID()
 		if err != nil {
 			return err
 		}
-		sa.UUID = uuid
+		sa.uuid = uuid
 	}
-	if sa.NT.Connectionidprefix != "" {
-		sa.NT.Connectionid = sa.NT.Connectionidprefix + sa.UUID
+	if sa.nt.Connectionidprefix != "" {
+		sa.nt.Connectionid = sa.nt.Connectionidprefix + sa.uuid
 	} else {
-		sa.NT.Connectionid = sa.UUID
+		sa.nt.Connectionid = sa.uuid
 	}
 
-	walletLocation := strings.TrimSpace(sa.NT.WalletLocation)
-	sa.NT.UseSystemTrust = protocol == driverCommon.ProtocolTCPS &&
+	walletLocation := strings.TrimSpace(sa.nt.WalletLocation)
+	sa.nt.UseSystemTrust = protocol == driverCommon.ProtocolTCPS &&
 		(walletLocation == "" || strings.EqualFold(walletLocation, systemWalletLocation))
-	if protocol == driverCommon.ProtocolTCPS && sa.NT.WalletContent == nil && !sa.NT.UseSystemTrust {
-		data, err := sa.ReadWalletFile()
+	if protocol == driverCommon.ProtocolTCPS && sa.nt.WalletContent == nil && !sa.nt.UseSystemTrust {
+		data, err := sa.readWalletFile()
 		if err != nil {
 			return err
 		}
-		sa.NT.WalletContent = data
+		sa.nt.WalletContent = data
 	}
 
-	if sa.ConnectTimeout == 0 && sa.NT.Transportconnecttimeout == 0 {
-		sa.NT.Transportconnecttimeout = DEFAULT_TRANSPORT_CONNECT_TIMEOUT
+	if sa.connectTimeout == 0 && sa.nt.Transportconnecttimeout == 0 {
+		sa.nt.Transportconnecttimeout = DEFAULT_TRANSPORT_CONNECT_TIMEOUT
 	}
 	common.Odl.Debug("connection timeout set", "tm",
-		sa.NT.Transportconnecttimeout)
+		sa.nt.Transportconnecttimeout)
 
-	//sa.NT.Atts = sa // Set the reference back to SessionAtts
 	return nil
 }
