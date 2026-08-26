@@ -56,8 +56,8 @@ import (
 )
 
 const (
-	testOCITokenFileName         = "token"
-	testOCIPrivateKeyFileName    = "oci_db_key.pem"
+	testOCITokenFileName      = "token"
+	testOCIPrivateKeyFileName = "oci_db_key.pem"
 )
 
 // testOCITokenProvider implements SignedTokenAuthenticationProvider with token
