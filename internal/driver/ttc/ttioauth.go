@@ -485,17 +485,16 @@ var _authProxyClientNameKey = driverCommon.StringToB1Array(authProxyClientName)
 // Adds virtual session key-value pairs to the authentication request, including terminal,
 // program, machine, and process information.
 func (o *oAuth) setVSessionKeyValsForOAUTH() {
-
-	o.keyValList.PushBackList(_keyValStaticInfoForOAuth1)
-	// fill non-static information
-	v := _keyValStaticInfoForOAuthConnectString.Value.(*driverCommon.KeyValue)
-	v.Value = o.connectString
+	o.keyValList.PushBack(&driverCommon.KeyValue{Key: _authTerminalKey, Value: _dummyTerminalName})
+	// The connect string is request-specific. Keeping it on the message avoids
+	// sharing mutable authentication state across concurrent connections.
+	o.keyValList.PushBack(&driverCommon.KeyValue{Key: _authConnectStringKey, Value: o.connectString})
+	o.keyValList.PushBack(&driverCommon.KeyValue{Key: _authProgramNmKey, Value: currentProcessPath})
 	if len(o.clientName) != 0 {
 		o.keyValList.PushBack(&driverCommon.KeyValue{Key: _authProxyClientNameKey, Value: o.clientName})
 	}
 
 	o.keyValList.PushBackList(_keyValStaticInfoForOAuth2)
-
 }
 
 var _authOraEditionKey = driverCommon.StringToB1Array(authOraEdition)

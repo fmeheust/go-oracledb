@@ -336,6 +336,7 @@ var testCases = []struct {
 	{"TestOAuth_initializeLogonModeForOAUTH", "unitary", false, TestOAuth_initializeLogonModeForOAUTH},
 	{"TestOAuth_setPasswordKeyValsForOAUTH", "unitary", false, TestOAuth_setPasswordKeyValsForOAUTH},
 	{"TestOAuth_setPasswordKeyValsForOAUTH_WithEncryptedKB", "unitary", false, TestOAuth_setPasswordKeyValsForOAUTH_WithEncryptedKB},
+	{"TestOAuth_setVSessionKeyValsForOAUTHIsConnectionLocal", "unitary", true, TestOAuth_setVSessionKeyValsForOAUTHIsConnectionLocal},
 	{"TestOAuth_setDriverIdentityKeyValsForOAUTH", "unitary", false, TestOAuth_setDriverIdentityKeyValsForOAUTH},
 	{"TestOAuth_setAlterSessionKeyValsForOAUTH", "unitary", false, TestOAuth_setAlterSessionKeyValsForOAUTH},
 	{"TestOAuth_validateKeySizeForOAUTH_Success", "unitary", false, TestOAuth_validateKeySizeForOAUTH_Success},
