@@ -502,9 +502,9 @@ func initMessagesEn() {
 	message.SetString(language.English, string(oracleErrors.ServerTimeZoneError), "Failed to %s server timezone")
 
 	// Document: No
-	// Cause:    Token-based authentication resolved an empty token value from AccessToken or TokenLocation.
+	// Cause:    Token-based authentication resolved an empty token.
 	// Action:   Provide a non-empty token directly with AccessToken or ensure the token file contains a valid token.
-	message.SetString(language.English, string(oracleErrors.EmptyTokenError), "empty token for %s")
+	message.SetString(language.English, string(oracleErrors.EmptyTokenError), "token-based authentication token id empty")
 
 	// Document: No
 	// Cause:    An error occured during Token-based authentication

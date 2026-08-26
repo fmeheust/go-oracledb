@@ -168,16 +168,6 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 		return nil, common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
-	if providerRegistry != nil {
-		provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
-		if err == nil {
-			tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
-			if len(parameters.Credentials.Password) == 0 || len(parameters.Credentials.User) == 0 {
-				return newTokenAuthenticator(tokenProvider), nil
-			}
-		}
-	}
-
 	if len(parameters.Credentials.Password) > 0 {
 		if len(parameters.Credentials.User) == 0 {
 			return nil, common.NewOracleError(oracleErrors.EmptyUsernameError, nil, nil)
