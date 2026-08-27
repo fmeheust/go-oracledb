@@ -59,7 +59,7 @@ type fileOAuthTokenProvider struct {
 }
 
 // Token returns the token used for token authentication
-func (p fileOAuthTokenProvider) Token(context.Context) (string, error) {
+func (p *fileOAuthTokenProvider) Token(context.Context) (string, error) {
 	return readTrimmedFile(p.tokenPath)
 }
 
@@ -82,7 +82,7 @@ func main() {
 	}
 	// register the provider, the provider methods will be called by
 	// the driver during token-based authentication
-	registrar.RegisterProvider(fileOAuthTokenProvider{tokenPath: tokenPath})
+	registrar.RegisterProvider(&fileOAuthTokenProvider{tokenPath: tokenPath})
 
 	db := sql.OpenDB(connector)
 	defer db.Close()
@@ -94,12 +94,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var result string
-	if err := db.QueryRowContext(ctx, "SELECT USER FROM SYS.DUAL").Scan(&result); err != nil {
+	var current_user, authenticated_identity, identification_type, enterprise_identity, proxy_user sql.NullString
+	if err := db.QueryRowContext(ctx, "SELECT "+
+		"SYS_CONTEXT('userenv', 'current_user') AS current_user,"+
+		" SYS_CONTEXT('userenv', 'authenticated_identity') AS authenticated_identity,"+
+		" SYS_CONTEXT('userenv', 'IDENTIFICATION_TYPE') AS identification_type,"+
+		" SYS_CONTEXT('USERENV','ENTERPRISE_IDENTITY') AS enterprise_identity,"+
+		" sys_context('userenv','proxy_user') as proxy_user FROM sys.dual").
+		Scan(&current_user, &authenticated_identity, &identification_type, &enterprise_identity, &proxy_user); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Username: %s\n", result)
+	fmt.Printf("current_user: %s\n", current_user.String)
+	fmt.Printf("authenticated_identity: %s\n", authenticated_identity.String)
+	fmt.Printf("identification_type: %s\n", identification_type.String)
+	fmt.Printf("enterprise_identity: %s\n", enterprise_identity.String)
+	fmt.Printf("proxy_user: %s\n", proxy_user.String)
 }
 
 func requiredEnv(name string) string {
