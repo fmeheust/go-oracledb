@@ -527,6 +527,6 @@ func initMessagesEn() {
 	// Action:   Generate or retrieve a fresh access token and try the connection again.
 	message.SetString(language.English, string(oracleErrors.ExpiredToken), "access token has expired")
 
-	message.SetString(language.English, string(oracleErrors.ProviderNotFound), "no provider found of type: %s")
+	message.SetString(language.English, string(oracleErrors.ProviderNotFound), "no provider found of the requested type")
 
 }

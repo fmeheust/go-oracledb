@@ -52,6 +52,7 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
@@ -99,6 +100,141 @@ func newTestProviderRegistry(providersToRegister ...oracleProviders.Provider) co
 	return registry
 }
 
+type stubProviderRegistry struct {
+	provider oracleProviders.Provider
+	err      error
+}
+
+func (s stubProviderRegistry) RegisterProvider(provider oracleProviders.Provider) {
+	s.provider = provider
+}
+
+func (s stubProviderRegistry) Provider(providerType reflect.Type) (oracleProviders.Provider, error) {
+	return s.provider, s.err
+}
+
+// TestGetAuthenticator_CurrentSelectionLogic verifies the current authenticator
+// selection rules for combinations of username, password, and token providers.
+func TestGetAuthenticator_CurrentSelectionLogic(t *testing.T) {
+	t.Parallel()
+
+	tokenProvider := mockTokenAuthenticationProvider{token: "token-value"}
+	providerLookupErr := common.NewOracleError(oracleErrors.ProviderNotFound, nil, "token provider")
+
+	tests := []struct {
+		name          string
+		user          string
+		password      string
+		provider      common.ProviderRegistry
+		wantType      string
+		wantErrorCode oracleErrors.ErrorCode
+	}{
+		{
+			name:     "username and password use password authenticator",
+			user:     "scott",
+			password: "tiger",
+			wantType: "*ttc.passwordAuthenticator",
+		},
+		{
+			name:     "username and password ignore token provider",
+			user:     "scott",
+			password: "tiger",
+			provider: newTestProviderRegistry(tokenProvider),
+			wantType: "*ttc.passwordAuthenticator",
+		},
+		{
+			name:          "username without password does not use token provider",
+			user:          "scott",
+			provider:      newTestProviderRegistry(tokenProvider),
+			wantErrorCode: oracleErrors.NoAuthenticatorError,
+		},
+		{
+			name:          "username without password and without provider returns no authenticator",
+			user:          "scott",
+			wantErrorCode: oracleErrors.NoAuthenticatorError,
+		},
+		{
+			name:     "missing username with token provider uses token authenticator",
+			provider: newTestProviderRegistry(tokenProvider),
+			wantType: "*ttc.tokenAuthenticator",
+		},
+		{
+			name:          "missing username and password without provider returns no authenticator",
+			wantErrorCode: oracleErrors.NoAuthenticatorError,
+		},
+		{
+			name:          "missing username with password and without provider returns empty username",
+			password:      "tiger",
+			wantErrorCode: oracleErrors.EmptyUsernameError,
+		},
+		{
+			name:     "missing username with password and token provider still uses token authenticator",
+			password: "tiger",
+			provider: newTestProviderRegistry(tokenProvider),
+			wantType: "*ttc.tokenAuthenticator",
+		},
+		{
+			name:          "missing username with provider lookup error returns no authenticator",
+			provider:      stubProviderRegistry{err: providerLookupErr},
+			wantErrorCode: oracleErrors.NoAuthenticatorError,
+		},
+		{
+			name:          "missing username with password and provider lookup error returns no authenticator before empty username",
+			password:      "tiger",
+			provider:      stubProviderRegistry{err: providerLookupErr},
+			wantErrorCode: oracleErrors.NoAuthenticatorError,
+		},
+		{
+			name:          "missing username with nil provider result and password returns empty username",
+			password:      "tiger",
+			provider:      stubProviderRegistry{},
+			wantErrorCode: oracleErrors.EmptyUsernameError,
+		},
+		{
+			name:          "missing username with nil provider result and no password returns no authenticator",
+			provider:      stubProviderRegistry{},
+			wantErrorCode: oracleErrors.NoAuthenticatorError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := oracleconfig.NewOracleDriverConfig()
+			cfg.Credentials.User = tt.user
+			cfg.Credentials.Password = tt.password
+
+			authenticator, err := GetAuthenticator(cfg, tt.provider)
+
+			if tt.wantErrorCode != "" {
+				if err == nil {
+					t.Fatalf("expected error %s, got nil", tt.wantErrorCode)
+				}
+				sqle, ok := err.(oracleErrors.SQLError)
+				if !ok {
+					t.Fatalf("expected SQLError, got %T", err)
+				}
+				if got := oracleErrors.ErrorCode(sqle.ErrorCode()); got != tt.wantErrorCode {
+					t.Fatalf("error code = %s, want %s", got, tt.wantErrorCode)
+				}
+				if authenticator != nil {
+					t.Fatalf("expected nil authenticator on error, got %T", authenticator)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("GetAuthenticator returned error: %v", err)
+			}
+			if authenticator == nil {
+				t.Fatal("expected authenticator, got nil")
+			}
+			if got := reflect.TypeOf(authenticator).String(); got != tt.wantType {
+				t.Fatalf("authenticator type = %s, want %s", got, tt.wantType)
+			}
+		})
+	}
+}
+
 func TestGetAuthenticator_UsesTokenAuthenticatorForSignedToken(t *testing.T) {
 	t.Parallel()
 
@@ -123,23 +259,6 @@ func TestGetAuthenticator_UsesTokenAuthenticatorForOAuth(t *testing.T) {
 
 	cfg := oracleconfig.NewOracleDriverConfig()
 	cfg.ConnectDescriptor = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))"
-
-	authenticator, err := GetAuthenticator(cfg, newTestProviderRegistry(
-		mockTokenAuthenticationProvider{token: "token-value"},
-	))
-	if err != nil {
-		t.Fatalf("GetAuthenticator returned error: %v", err)
-	}
-	if _, ok := authenticator.(*tokenAuthenticator); !ok {
-		t.Fatalf("expected tokenAuthenticator, got %T", authenticator)
-	}
-}
-
-func TestGetAuthenticator_AcceptsLegacyDummyPasswordForTokenProvider(t *testing.T) {
-	t.Parallel()
-
-	cfg := oracleconfig.NewOracleDriverConfig()
-	cfg.Credentials.Password = "password"
 
 	authenticator, err := GetAuthenticator(cfg, newTestProviderRegistry(
 		mockTokenAuthenticationProvider{token: "token-value"},
@@ -238,15 +357,19 @@ func TestSignedTokenProviderGenerateTokenHeader(t *testing.T) {
 	}
 }
 
-func TestProviderRegistryReturnsErrorWhenTokenProviderMissing(t *testing.T) {
+func TestProviderRegistryReturnsNilWhenTokenProviderMissing(t *testing.T) {
 	t.Parallel()
 
 	registry := newTestProviderRegistry(
 		struct{}{},
 		struct{}{},
 	)
-	if _, err := registry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem()); err == nil {
-		t.Fatal("expected missing token provider error, got nil")
+	provider, err := registry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+	if err != nil {
+		t.Fatalf("expected nil error when token provider is missing, got %v", err)
+	}
+	if provider != nil {
+		t.Fatalf("expected nil provider when token provider is missing, got %T", provider)
 	}
 }
 

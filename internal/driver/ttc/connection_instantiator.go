@@ -168,19 +168,28 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 		return nil, common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
-	if len(parameters.Credentials.Password) > 0 {
-		if len(parameters.Credentials.User) == 0 {
+	if len(parameters.Credentials.User) > 0 {
+		if len(parameters.Credentials.Password) > 0 {
+			return createPasswordAuthenticator(parameters)
+		}
+	} else {
+		if providerRegistry != nil {
+			provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+			if err != nil {
+				return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, err, nil)
+			}
+			if provider != nil {
+				tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
+				return newTokenAuthenticator(tokenProvider), nil
+			}
+		}
+		if len(parameters.Credentials.Password) > 0 {
+			// if there is a password but no username
 			return nil, common.NewOracleError(oracleErrors.EmptyUsernameError, nil, nil)
+		} else {
+			// if there is no username, no password and no authenticator
+			return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, nil, nil)
 		}
-		return createPasswordAuthenticator(parameters)
-	}
-	if providerRegistry != nil {
-		provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
-		if err == nil {
-			tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
-			return newTokenAuthenticator(tokenProvider), nil
-		}
-		return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, err, nil)
 	}
 	return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, nil, nil)
 }

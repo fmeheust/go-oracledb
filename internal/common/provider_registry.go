@@ -67,8 +67,9 @@ type ProviderRegistry interface {
 	//     the registry.
 	//
 	// Returns:
-	//   - the first registered provider matching providerType.
-	//   - an error if providerType is invalid or no matching provider exists.
+	//   - the first registered provider matching providerType, or nil if no
+	//     matching provider was found
+	//   - an error if providerType is invalid
 	Provider(providerType reflect.Type) (providers.Provider, error)
 }
 
@@ -102,22 +103,23 @@ func (providerRegistry *providerRegistry) RegisterProvider(provider providers.Pr
 	providerRegistry.providers = append(providerRegistry.providers, provider)
 }
 
-// Provider returns the first registered provider that implements the
-// requested provider interface or matches the requested concrete type.
+// Provider gets the first provider found in the registry that implements
+// the desired type
 //
 // Parameters:
 //   - providerType: the interface or concrete provider type to resolve from
 //     the registry.
 //
 // Returns:
-//   - the first registered provider matching providerType.
-//   - an error if providerType is invalid or no matching provider exists.
+//   - the first registered provider matching providerType, or nil if no
+//     matching provider was found
+//   - an error if providerType is invalid
 func (providerRegistry *providerRegistry) Provider(providerType reflect.Type) (providers.Provider, error) {
 	providerRegistry.providerRegistryMutex.RLock()
 	defer providerRegistry.providerRegistryMutex.RUnlock()
 
 	if providerType == nil {
-		return nil, NewOracleError(oracleErrors.ProviderNotFound, nil, "provider type")
+		return nil, NewOracleError(oracleErrors.ProviderNotFound, nil)
 	}
 	for _, item := range providerRegistry.providers {
 		itemType := reflect.TypeOf(item)
@@ -125,5 +127,5 @@ func (providerRegistry *providerRegistry) Provider(providerType reflect.Type) (p
 			return item, nil
 		}
 	}
-	return nil, NewOracleError(oracleErrors.ProviderNotFound, nil, providerType)
+	return nil, nil
 }
