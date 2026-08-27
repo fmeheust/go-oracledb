@@ -113,9 +113,9 @@ func (s stubProviderRegistry) Provider(providerType reflect.Type) (oracleProvide
 	return s.provider, s.err
 }
 
-// TestGetAuthenticator_CurrentSelectionLogic verifies the current authenticator
+// TestGetAuthenticator_SelectionLogic verifies the current authenticator
 // selection rules for combinations of username, password, and token providers.
-func TestGetAuthenticator_CurrentSelectionLogic(t *testing.T) {
+func TestGetAuthenticator_SelectionLogic(t *testing.T) {
 	t.Parallel()
 
 	tokenProvider := mockTokenAuthenticationProvider{token: "token-value"}
@@ -168,10 +168,10 @@ func TestGetAuthenticator_CurrentSelectionLogic(t *testing.T) {
 			wantErrorCode: oracleErrors.EmptyUsernameError,
 		},
 		{
-			name:     "missing username with password and token provider still uses token authenticator",
-			password: "tiger",
-			provider: newTestProviderRegistry(tokenProvider),
-			wantType: "*ttc.tokenAuthenticator",
+			name:          "missing username with password and token provider still returns no password error",
+			password:      "tiger",
+			provider:      newTestProviderRegistry(tokenProvider),
+			wantErrorCode: oracleErrors.EmptyUsernameError,
 		},
 		{
 			name:          "missing username with provider lookup error returns no authenticator",
@@ -179,10 +179,10 @@ func TestGetAuthenticator_CurrentSelectionLogic(t *testing.T) {
 			wantErrorCode: oracleErrors.NoAuthenticatorError,
 		},
 		{
-			name:          "missing username with password and provider lookup error returns no authenticator before empty username",
+			name:          "missing username with password and provider lookup error returns no password error",
 			password:      "tiger",
 			provider:      stubProviderRegistry{err: providerLookupErr},
-			wantErrorCode: oracleErrors.NoAuthenticatorError,
+			wantErrorCode: oracleErrors.EmptyUsernameError,
 		},
 		{
 			name:          "missing username with nil provider result and password returns empty username",

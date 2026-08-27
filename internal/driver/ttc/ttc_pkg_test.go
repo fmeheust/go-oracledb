@@ -232,7 +232,7 @@ var testCases = []struct {
 	{"TestStatementExecutor_Others_FaultyPush", "unitary", false, TestStatementExecutor_Others_FaultyPush},
 	{"TestPasswordAuthenticator_doOSESSKEY_Golden", "unitary", false, TestPasswordAuthenticator_doOSESSKEY_Golden},
 	{"TestPasswordAuthenticator_doOAuth_Golden", "unitary", false, TestPasswordAuthenticator_doOAuth_Golden},
-	{"TestGetAuthenticator_CurrentSelectionLogic", "unitary", false, TestGetAuthenticator_CurrentSelectionLogic},
+	{"TestGetAuthenticator_SelectionLogic", "unitary", false, TestGetAuthenticator_SelectionLogic},
 	{"TestProviderRegistryReturnsFirstRegisteredTokenProvider", "unitary", false, TestProviderRegistryReturnsFirstRegisteredTokenProvider},
 	{"TestOAuthSetTokenKeyValsForOAUTHAddsTokenHeaderAndSignature", "unitary", false, TestOAuthSetTokenKeyValsForOAUTHAddsTokenHeaderAndSignature},
 	{"TestSignedTokenProviderGenerateTokenHeader", "unitary", false, TestSignedTokenProviderGenerateTokenHeader},
