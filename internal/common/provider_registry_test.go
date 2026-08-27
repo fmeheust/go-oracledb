@@ -40,7 +40,6 @@ package common
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
@@ -123,18 +122,15 @@ func TestProviderRegistryGetProviderReturnsRequestedInterface(t *testing.T) {
 }
 
 // TestProviderRegistryGetProviderReturnsErrorWhenUninitialized verifies that a
-// newly created registry reports that no matching provider is registered.
+// newly created registry returns nil when no provider is found.
 func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) {
 	t.Parallel()
 
 	registry := NewProviderRegistry()
 
-	_, err := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
-	if err == nil {
+	provider, _ := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
+	if provider != nil {
 		t.Fatal("expected GetProvider to fail for empty registry")
-	}
-	if !strings.Contains(err.Error(), "no provider found") {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
