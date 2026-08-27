@@ -127,8 +127,8 @@ func newConnectorTestConfigWithConnectString(t *testing.T, connectString string)
 func assertNoTokenProviderRegistered(t *testing.T, providerRegistry common.ProviderRegistry) {
 	t.Helper()
 
-	provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
-	if err == nil {
+	provider, _ := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+	if provider != nil {
 		t.Fatalf("expected empty provider registry, got token provider %T", provider)
 	}
 }
