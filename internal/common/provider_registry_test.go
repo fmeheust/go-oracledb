@@ -42,6 +42,7 @@ import (
 	"reflect"
 	"testing"
 
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
@@ -131,6 +132,31 @@ func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) 
 	provider, _ := registry.Provider(reflect.TypeOf((*namedProvider)(nil)).Elem())
 	if provider != nil {
 		t.Fatal("expected GetProvider to fail for empty registry")
+	}
+}
+
+// TestProviderRegistryGetProviderReturnsErrorWhenTypeIsNil verifies that
+// GetProvider returns an error if the passed type is nil.
+func TestProviderRegistryGetProviderReturnsErrorWhenTypeIsNil(t *testing.T) {
+	t.Parallel()
+
+	registry := NewProviderRegistry()
+	original := mockProviderRegistryProvider{name: "original"}
+	registry.RegisterProvider(original)
+
+	gotProvider, err := registry.Provider(nil)
+	if err == nil {
+		t.Fatal("GetProvider should have returned an error")
+	}
+	if sqlError, ok := err.(oracleErrors.SQLError); !ok {
+		t.Fatalf("Error should shoudl be of type SQLError: %v", err)
+	} else {
+		if sqlError.ErrorCode() != string(oracleErrors.ProviderNotFound) {
+			t.Fatalf("Expected error code to be %s but was %s", oracleErrors.ProviderNotFound, sqlError.ErrorCode())
+		}
+	}
+	if gotProvider != nil {
+		t.Fatalf("Provider should have been nil but was %v", gotProvider)
 	}
 }
 
