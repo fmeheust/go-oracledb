@@ -73,7 +73,7 @@ type ttiShelf[T any] struct {
 	_cancelExecutionFunction     StmtCancellationFunction
 	_serverTimeZoneOffset        int16 // server time zone in seconds
 	_eventService                *eventService
-	_connectionValidatorRegistry internalCommon.Registry[connectionValidator]
+	_connectionValidatorRegistry internalCommon.Registry[stateValidator]
 }
 
 // newShelf creates a new TTC shelf wrapping a fresh common.Shelf[T].
@@ -86,7 +86,7 @@ func newShelf[T any]() *ttiShelf[T] {
 		codecFactory:                 nil,
 		_statements:                  make(map[*Statement]weak.Pointer[Statement]),
 		_eventService:                newEventService(),
-		_connectionValidatorRegistry: internalCommon.NewRegistry[connectionValidator](),
+		_connectionValidatorRegistry: internalCommon.NewRegistry[stateValidator](),
 	}
 }
 
@@ -202,19 +202,23 @@ func (s *ttiShelf[T]) getEventService() *eventService {
 	return s._eventService
 }
 
-// registerConnectionValidator adds a validator to the shelf's connection
+type stateValidator interface {
+	isValid(context.Context) bool
+}
+
+// registerStateValidator adds a validator to the shelf's connection
 // validation chain.
-func (s *ttiShelf[T]) registerConnectionValidator(validator connectionValidator) {
+func (s *ttiShelf[T]) registerStateValidator(validator stateValidator) {
 	s._connectionValidatorRegistry.Register(validator)
 }
 
-// validateConnection runs all validators registered on the shelf.
+// checkCurrentState runs all validators registered on the shelf.
 //
-// Returns an internal error when any validator reports that the connection is
+// Returns an internal error when any validator reports that the state is
 // invalid; otherwise it returns nil.
-func (s *ttiShelf[T]) validateConnection(ctx context.Context) error {
+func (s *ttiShelf[T]) checkCurrentState(ctx context.Context) error {
 	for _, item := range s._connectionValidatorRegistry.GetAll() {
-		if !item.isValid(ctx) {
+		if item != nil && !item.isValid(ctx) {
 			return s.LocalizeError(internalCommon.NewOracleError(errors.InternalError, nil))
 		}
 	}

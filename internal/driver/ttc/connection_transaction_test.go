@@ -456,7 +456,7 @@ func TestTransactionOperationRejectsStaleMessages(t *testing.T) {
 			conn := newTransactionTestConnection(streamer)
 			tx := newTransaction(conn, context.Background())
 			conn.shelf.registerTransaction(tx)
-			conn.shelf.registerConnectionValidator(&shelfConnectionValidator{valid: false})
+			conn.shelf.registerStateValidator(&shelfConnectionValidator{valid: false})
 
 			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.InternalError {
 				t.Fatalf("error code = %s, want %s", got, oracleErrors.InternalError)

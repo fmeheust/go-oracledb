@@ -533,6 +533,8 @@ func TestMessageStreamer_Drain(t *testing.T) {
 	}
 }
 
+// TestMessageStreamer_IsValidReturnsFalseAndRaisesStaleEvent verifies that
+// queued incoming messages invalidate the streamer and raise a stale event.
 func TestMessageStreamer_IsValidReturnsFalseAndRaisesStaleEvent(t *testing.T) {
 	t.Parallel()
 

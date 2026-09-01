@@ -77,6 +77,8 @@ func TestTTIShelf_NewShelf(t *testing.T) {
 	}
 }
 
+// TestNewMessageStreamerRegistersConnectionValidator verifies that a newly
+// created message streamer participates in shelf connection validation.
 func TestNewMessageStreamerRegistersConnectionValidator(t *testing.T) {
 	t.Parallel()
 
@@ -111,11 +113,13 @@ func (v *recordingConnectionValidator) isValid(context.Context) bool {
 	return v.valid
 }
 
+// TestTTIShelf_ValidateConnection verifies that the shelf reports invalid
+// connections and accepts shelves with no invalid validators.
 func TestTTIShelf_ValidateConnection(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name      string
-		validator connectionValidator
+		validator stateValidator
 		wantError bool
 	}{
 		{name: "no validators", wantError: false},
@@ -126,10 +130,10 @@ func TestTTIShelf_ValidateConnection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			shelf := newShelf[driverCommon.MessageType]()
 			if tt.validator != nil {
-				shelf.registerConnectionValidator(tt.validator)
+				shelf.registerStateValidator(tt.validator)
 			}
 
-			err := shelf.validateConnection(context.Background())
+			err := shelf.checkCurrentState(context.Background())
 			if (err != nil) != tt.wantError {
 				t.Fatalf("error presence = %t, want %t; error = %v", err != nil, tt.wantError, err)
 			}
@@ -143,16 +147,18 @@ func TestTTIShelf_ValidateConnection(t *testing.T) {
 	}
 }
 
+// TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator verifies that
+// validation preserves registration order and short-circuits on failure.
 func TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator(t *testing.T) {
 	t.Parallel()
 
 	shelf := newShelf[driverCommon.MessageType]()
 	called := []string{}
-	shelf.registerConnectionValidator(&recordingConnectionValidator{name: "first", valid: true, called: &called})
-	shelf.registerConnectionValidator(&recordingConnectionValidator{name: "second", valid: false, called: &called})
-	shelf.registerConnectionValidator(&recordingConnectionValidator{name: "third", valid: true, called: &called})
+	shelf.registerStateValidator(&recordingConnectionValidator{name: "first", valid: true, called: &called})
+	shelf.registerStateValidator(&recordingConnectionValidator{name: "second", valid: false, called: &called})
+	shelf.registerStateValidator(&recordingConnectionValidator{name: "third", valid: true, called: &called})
 
-	err := shelf.validateConnection(context.Background())
+	err := shelf.checkCurrentState(context.Background())
 	if err == nil {
 		t.Fatal("expected validation error")
 	}

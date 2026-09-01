@@ -54,10 +54,6 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-type connectionValidator interface {
-	isValid(context.Context) bool
-}
-
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
 type connection struct {

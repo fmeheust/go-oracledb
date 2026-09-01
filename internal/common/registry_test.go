@@ -135,6 +135,8 @@ func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) 
 	}
 }
 
+// TestRegistryGetReturnsErrorWhenTypeIsNil verifies that a nil lookup type is
+// rejected with a provider-not-found error.
 func TestRegistryGetReturnsErrorWhenTypeIsNil(t *testing.T) {
 	t.Parallel()
 
@@ -149,6 +151,8 @@ func TestRegistryGetReturnsErrorWhenTypeIsNil(t *testing.T) {
 	}
 }
 
+// TestProviderRegistrySupportsConcreteGenericType verifies that a registry can
+// store and retrieve a concrete type without a provider interface constraint.
 func TestProviderRegistrySupportsConcreteGenericType(t *testing.T) {
 	t.Parallel()
 
@@ -165,6 +169,8 @@ func TestProviderRegistrySupportsConcreteGenericType(t *testing.T) {
 	}
 }
 
+// TestRegistryGetAllReturnsSnapshotInRegistrationOrder verifies that GetAll
+// preserves registration order and returns an independent slice.
 func TestRegistryGetAllReturnsSnapshotInRegistrationOrder(t *testing.T) {
 	t.Parallel()
 
@@ -185,6 +191,8 @@ func TestRegistryGetAllReturnsSnapshotInRegistrationOrder(t *testing.T) {
 	}
 }
 
+// TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized verifies that an
+// empty registry returns no registered items.
 func TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized(t *testing.T) {
 	t.Parallel()
 
@@ -195,6 +203,8 @@ func TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized(t *testing.T) {
 	}
 }
 
+// TestRegistryGetSkipsNilItems verifies that nil interface values do not cause
+// reflection lookup to panic or prevent later items from being found.
 func TestRegistryGetSkipsNilItems(t *testing.T) {
 	t.Parallel()
 
