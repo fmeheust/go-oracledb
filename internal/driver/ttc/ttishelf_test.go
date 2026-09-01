@@ -75,6 +75,58 @@ func TestTTIShelf_NewShelf(t *testing.T) {
 	}
 }
 
+type shelfDrainStreamer struct {
+	mockStreamer
+	incoming int
+}
+
+func (s *shelfDrainStreamer) Drain(context.Context, driverCommon.StreamDirection) (int, int) {
+	return s.incoming, 0
+}
+
+func TestTTIShelf_DrainStreamerAndRaiseStaleEvent(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		incoming  int
+		wantError bool
+		wantEvent bool
+	}{
+		{name: "empty streamer", incoming: 0, wantError: false, wantEvent: false},
+		{name: "stale messages", incoming: 2, wantError: true, wantEvent: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			streamer := &shelfDrainStreamer{incoming: tt.incoming}
+			shelf := newShelf[driverCommon.MessageType]()
+			shelf.RegisterMessageStreamer(streamer)
+			listener := &testEventListener{}
+			shelf.getEventService().register(listener, streamerStaleEvent)
+
+			err := shelf.drainStreamerAndRaiseStaleEvent(context.Background())
+			if (err != nil) != tt.wantError {
+				t.Fatalf("error presence = %t, want %t; error = %v", err != nil, tt.wantError, err)
+			}
+			if len(listener.events) != boolToInt(tt.wantEvent) {
+				t.Fatalf("stale events = %v, want %t event", listener.events, tt.wantEvent)
+			}
+			if tt.wantError {
+				sqlErr, ok := err.(oracleErrors.SQLError)
+				if !ok || sqlErr.ErrorCode() != string(oracleErrors.InternalError) {
+					t.Fatalf("error = %T %v, want InternalError", err, err)
+				}
+			}
+		})
+	}
+}
+
+func boolToInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
 // 1. Register codec factory and verify GetCodecFactory returns it
 // 2. Re-register factory and verify it is replaced
 func TestTTIShelf_RegisterCodecFactoryAndGetter(t *testing.T) {

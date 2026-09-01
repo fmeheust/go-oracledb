@@ -46,6 +46,7 @@ import (
 
 	internalCommon "github.com/oracle/go-oracledb/v26/internal/common"
 	common "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // ttiShelfUser declares a dependency on a TTC shelf.
@@ -196,4 +197,18 @@ func (s *ttiShelf[T]) getServerTimeZoneOffset() int16 {
 
 func (s *ttiShelf[T]) getEventService() *eventService {
 	return s._eventService
+}
+
+// drainStreamerAndRaiseStaleEvent drains incoming messages and reports a stale
+// streamer when messages remain after an operation completes.
+func (s *ttiShelf[T]) drainStreamerAndRaiseStaleEvent(ctx context.Context) error {
+	msgIn, _ := s.GetMessageStreamer().Drain(ctx, common.IN)
+	if msgIn == 0 {
+		return nil
+	}
+
+	internalCommon.Odl.Error("unexpected messages remained; invalidating connection",
+		"remaining messageCount", msgIn)
+	s.getEventService().post(streamerStaleEvent)
+	return s.LocalizeError(internalCommon.NewOracleError(oracleErrors.InternalError, nil))
 }
