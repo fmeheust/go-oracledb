@@ -41,11 +41,13 @@ package ttc
 import (
 	"context"
 	"database/sql/driver"
+	"reflect"
 	"testing"
 
 	internalCommon "github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 	"golang.org/x/text/language"
 )
 
@@ -75,40 +77,61 @@ func TestTTIShelf_NewShelf(t *testing.T) {
 	}
 }
 
-type shelfDrainStreamer struct {
-	mockStreamer
-	incoming int
+func TestNewMessageStreamerRegistersConnectionValidator(t *testing.T) {
+	t.Parallel()
+
+	shelf := newShelf[driverCommon.MessageType]()
+	streamer := NewMessageStreamer(shelf)
+	validators := shelf._connectionValidatorRegistry.GetAll()
+
+	if len(validators) != 1 {
+		t.Fatalf("validator count = %d, want 1", len(validators))
+	}
+	if validators[0] != streamer {
+		t.Fatalf("registered validator = %p, want streamer %p", validators[0], streamer)
+	}
 }
 
-func (s *shelfDrainStreamer) Drain(context.Context, driverCommon.StreamDirection) (int, int) {
-	return s.incoming, 0
+type shelfConnectionValidator struct {
+	valid bool
 }
 
-func TestTTIShelf_DrainStreamerAndRaiseStaleEvent(t *testing.T) {
+func (s *shelfConnectionValidator) isValid(context.Context) bool {
+	return s.valid
+}
+
+type recordingConnectionValidator struct {
+	name   string
+	valid  bool
+	called *[]string
+}
+
+func (v *recordingConnectionValidator) isValid(context.Context) bool {
+	*v.called = append(*v.called, v.name)
+	return v.valid
+}
+
+func TestTTIShelf_ValidateConnection(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name      string
-		incoming  int
+		validator connectionValidator
 		wantError bool
-		wantEvent bool
 	}{
-		{name: "empty streamer", incoming: 0, wantError: false, wantEvent: false},
-		{name: "stale messages", incoming: 2, wantError: true, wantEvent: true},
+		{name: "no validators", wantError: false},
+		{name: "valid connection", validator: &shelfConnectionValidator{valid: true}, wantError: false},
+		{name: "invalid connection", validator: &shelfConnectionValidator{valid: false}, wantError: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			streamer := &shelfDrainStreamer{incoming: tt.incoming}
 			shelf := newShelf[driverCommon.MessageType]()
-			shelf.RegisterMessageStreamer(streamer)
-			listener := &testEventListener{}
-			shelf.getEventService().register(listener, streamerStaleEvent)
+			if tt.validator != nil {
+				shelf.registerConnectionValidator(tt.validator)
+			}
 
-			err := shelf.drainStreamerAndRaiseStaleEvent(context.Background())
+			err := shelf.validateConnection(context.Background())
 			if (err != nil) != tt.wantError {
 				t.Fatalf("error presence = %t, want %t; error = %v", err != nil, tt.wantError, err)
-			}
-			if len(listener.events) != boolToInt(tt.wantEvent) {
-				t.Fatalf("stale events = %v, want %t event", listener.events, tt.wantEvent)
 			}
 			if tt.wantError {
 				sqlErr, ok := err.(oracleErrors.SQLError)
@@ -120,11 +143,22 @@ func TestTTIShelf_DrainStreamerAndRaiseStaleEvent(t *testing.T) {
 	}
 }
 
-func boolToInt(value bool) int {
-	if value {
-		return 1
+func TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator(t *testing.T) {
+	t.Parallel()
+
+	shelf := newShelf[driverCommon.MessageType]()
+	called := []string{}
+	shelf.registerConnectionValidator(&recordingConnectionValidator{name: "first", valid: true, called: &called})
+	shelf.registerConnectionValidator(&recordingConnectionValidator{name: "second", valid: false, called: &called})
+	shelf.registerConnectionValidator(&recordingConnectionValidator{name: "third", valid: true, called: &called})
+
+	err := shelf.validateConnection(context.Background())
+	if err == nil {
+		t.Fatal("expected validation error")
 	}
-	return 0
+	if got, want := called, []string{"first", "second"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("validators called = %v, want %v", got, want)
+	}
 }
 
 // 1. Register codec factory and verify GetCodecFactory returns it
@@ -203,7 +237,7 @@ func TestTTIShelf_RegisterProviderRegistry(t *testing.T) {
 	t.Parallel()
 
 	shelf := newShelf[int]()
-	registry := internalCommon.NewProviderRegistry()
+	registry := internalCommon.NewRegistry[oracleProviders.Provider]()
 
 	shelf.registerProviderRegistry(registry)
 
@@ -218,8 +252,8 @@ func TestTTIShelf_RegisterProviderRegistry_ReplacesExistingRegistry(t *testing.T
 	t.Parallel()
 
 	shelf := newShelf[int]()
-	firstRegistry := internalCommon.NewProviderRegistry()
-	secondRegistry := internalCommon.NewProviderRegistry()
+	firstRegistry := internalCommon.NewRegistry[oracleProviders.Provider]()
+	secondRegistry := internalCommon.NewRegistry[oracleProviders.Provider]()
 
 	shelf.registerProviderRegistry(firstRegistry)
 	shelf.registerProviderRegistry(secondRegistry)

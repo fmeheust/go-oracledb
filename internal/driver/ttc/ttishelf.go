@@ -46,7 +46,8 @@ import (
 
 	internalCommon "github.com/oracle/go-oracledb/v26/internal/common"
 	common "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
 // ttiShelfUser declares a dependency on a TTC shelf.
@@ -65,13 +66,14 @@ type StmtCancellationFunction func(ctx context.Context) error
 // encoders/decoders/OAC makers for the negotiated TTC protocol version.
 type ttiShelf[T any] struct {
 	*common.Shelf[T]
-	codecFactory             codecFactory
-	_providerRegistry        internalCommon.ProviderRegistry
-	_statements              map[*Statement]weak.Pointer[Statement]
-	_currentTransaction      *transaction
-	_cancelExecutionFunction StmtCancellationFunction
-	_serverTimeZoneOffset    int16 // server time zone in seconds
-	_eventService            *eventService
+	codecFactory                 codecFactory
+	_providerRegistry            internalCommon.Registry[providers.Provider]
+	_statements                  map[*Statement]weak.Pointer[Statement]
+	_currentTransaction          *transaction
+	_cancelExecutionFunction     StmtCancellationFunction
+	_serverTimeZoneOffset        int16 // server time zone in seconds
+	_eventService                *eventService
+	_connectionValidatorRegistry internalCommon.Registry[connectionValidator]
 }
 
 // newShelf creates a new TTC shelf wrapping a fresh common.Shelf[T].
@@ -80,10 +82,11 @@ type ttiShelf[T any] struct {
 func newShelf[T any]() *ttiShelf[T] {
 	base := common.NewShelf[T]()
 	return &ttiShelf[T]{
-		Shelf:         base,
-		codecFactory:  nil,
-		_statements:   make(map[*Statement]weak.Pointer[Statement]),
-		_eventService: newEventService(),
+		Shelf:                        base,
+		codecFactory:                 nil,
+		_statements:                  make(map[*Statement]weak.Pointer[Statement]),
+		_eventService:                newEventService(),
+		_connectionValidatorRegistry: internalCommon.NewRegistry[connectionValidator](),
 	}
 }
 
@@ -103,7 +106,7 @@ func (s *ttiShelf[T]) GetCodecFactory() codecFactory {
 //
 // Parameters:
 //   - providerRegistry: the provider registry to store on the shelf.
-func (s *ttiShelf[T]) registerProviderRegistry(providerRegistry internalCommon.ProviderRegistry) {
+func (s *ttiShelf[T]) registerProviderRegistry(providerRegistry internalCommon.Registry[providers.Provider]) {
 	s._providerRegistry = providerRegistry
 }
 
@@ -111,7 +114,7 @@ func (s *ttiShelf[T]) registerProviderRegistry(providerRegistry internalCommon.P
 //
 // Returns:
 //   - the provider registry registered on the shelf, or nil if none was registered.
-func (s *ttiShelf[T]) getProviderRegistry() internalCommon.ProviderRegistry {
+func (s *ttiShelf[T]) getProviderRegistry() internalCommon.Registry[providers.Provider] {
 	return s._providerRegistry
 }
 
@@ -199,16 +202,21 @@ func (s *ttiShelf[T]) getEventService() *eventService {
 	return s._eventService
 }
 
-// drainStreamerAndRaiseStaleEvent drains incoming messages and reports a stale
-// streamer when messages remain after an operation completes.
-func (s *ttiShelf[T]) drainStreamerAndRaiseStaleEvent(ctx context.Context) error {
-	msgIn, _ := s.GetMessageStreamer().Drain(ctx, common.IN)
-	if msgIn == 0 {
-		return nil
-	}
+// registerConnectionValidator adds a validator to the shelf's connection
+// validation chain.
+func (s *ttiShelf[T]) registerConnectionValidator(validator connectionValidator) {
+	s._connectionValidatorRegistry.Register(validator)
+}
 
-	internalCommon.Odl.Error("unexpected messages remained; invalidating connection",
-		"remaining messageCount", msgIn)
-	s.getEventService().post(streamerStaleEvent)
-	return s.LocalizeError(internalCommon.NewOracleError(oracleErrors.InternalError, nil))
+// validateConnection runs all validators registered on the shelf.
+//
+// Returns an internal error when any validator reports that the connection is
+// invalid; otherwise it returns nil.
+func (s *ttiShelf[T]) validateConnection(ctx context.Context) error {
+	for _, item := range s._connectionValidatorRegistry.GetAll() {
+		if !item.isValid(ctx) {
+			return s.LocalizeError(internalCommon.NewOracleError(errors.InternalError, nil))
+		}
+	}
+	return nil
 }

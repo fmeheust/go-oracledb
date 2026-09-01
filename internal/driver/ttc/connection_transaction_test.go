@@ -456,14 +456,10 @@ func TestTransactionOperationRejectsStaleMessages(t *testing.T) {
 			conn := newTransactionTestConnection(streamer)
 			tx := newTransaction(conn, context.Background())
 			conn.shelf.registerTransaction(tx)
-			listener := &testEventListener{}
-			conn.shelf.getEventService().register(listener, streamerStaleEvent)
+			conn.shelf.registerConnectionValidator(&shelfConnectionValidator{valid: false})
 
 			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.InternalError {
 				t.Fatalf("error code = %s, want %s", got, oracleErrors.InternalError)
-			}
-			if len(listener.events) != 1 || listener.events[0] != streamerStaleEvent {
-				t.Fatalf("stale events = %v, want one streamerStaleEvent", listener.events)
 			}
 		})
 	}

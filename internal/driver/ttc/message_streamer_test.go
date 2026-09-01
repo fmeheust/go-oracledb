@@ -533,6 +533,23 @@ func TestMessageStreamer_Drain(t *testing.T) {
 	}
 }
 
+func TestMessageStreamer_IsValidReturnsFalseAndRaisesStaleEvent(t *testing.T) {
+	t.Parallel()
+
+	shelf := newShelf[common.MessageType]()
+	streamer := NewMessageStreamer(shelf)
+	listener := &testEventListener{}
+	shelf.getEventService().register(listener, streamerStaleEvent)
+	streamer.incomingMessages.PushBack(NewMockMessage(TTIOER))
+
+	if streamer.isValid(context.Background()) {
+		t.Fatal("isValid = true, want false when messages remain")
+	}
+	if len(listener.events) != 1 || listener.events[0] != streamerStaleEvent {
+		t.Fatalf("events = %v, want one streamerStaleEvent", listener.events)
+	}
+}
+
 // simple push test
 // 1 - create streamer
 // 2 - push  TTIPRO messages

@@ -221,7 +221,7 @@ func (s *Statement) QueryContext(ctx context.Context, args []driver.NamedValue) 
 		s._rows = selectedRows.(*ttcRows)
 	}
 
-	if err := s.shelf.drainStreamerAndRaiseStaleEvent(ctx); err != nil {
+	if err := s.shelf.validateConnection(ctx); err != nil {
 		return nil, err
 	}
 
@@ -320,7 +320,7 @@ func (s *Statement) ExecContext(ctx context.Context, args []driver.NamedValue) (
 		defer stopTransAfterFunction()
 	}
 	result, err := s.execStatementExecutor.ExecContext(subContext, s.qualifiedQuery, args)
-	if err := s.shelf.drainStreamerAndRaiseStaleEvent(ctx); err != nil {
+	if err := s.shelf.validateConnection(ctx); err != nil {
 		return nil, err
 	}
 	return result, s.shelf.LocalizeError(err)

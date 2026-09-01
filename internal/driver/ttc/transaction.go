@@ -79,7 +79,7 @@ func (t *transaction) Commit() error {
 	ctx := t._underlyingConnection.shelf.getTransaction().getTransactionContext()
 	readFuncError := t._underlyingConnection.runFunctionWithFunHeader(ctx, commit)
 
-	if err := t._underlyingConnection.shelf.drainStreamerAndRaiseStaleEvent(ctx); err != nil {
+	if err := t._underlyingConnection.shelf.validateConnection(ctx); err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (t *transaction) Rollback() error {
 
 	runFuncErr := t._underlyingConnection.runFunctionWithFunHeader(common.BackgroundContext, rollback)
 
-	if err := t._underlyingConnection.shelf.drainStreamerAndRaiseStaleEvent(common.BackgroundContext); err != nil {
+	if err := t._underlyingConnection.shelf.validateConnection(common.BackgroundContext); err != nil {
 		return err
 	}
 

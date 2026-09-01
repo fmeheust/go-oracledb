@@ -59,7 +59,7 @@ type connectionInstantiator struct {
 	drvierConfig        *oracleconfig.OracleDriverConfig
 	newConnectionFunc   func(context.Context, *ttiShelf[driverCommon.MessageType], *driverCommon.SessionContext, driverCommon.NetworkSession) (*connection, error)
 	localizationService common.LocalizationService
-	providerRegistry    common.ProviderRegistry
+	providerRegistry    common.Registry[oracleProviders.Provider]
 }
 
 // NewTTCConnectionInstantiator creates a new TTC connection instantiator.
@@ -72,7 +72,7 @@ type connectionInstantiator struct {
 // Returns:
 //   - the TTC connection instantiator bound to ns.
 //   - an error if the authenticator or instantiator cannot be initialized.
-func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns driverCommon.NetworkSession, providerRegistry common.ProviderRegistry) (driverCommon.ConnectionInstantiator, error) {
+func NewTTCConnectionInstantiator(config *oracleconfig.OracleDriverConfig, ns driverCommon.NetworkSession, providerRegistry common.Registry[oracleProviders.Provider]) (driverCommon.ConnectionInstantiator, error) {
 	dataBuffer := ns.(driverCommon.DataBuffer)
 	negotiator := GetNegotiator(dataBuffer)
 	localizationService := common.NewLocalizationService(config.Locale.ClientLanguage)
@@ -160,7 +160,7 @@ func (connInstantiator *connectionInstantiator) GetConnection(ctx context.Contex
 // Returns:
 //   - the authenticator matching the supplied configuration.
 //   - an error if no suitable authenticator can be created.
-func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry common.ProviderRegistry) (Authenticator, error) {
+func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegistry common.Registry[oracleProviders.Provider]) (Authenticator, error) {
 	common.Odl.Debug("New authenticator requested for", "parameters", parameters)
 
 	if parameters == nil {
@@ -178,7 +178,7 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 			return nil, common.NewOracleError(oracleErrors.EmptyUsernameError, nil, nil)
 		}
 		if providerRegistry != nil {
-			provider, err := providerRegistry.Provider(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+			provider, err := providerRegistry.Get(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
 			if err != nil {
 				return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, err, nil)
 			}

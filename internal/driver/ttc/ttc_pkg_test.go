@@ -154,6 +154,7 @@ var testCases = []struct {
 	{"TestMessageStreamer_CallbackRegisterPostUnmarshal", "unitary", false, TestMessageStreamer_CallbackRegisterPostUnmarshal},
 	{"TestMessageStreamer_CallbackUnregister", "unitary", false, TestMessageStreamer_CallbackUnregister},
 	{"TestMessageStreamer_Drain", "unitary", false, TestMessageStreamer_Drain},
+	{"TestMessageStreamer_IsValidReturnsFalseAndRaisesStaleEvent", "unitary", false, TestMessageStreamer_IsValidReturnsFalseAndRaisesStaleEvent},
 	{"TestMessageStreamer_SimplePush", "unitary", false, TestMessageStreamer_SimplePush},
 	{"TestMessageStreamer_PullFromIncomings", "unitary", false, TestMessageStreamer_PullFromIncomings},
 	{"TestMessageStreamer_OrderedPush", "unitary", false, TestMessageStreamer_OrderedPush},
@@ -549,7 +550,9 @@ var testCases = []struct {
 	{"TestTTILobd_UnMarshalFrom_Success", "unitary", false, TestTTILobd_UnMarshalFrom_Success},
 	{"TestTTIShelf_LocalizedStatementExecError", "unitary", false, TestTTIShelf_LocalizedStatementExecError},
 	{"TestTTIShelf_StatementDrain", "unitary", false, TestTTIShelf_StatementDrain},
-	{"TestTTIShelf_DrainStreamerAndRaiseStaleEvent", "unitary", false, TestTTIShelf_DrainStreamerAndRaiseStaleEvent},
+	{"TestTTIShelf_ValidateConnection", "unitary", false, TestTTIShelf_ValidateConnection},
+	{"TestNewMessageStreamerRegistersConnectionValidator", "unitary", false, TestNewMessageStreamerRegistersConnectionValidator},
+	{"TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator", "unitary", false, TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator},
 	{"TestTTIlob_GetFuncCode", "unitary", false, TestTTIlob_GetFuncCode},
 	{"TestTTIlob_GetMsgCode", "unitary", false, TestTTIlob_GetMsgCode},
 	{"TestTTIlob_MarshalTo_Fail", "unitary", false, TestTTIlob_MarshalTo_Fail},
@@ -1023,6 +1026,15 @@ func (m *wrappedMockStreamer) Drain(ctx context.Context, direction common.Stream
 	var icomingLen = m.incoming.Len()
 	var i, o = m.streamer.Drain(ctx, direction)
 	return icomingLen + i, o
+}
+
+func (m *wrappedMockStreamer) isValid(ctx context.Context) bool {
+	msgIn, _ := m.Drain(ctx, common.IN)
+	if msgIn == 0 {
+		return true
+	}
+	m.streamer.shelf.getEventService().post(streamerStaleEvent)
+	return false
 }
 
 func (m *wrappedMockStreamer) RegisterPostUnmarshallCallback(t common.MessageType, cb StreamerPostUnmarshallCallback) {

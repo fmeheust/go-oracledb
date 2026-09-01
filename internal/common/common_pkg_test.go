@@ -77,6 +77,11 @@ var testCases = []struct {
 	{"TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded", "unitary", false, TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded},
 	{"TestProviderRegistryGetProviderReturnsRequestedInterface", "unitary", false, TestProviderRegistryGetProviderReturnsRequestedInterface},
 	{"TestProviderRegistryGetProviderReturnsErrorWhenUninitialized", "unitary", false, TestProviderRegistryGetProviderReturnsErrorWhenUninitialized},
+	{"TestRegistryGetReturnsErrorWhenTypeIsNil", "unitary", false, TestRegistryGetReturnsErrorWhenTypeIsNil},
+	{"TestProviderRegistrySupportsConcreteGenericType", "unitary", false, TestProviderRegistrySupportsConcreteGenericType},
+	{"TestRegistryGetAllReturnsSnapshotInRegistrationOrder", "unitary", false, TestRegistryGetAllReturnsSnapshotInRegistrationOrder},
+	{"TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized", "unitary", false, TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized},
+	{"TestRegistryGetSkipsNilItems", "unitary", false, TestRegistryGetSkipsNilItems},
 }
 
 func TestCategoryExecutor(t *testing.T) {

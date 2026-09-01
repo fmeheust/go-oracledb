@@ -204,7 +204,7 @@ func (pa *passwordAuthenticator) _doOSESSKEY(ctx context.Context) error {
 		}
 	}
 
-	if err := shelf.drainStreamerAndRaiseStaleEvent(ctx); err != nil {
+	if err := shelf.validateConnection(ctx); err != nil {
 		return err
 	}
 
@@ -352,7 +352,7 @@ func (pa *passwordAuthenticator) _doOAuth(ctx context.Context) error {
 		}
 	}
 
-	if err := shelf.drainStreamerAndRaiseStaleEvent(ctx); err != nil {
+	if err := shelf.validateConnection(ctx); err != nil {
 		return err
 	}
 
