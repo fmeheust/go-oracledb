@@ -64,7 +64,7 @@ func (m mockProviderRegistryProvider) Name() string {
 func TestProviderRegistryGetProviderReturnsFirstMatch(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[oracleProviders.Provider]()
+	registry := NewSafeRegistry[oracleProviders.Provider]()
 	first := mockProviderRegistryProvider{name: "first"}
 	second := mockProviderRegistryProvider{name: "second"}
 
@@ -87,7 +87,7 @@ func TestProviderRegistryGetProviderReturnsFirstMatch(t *testing.T) {
 func TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[oracleProviders.Provider]()
+	registry := NewSafeRegistry[oracleProviders.Provider]()
 	for i := 0; i < maxItems; i++ {
 		registry.Register(mockProviderRegistryProvider{name: string(rune('a' + i))})
 	}
@@ -108,7 +108,7 @@ func TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded(t *tes
 func TestProviderRegistryGetProviderReturnsRequestedInterface(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[oracleProviders.Provider]()
+	registry := NewSafeRegistry[oracleProviders.Provider]()
 	original := mockProviderRegistryProvider{name: "original"}
 	registry.Register(original)
 
@@ -127,7 +127,7 @@ func TestProviderRegistryGetProviderReturnsRequestedInterface(t *testing.T) {
 func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[oracleProviders.Provider]()
+	registry := NewSafeRegistry[oracleProviders.Provider]()
 
 	provider, _ := registry.Get(reflect.TypeOf((*namedProvider)(nil)).Elem())
 	if provider != nil {
@@ -140,7 +140,7 @@ func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) 
 func TestRegistryGetReturnsErrorWhenTypeIsNil(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[oracleProviders.Provider]()
+	registry := NewSafeRegistry[oracleProviders.Provider]()
 	provider, err := registry.Get(nil)
 	if provider != nil {
 		t.Fatalf("provider = %#v, want nil", provider)
@@ -156,7 +156,7 @@ func TestRegistryGetReturnsErrorWhenTypeIsNil(t *testing.T) {
 func TestProviderRegistrySupportsConcreteGenericType(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[mockProviderRegistryProvider]()
+	registry := NewSafeRegistry[mockProviderRegistryProvider]()
 	want := mockProviderRegistryProvider{name: "generic"}
 	registry.Register(want)
 
@@ -174,7 +174,7 @@ func TestProviderRegistrySupportsConcreteGenericType(t *testing.T) {
 func TestRegistryGetAllReturnsSnapshotInRegistrationOrder(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[mockProviderRegistryProvider]()
+	registry := NewSafeRegistry[mockProviderRegistryProvider]()
 	first := mockProviderRegistryProvider{name: "first"}
 	second := mockProviderRegistryProvider{name: "second"}
 	registry.Register(first)
@@ -196,7 +196,7 @@ func TestRegistryGetAllReturnsSnapshotInRegistrationOrder(t *testing.T) {
 func TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[int]()
+	registry := NewSafeRegistry[int]()
 	got := registry.GetAll()
 	if len(got) != 0 {
 		t.Fatalf("items = %#v, want empty", got)
@@ -208,7 +208,7 @@ func TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized(t *testing.T) {
 func TestRegistryGetSkipsNilItems(t *testing.T) {
 	t.Parallel()
 
-	registry := NewRegistry[any]()
+	registry := NewSafeRegistry[any]()
 	registry.Register(nil)
 	registry.Register(mockProviderRegistryProvider{name: "registered"})
 

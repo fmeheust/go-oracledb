@@ -93,7 +93,7 @@ func encodePrivateKeyPEM(t *testing.T, privateKey *rsa.PrivateKey) []byte {
 }
 
 func newTestProviderRegistry(providersToRegister ...oracleProviders.Provider) common.Registry[oracleProviders.Provider] {
-	registry := common.NewRegistry[oracleProviders.Provider]()
+	registry := common.NewSafeRegistry[oracleProviders.Provider]()
 	for _, provider := range providersToRegister {
 		registry.Register(provider)
 	}

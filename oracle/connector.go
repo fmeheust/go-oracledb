@@ -113,7 +113,7 @@ func newOracleConnector(cfg *naming.ParsedConfig, drvConfig *oracleconfig.Oracle
 		connectorConfig:         drvConfig,
 		connCreator:             connCreator,
 		connInstantiatorFactory: connInstantiatorFactory,
-		providerRegistry:        common.NewRegistry[oracleProviders.Provider](),
+		providerRegistry:        common.NewSafeRegistry[oracleProviders.Provider](),
 	}, nil
 }
 

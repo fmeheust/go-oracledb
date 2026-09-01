@@ -74,10 +74,23 @@ type Registry[T any] interface {
 	Get(requestedType reflect.Type) (T, error)
 }
 
-// registry is the default thread-safe Registry implementation.
+// safeRegistry is the default Registry implementation.
 type registry[T any] struct {
-	items         []T
+	items []T
+}
+
+// safeRegistry is the default thread-safe Registry implementation.
+type safeRegistry[T any] struct {
+	items         registry[T]
 	registryMutex sync.RWMutex
+}
+
+// NewSafeRegistry creates an empty thread-safe registry.
+//
+// Returns:
+//   - the initialized registry.
+func NewSafeRegistry[T any]() *safeRegistry[T] {
+	return &safeRegistry[T]{}
 }
 
 // NewRegistry creates an empty registry.
@@ -94,9 +107,19 @@ func NewRegistry[T any]() *registry[T] {
 //
 // Parameters:
 //   - item: the item to register.
-func (registry *registry[T]) Register(item T) {
+func (registry *safeRegistry[T]) Register(item T) {
 	registry.registryMutex.Lock()
 	defer registry.registryMutex.Unlock()
+	registry.items.Register(item)
+}
+
+// Register appends an item to the registry.
+// When the registry already contains maxItems entries, the oldest
+// registered item is removed before item is appended.
+//
+// Parameters:
+//   - item: the item to register.
+func (registry *registry[T]) Register(item T) {
 	if len(registry.items) >= maxItems {
 		Odl.Warn("Number of registered items exceeded the maximum allowed, removing the oldest item")
 		registry.items = registry.items[1:]
@@ -106,13 +129,37 @@ func (registry *registry[T]) Register(item T) {
 
 // GetAll returns a snapshot of all items currently registered, in registration
 // order. Changes to the returned slice do not affect the registry.
-func (registry *registry[T]) GetAll() []T {
+func (registry *safeRegistry[T]) GetAll() []T {
 	registry.registryMutex.RLock()
 	defer registry.registryMutex.RUnlock()
 
-	items := make([]T, len(registry.items))
-	copy(items, registry.items)
+	allItems := registry.GetAll()
+	items := make([]T, len(allItems))
+	copy(items, allItems)
 	return items
+}
+
+// GetAll returns a snapshot of all items currently registered, in registration
+// order. Changes to the returned slice do not affect the registry.
+func (registry *registry[T]) GetAll() []T {
+	return registry.items
+}
+
+// Get returns the first item found in the registry that implements the desired type.
+//
+// Parameters:
+//   - requestedType: the interface or concrete item type to resolve from
+//     the registry.
+//
+// Returns:
+//   - the first registered item matching requestedType, or the zero value if
+//     no matching item was found
+//   - an error if requestedType is invalid
+func (registry *safeRegistry[T]) Get(requestedType reflect.Type) (T, error) {
+	registry.registryMutex.RLock()
+	defer registry.registryMutex.RUnlock()
+
+	return registry.Get(requestedType)
 }
 
 // Get returns the first item found in the registry that implements the desired type.
@@ -126,9 +173,6 @@ func (registry *registry[T]) GetAll() []T {
 //     no matching item was found
 //   - an error if requestedType is invalid
 func (registry *registry[T]) Get(requestedType reflect.Type) (T, error) {
-	registry.registryMutex.RLock()
-	defer registry.registryMutex.RUnlock()
-
 	if requestedType == nil {
 		var zero T
 		return zero, NewOracleError(oracleErrors.ProviderNotFound, nil)

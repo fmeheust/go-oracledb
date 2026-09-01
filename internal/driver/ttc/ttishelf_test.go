@@ -243,7 +243,7 @@ func TestTTIShelf_RegisterProviderRegistry(t *testing.T) {
 	t.Parallel()
 
 	shelf := newShelf[int]()
-	registry := internalCommon.NewRegistry[oracleProviders.Provider]()
+	registry := internalCommon.NewSafeRegistry[oracleProviders.Provider]()
 
 	shelf.registerProviderRegistry(registry)
 
@@ -258,8 +258,8 @@ func TestTTIShelf_RegisterProviderRegistry_ReplacesExistingRegistry(t *testing.T
 	t.Parallel()
 
 	shelf := newShelf[int]()
-	firstRegistry := internalCommon.NewRegistry[oracleProviders.Provider]()
-	secondRegistry := internalCommon.NewRegistry[oracleProviders.Provider]()
+	firstRegistry := internalCommon.NewSafeRegistry[oracleProviders.Provider]()
+	secondRegistry := internalCommon.NewSafeRegistry[oracleProviders.Provider]()
 
 	shelf.registerProviderRegistry(firstRegistry)
 	shelf.registerProviderRegistry(secondRegistry)
