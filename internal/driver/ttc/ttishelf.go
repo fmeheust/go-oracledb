@@ -202,7 +202,12 @@ func (s *ttiShelf[T]) getEventService() *eventService {
 	return s._eventService
 }
 
+// stateValidator reports whether a TTC component is still in a valid state.
+// Validators are checked before an operation completes so stale or otherwise
+// invalid protocol state can invalidate the operation.
 type stateValidator interface {
+	// isValid reports whether the associated TTC component is in a valid
+	// state.
 	isValid(context.Context) bool
 }
 

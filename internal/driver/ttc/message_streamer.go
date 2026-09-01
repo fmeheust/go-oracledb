@@ -137,6 +137,7 @@ func NewMessageStreamer(shelf *ttiShelf[driverCommon.MessageType]) *MessageStrea
 		postUCallbacks:   make(map[driverCommon.MessageType]StreamerPostUnmarshallCallback),
 		shelf:            shelf,
 	}
+	// register the streamer as a state validator
 	shelf.registerStateValidator(streamer)
 	return streamer
 }
@@ -389,6 +390,8 @@ func (ms *MessageStreamer) getMessageForHeader(header *messageHeader) (driverCom
 	return ms.shelf.GetMessageFactory().GetMessage(header.messageType)
 }
 
+// isValid implements the stateValidator interface. When called it reports
+// whether the message streamer is in a valid state.
 func (ms *MessageStreamer) isValid(ctx context.Context) bool {
 	msgIn, _ := ms.Drain(ctx, driverCommon.IN)
 	if msgIn == 0 {
