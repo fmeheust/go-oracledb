@@ -308,17 +308,6 @@ func (pa *passwordAuthenticator) _doOAuth(ctx context.Context) error {
 
 	common.Odl.Debug("_doOAuth oatuh message pushed and flushed to the streamer")
 
-	oauthRPACallBack := func(t *messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
-		common.Odl.Debug("Inside oauthRPACallBack hdr", "msg", t.GetType())
-		msg, err := shelf.GetMessageFactory().(Factory).GetMessageForFunction(TTIRPA, oauth)
-		if err != nil {
-			return nil, err
-		}
-		return msg, nil
-	}
-	streamer.RegisterPreUnmarshallCallback(TTIRPA, oauthRPACallBack)
-	defer streamer.UnRegisterPreUnmarshallCallback(TTIRPA)
-
 	oauthrpa, err := handleOAuthResponse(ctx, streamer, &shelf)
 	if err != nil {
 		return err
@@ -338,6 +327,18 @@ func (pa *passwordAuthenticator) _doOAuth(ctx context.Context) error {
 
 func handleOAuthResponse(ctx context.Context, streamer MessageStreamerInterface, shelf *ttiShelf[driverCommon.MessageType]) (*OAuthRPA, error) {
 	var oauthrpa *OAuthRPA = nil
+
+	oauthRPACallBack := func(t *messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
+		common.Odl.Debug("Inside oauthRPACallBack hdr", "msg", t.GetType())
+		msg, err := shelf.GetMessageFactory().(Factory).GetMessageForFunction(TTIRPA, oauth)
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
+	}
+	streamer.RegisterPreUnmarshallCallback(TTIRPA, oauthRPACallBack)
+	defer streamer.UnRegisterPreUnmarshallCallback(TTIRPA)
+
 	goOn := true
 	for goOn == true {
 		msg, err := streamer.Pull(ctx, TTIRPA, TTIOER, TTIWRN)
