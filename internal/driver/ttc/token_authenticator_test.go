@@ -140,6 +140,7 @@ func TestGetAuthenticator_SelectionLogic(t *testing.T) {
 			name:     "username and password use password authenticator",
 			user:     "scott",
 			password: "tiger",
+			provider: newTestProviderRegistry(),
 			wantType: "*ttc.passwordAuthenticator",
 		},
 		{
@@ -158,6 +159,7 @@ func TestGetAuthenticator_SelectionLogic(t *testing.T) {
 		{
 			name:          "username without password and without provider returns no authenticator",
 			user:          "scott",
+			provider:      newTestProviderRegistry(),
 			wantErrorCode: oracleErrors.NoAuthenticatorError,
 		},
 		{
@@ -167,11 +169,13 @@ func TestGetAuthenticator_SelectionLogic(t *testing.T) {
 		},
 		{
 			name:          "missing username and password without provider returns no authenticator",
+			provider:      newTestProviderRegistry(),
 			wantErrorCode: oracleErrors.NoAuthenticatorError,
 		},
 		{
 			name:          "missing username with password and without provider returns empty username",
 			password:      "tiger",
+			provider:      newTestProviderRegistry(),
 			wantErrorCode: oracleErrors.EmptyUsernameError,
 		},
 		{

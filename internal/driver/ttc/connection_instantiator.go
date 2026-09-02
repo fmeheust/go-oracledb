@@ -177,16 +177,15 @@ func GetAuthenticator(parameters *oracleconfig.OracleDriverConfig, providerRegis
 			// if there is a password but no username
 			return nil, common.NewOracleError(oracleErrors.EmptyUsernameError, nil, nil)
 		}
-		if providerRegistry != nil {
-			provider, err := providerRegistry.Get(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
-			if err != nil {
-				return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, err, nil)
-			}
-			if provider != nil {
-				tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
-				return newTokenAuthenticator(tokenProvider), nil
-			}
+		provider, err := providerRegistry.Get(reflect.TypeOf((*oracleProviders.TokenAuthenticationProvider)(nil)).Elem())
+		if err != nil {
+			return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, err, nil)
 		}
+		if provider != nil {
+			tokenProvider := provider.(oracleProviders.TokenAuthenticationProvider)
+			return newTokenAuthenticator(tokenProvider), nil
+		}
+
 	}
 	return nil, common.NewOracleError(oracleErrors.NoAuthenticatorError, nil, nil)
 }

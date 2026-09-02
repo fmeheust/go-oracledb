@@ -41,8 +41,6 @@ package common
 import (
 	"reflect"
 	"sync"
-
-	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // maxItems is the maximum number of items allowed in the registry.
@@ -173,10 +171,6 @@ func (registry *safeRegistry[T]) Get(requestedType reflect.Type) (T, error) {
 //     no matching item was found
 //   - an error if requestedType is invalid
 func (registry *registry[T]) Get(requestedType reflect.Type) (T, error) {
-	if requestedType == nil {
-		var zero T
-		return zero, NewOracleError(oracleErrors.ProviderNotFound, nil)
-	}
 	for _, item := range registry.items {
 		itemType := reflect.TypeOf(item)
 		if itemType == nil {

@@ -84,7 +84,7 @@ func TestNewMessageStreamerRegistersConnectionValidator(t *testing.T) {
 
 	shelf := newShelf[driverCommon.MessageType]()
 	streamer := NewMessageStreamer(shelf)
-	validators := shelf._connectionValidatorRegistry.GetAll()
+	validators := shelf._validatorRegistry.GetAll()
 
 	if len(validators) != 1 {
 		t.Fatalf("validator count = %d, want 1", len(validators))

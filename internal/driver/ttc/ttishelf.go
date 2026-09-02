@@ -66,14 +66,14 @@ type StmtCancellationFunction func(ctx context.Context) error
 // encoders/decoders/OAC makers for the negotiated TTC protocol version.
 type ttiShelf[T any] struct {
 	*common.Shelf[T]
-	codecFactory                 codecFactory
-	_providerRegistry            internalCommon.Registry[providers.Provider]
-	_statements                  map[*Statement]weak.Pointer[Statement]
-	_currentTransaction          *transaction
-	_cancelExecutionFunction     StmtCancellationFunction
-	_serverTimeZoneOffset        int16 // server time zone in seconds
-	_eventService                *eventService
-	_connectionValidatorRegistry internalCommon.Registry[stateValidator]
+	codecFactory             codecFactory
+	_providerRegistry        internalCommon.Registry[providers.Provider]
+	_statements              map[*Statement]weak.Pointer[Statement]
+	_currentTransaction      *transaction
+	_cancelExecutionFunction StmtCancellationFunction
+	_serverTimeZoneOffset    int16 // server time zone in seconds
+	_eventService            *eventService
+	_validatorRegistry       internalCommon.Registry[stateValidator]
 }
 
 // newShelf creates a new TTC shelf wrapping a fresh common.Shelf[T].
@@ -82,11 +82,11 @@ type ttiShelf[T any] struct {
 func newShelf[T any]() *ttiShelf[T] {
 	base := common.NewShelf[T]()
 	return &ttiShelf[T]{
-		Shelf:                        base,
-		codecFactory:                 nil,
-		_statements:                  make(map[*Statement]weak.Pointer[Statement]),
-		_eventService:                newEventService(),
-		_connectionValidatorRegistry: internalCommon.NewRegistry[stateValidator](),
+		Shelf:              base,
+		codecFactory:       nil,
+		_statements:        make(map[*Statement]weak.Pointer[Statement]),
+		_eventService:      newEventService(),
+		_validatorRegistry: internalCommon.NewRegistry[stateValidator](),
 	}
 }
 
@@ -214,7 +214,7 @@ type stateValidator interface {
 // registerStateValidator adds a validator to the shelf's connection
 // validation chain.
 func (s *ttiShelf[T]) registerStateValidator(validator stateValidator) {
-	s._connectionValidatorRegistry.Register(validator)
+	s._validatorRegistry.Register(validator)
 }
 
 // checkCurrentState runs all validators registered on the shelf.
@@ -222,7 +222,7 @@ func (s *ttiShelf[T]) registerStateValidator(validator stateValidator) {
 // Returns an internal error when any validator reports that the state is
 // invalid; otherwise it returns nil.
 func (s *ttiShelf[T]) checkCurrentState(ctx context.Context) error {
-	for _, item := range s._connectionValidatorRegistry.GetAll() {
+	for _, item := range s._validatorRegistry.GetAll() {
 		if item != nil && !item.isValid(ctx) {
 			return s.LocalizeError(internalCommon.NewOracleError(errors.InternalError, nil))
 		}

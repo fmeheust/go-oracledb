@@ -42,7 +42,6 @@ import (
 	"reflect"
 	"testing"
 
-	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	oracleProviders "github.com/oracle/go-oracledb/v26/oracle/providers"
 )
 
@@ -132,22 +131,6 @@ func TestProviderRegistryGetProviderReturnsErrorWhenUninitialized(t *testing.T) 
 	provider, _ := registry.Get(reflect.TypeOf((*namedProvider)(nil)).Elem())
 	if provider != nil {
 		t.Fatal("expected Get to return no item for empty registry")
-	}
-}
-
-// TestRegistryGetReturnsErrorWhenTypeIsNil verifies that a nil lookup type is
-// rejected with a provider-not-found error.
-func TestRegistryGetReturnsErrorWhenTypeIsNil(t *testing.T) {
-	t.Parallel()
-
-	registry := NewSafeRegistry[oracleProviders.Provider]()
-	provider, err := registry.Get(nil)
-	if provider != nil {
-		t.Fatalf("provider = %#v, want nil", provider)
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok || sqlErr.ErrorCode() != string(oracleErrors.ProviderNotFound) {
-		t.Fatalf("error = %v, want %s", err, oracleErrors.ProviderNotFound)
 	}
 }
 

@@ -89,7 +89,6 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded", Categories: "unitary", Exclusive: false, Fn: TestProviderRegistryRegisterProviderEvictsOldestWhenCapacityExceeded},
 	{Name: "TestProviderRegistryGetProviderReturnsRequestedInterface", Categories: "unitary", Exclusive: false, Fn: TestProviderRegistryGetProviderReturnsRequestedInterface},
 	{Name: "TestProviderRegistryGetProviderReturnsErrorWhenUninitialized", Categories: "unitary", Exclusive: false, Fn: TestProviderRegistryGetProviderReturnsErrorWhenUninitialized},
-	{Name: "TestRegistryGetReturnsErrorWhenTypeIsNil", Categories: "unitary", Exclusive: false, Fn: TestRegistryGetReturnsErrorWhenTypeIsNil},
 	{Name: "TestProviderRegistrySupportsConcreteGenericType", Categories: "unitary", Exclusive: false, Fn: TestProviderRegistrySupportsConcreteGenericType},
 	{Name: "TestRegistryGetAllReturnsSnapshotInRegistrationOrder", Categories: "unitary", Exclusive: false, Fn: TestRegistryGetAllReturnsSnapshotInRegistrationOrder},
 	{Name: "TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized", Categories: "unitary", Exclusive: false, Fn: TestRegistryGetAllReturnsEmptySnapshotWhenUninitialized},
