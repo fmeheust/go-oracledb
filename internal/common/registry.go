@@ -74,12 +74,12 @@ type Registry[T any] interface {
 	Get(requestedType reflect.Type) (T, error)
 }
 
-// safeRegistry is the default Registry implementation.
+// registry stores registry items without synchronization.
 type registry[T any] struct {
 	items []T
 }
 
-// safeRegistry is the default thread-safe Registry implementation.
+// safeRegistry is the thread-safe Registry implementation.
 type safeRegistry[T any] struct {
 	items         registry[T]
 	registryMutex sync.RWMutex
@@ -133,7 +133,7 @@ func (registry *safeRegistry[T]) GetAll() []T {
 	registry.registryMutex.RLock()
 	defer registry.registryMutex.RUnlock()
 
-	allItems := registry.GetAll()
+	allItems := registry.items.GetAll()
 	items := make([]T, len(allItems))
 	copy(items, allItems)
 	return items
@@ -159,7 +159,7 @@ func (registry *safeRegistry[T]) Get(requestedType reflect.Type) (T, error) {
 	registry.registryMutex.RLock()
 	defer registry.registryMutex.RUnlock()
 
-	return registry.Get(requestedType)
+	return registry.items.Get(requestedType)
 }
 
 // Get returns the first item found in the registry that implements the desired type.

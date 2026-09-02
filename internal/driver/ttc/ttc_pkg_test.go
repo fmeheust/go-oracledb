@@ -43,7 +43,6 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -54,14 +53,35 @@ import (
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleTest "github.com/oracle/go-oracledb/v26/internal/tests"
 )
 
-// TestCategory category of tests to be un
-var TestCategory string
-
 func TestMain(m *testing.M) {
-	flag.StringVar(&TestCategory, "test.category", "", "testing category, can be unitary, functional, performance, robustness")
-	os.Exit(m.Run())
+	err := InitConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "InitConfig failed: %v\n", err)
+		os.Exit(1)
+	} else {
+		os.Exit(m.Run())
+	}
+}
+
+type Version = oracleTest.Version
+type TestConfig = oracleTest.TestConfig
+type TestingEnvironment = oracleTest.TestingEnvironment
+
+var DefaultTestConfig *TestConfig
+var TestEnvironement TestingEnvironment
+var TestingConfig *TestConfig
+
+func InitConfig() error {
+	if err := oracleTest.InitConfig(); err != nil {
+		return err
+	}
+	TestEnvironement = oracleTest.TestEnvironement
+	TestingConfig = oracleTest.TestingConfig
+	DefaultTestConfig = oracleTest.DefaultTestConfig
+	return nil
 }
 
 var testCases = []struct {
@@ -553,6 +573,8 @@ var testCases = []struct {
 	{"TestTTIShelf_ValidateConnection", "unitary", false, TestTTIShelf_ValidateConnection},
 	{"TestNewMessageStreamerRegistersConnectionValidator", "unitary", false, TestNewMessageStreamerRegistersConnectionValidator},
 	{"TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator", "unitary", false, TestTTIShelf_ValidateConnectionStopsAtFirstInvalidValidator},
+	{"TestTTIShelf_RegisterProviderRegistry", "unitary", false, TestTTIShelf_RegisterProviderRegistry},
+	{"TestTTIShelf_RegisterProviderRegistry_ReplacesExistingRegistry", "unitary", false, TestTTIShelf_RegisterProviderRegistry_ReplacesExistingRegistry},
 	{"TestTTIlob_GetFuncCode", "unitary", false, TestTTIlob_GetFuncCode},
 	{"TestTTIlob_GetMsgCode", "unitary", false, TestTTIlob_GetMsgCode},
 	{"TestTTIlob_MarshalTo_Fail", "unitary", false, TestTTIlob_MarshalTo_Fail},
@@ -599,7 +621,7 @@ func TestCategoryExecutor(t *testing.T) {
 	for _, c := range testCases {
 		cats := strings.Split(c.categories, ",")
 		for _, p := range cats {
-			if strings.Compare(strings.TrimSpace(p), TestCategory) == 0 {
+			if strings.Compare(strings.TrimSpace(p), oracleTest.TestCategory) == 0 {
 				if c.exclusive {
 					exclusiveCases = append(exclusiveCases, c)
 				} else {
