@@ -435,7 +435,86 @@ func getKeyValueFromKeyword(nlsKeys [64]string, keyword keywordValuePair) (strin
 			roleNames := strings.TrimSpace(driverCommon.B1ArrayToString(textValue.value))
 			return al8kwEnabledRoleNamesStr, roleNames
 		}
+	} else if intValue == al8kwSessionlessGTRID {
+		if binaryValue.value != nil {
+			sessionlessGTRIDSync, err := NewSessionlessGTRIDSync(binaryValue.value)
+			if err == nil {
+				return sessionlessGTRIDProperty, sessionlessGTRIDSync
+			}
+		}
 	}
 
 	return "", nil
+}
+
+const (
+	al8kwSessionlessGTRID    = 201
+	sessionlessGTRIDProperty = "SESSIONLESS_GTRID"
+)
+
+const (
+	sessionlessGTRIDSyncMode   byte = 0xC0
+	sessionlessGTRIDSyncSet    byte = 1 << 6
+	sessionlessGTRIDSyncUnset  byte = 2 << 6
+	sessionlessGTRIDSyncReason byte = 0x3F
+)
+
+// SessionlessGTRIDSync is an immutable decoded view of the SESSIONLESS_GTRID
+// session property returned by the server.
+type SessionlessGTRIDSync struct {
+	raw     driverCommon.B1Array
+	gtrid   string
+	flags   byte
+	version byte
+}
+
+// NewSessionlessGTRIDSync decodes the raw SESSIONLESS_GTRID payload into a
+// typed immutable value object.
+func NewSessionlessGTRIDSync(raw driverCommon.B1Array) (SessionlessGTRIDSync, error) {
+	if len(raw) < 2 {
+		return SessionlessGTRIDSync{}, common.NewOracleError(oracleErrors.FailUnmarshal, nil, "sessionless gtrid")
+	}
+
+	rawCopy := append(driverCommon.B1Array(nil), raw...)
+	return SessionlessGTRIDSync{
+		raw:     rawCopy,
+		gtrid:   string(rawCopy[:len(rawCopy)-2]),
+		flags:   rawCopy[len(rawCopy)-2],
+		version: rawCopy[len(rawCopy)-1],
+	}, nil
+}
+
+// Raw returns the original immutable SESSIONLESS_GTRID payload bytes.
+func (s SessionlessGTRIDSync) Raw() driverCommon.B1Array {
+	return append(driverCommon.B1Array(nil), s.raw...)
+}
+
+// GlobalTransactionID returns the decoded GTRID carried by the session property.
+func (s SessionlessGTRIDSync) GlobalTransactionID() string {
+	return s.gtrid
+}
+
+// Version returns the serialization version byte carried by the session property.
+func (s SessionlessGTRIDSync) Version() byte {
+	return s.version
+}
+
+// Mode returns the high-bit mode portion of the sessionless sync flags.
+func (s SessionlessGTRIDSync) Mode() byte {
+	return s.flags & sessionlessGTRIDSyncMode
+}
+
+// Reason returns the low-bit reason portion of the sessionless sync flags.
+func (s SessionlessGTRIDSync) Reason() byte {
+	return s.flags & sessionlessGTRIDSyncReason
+}
+
+// IsSet reports whether the server indicates a sessionless transaction is active.
+func (s SessionlessGTRIDSync) IsSet() bool {
+	return s.Mode() == sessionlessGTRIDSyncSet
+}
+
+// IsUnset reports whether the server indicates no sessionless transaction is active.
+func (s SessionlessGTRIDSync) IsUnset() bool {
+	return s.Mode() == sessionlessGTRIDSyncUnset
 }

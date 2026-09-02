@@ -44,7 +44,7 @@ import (
 	"database/sql/driver"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
-	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 const (
@@ -69,21 +69,19 @@ func (c *connection) Begin() (driver.Tx, error) {
 
 // BeginTx starts and returns a new transaction.
 func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return c.beginTx(ctx, opts)
+}
+
+func (c *connection) beginTx(ctx context.Context, opts driver.TxOptions) (*transaction, error) {
 	common.Odl.Debug("Starting transaction")
 
 	if c.shelf.isInTransaction() {
-		return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.AlreadyInTransaction, nil, nil))
+		return nil, c.shelf.LocalizeError(common.NewOracleError(errors.AlreadyInTransaction, nil, nil))
 	}
 
-	var isolationLevelStmt string
-	// set isolation level
-	switch sql.IsolationLevel(opts.Isolation) {
-	case sql.LevelDefault, sql.LevelReadCommitted:
-		isolationLevelStmt = _isolationLevelReadCommitted
-	case sql.LevelSerializable:
-		isolationLevelStmt = _isolationLevelSerializable
-	default:
-		return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.IsolationLevelNotSupported, nil, nil))
+	isolationLevelStmt, err := getIsolationLevelStatement(opts)
+	if err != nil {
+		return nil, c.shelf.LocalizeError(err)
 	}
 
 	tx := newTransaction(c, ctx)
@@ -94,7 +92,7 @@ func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		_, err := c.ExecContext(ctx, isolationLevelStmt, nil)
 		if err != nil {
 			c.shelf.unregisterTransaction()
-			return nil, common.NewOracleError(oracleErrors.ConfigureTransactionError, err, nil)
+			return nil, common.NewOracleError(errors.ConfigureTransactionError, err, nil)
 		}
 	}
 
@@ -103,9 +101,23 @@ func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		_, err := c.ExecContext(ctx, _transactionReadOnly, nil)
 		if err != nil {
 			c.shelf.unregisterTransaction()
-			return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ConfigureTransactionError, err, nil))
+			return nil, c.shelf.LocalizeError(common.NewOracleError(errors.ConfigureTransactionError, err, nil))
 		}
 	}
 
 	return tx, nil
+}
+
+func getIsolationLevelStatement(opts driver.TxOptions) (string, error) {
+	var isolationLevelStmt string
+	// set isolation level
+	switch sql.IsolationLevel(opts.Isolation) {
+	case sql.LevelDefault, sql.LevelReadCommitted:
+		isolationLevelStmt = _isolationLevelReadCommitted
+	case sql.LevelSerializable:
+		isolationLevelStmt = _isolationLevelSerializable
+	default:
+		return "", common.NewOracleError(errors.IsolationLevelNotSupported, nil, nil)
+	}
+	return isolationLevelStmt, nil
 }

@@ -528,5 +528,10 @@ func initMessagesEn() {
 	message.SetString(language.English, string(oracleErrors.ExpiredToken), "access token has expired")
 
 	message.SetString(language.English, string(oracleErrors.ProviderNotFound), "no provider found of the requested type")
+	// Document: No
+	// Cause:    The provided GTRID is empty or exceeds the maximum size accepted by the server.
+	// Action:   Provide a non-empty GTRID up to 64 bytes.
+	// Comment:  N/A
+	message.SetString(language.English, string(oracleErrors.InvalidGTRIDValue), "invalid GTRID value")
 
 }

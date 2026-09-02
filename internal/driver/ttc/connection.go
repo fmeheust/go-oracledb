@@ -229,6 +229,9 @@ func (c *connection) notify(event eventType) {
 	case streamerOverFlowEvent:
 		common.Odl.Debug("Connection.notify: streamer overflow received")
 		c._isValid = false
+	case sessionPropertiesUpdateEvent:
+		common.Odl.Debug("Connection.notify: session properties changed")
+		c.handleSessionPropertyChange()
 	default:
 		common.Odl.Debug("Connection.notify: received", "evt", event)
 	}
@@ -332,4 +335,25 @@ func parseTimeZone(timezone string) (int, int, error) {
 	}
 
 	return sign * TZH, sign * TZM, nil
+}
+
+func (c *connection) handleSessionPropertyChange() {
+	newValue := c.sessCtx.GetSessionProperties().GetProperty(sessionlessGTRIDProperty)
+	sync, ok := newValue.(SessionlessGTRIDSync)
+	if !ok {
+		return
+	}
+
+	currentTx := c.shelf.getTransaction()
+	switch {
+	case sync.IsUnset():
+		if currentTx != nil {
+			currentTx.GTRID = ""
+		}
+		c.shelf.unregisterTransaction()
+	case sync.IsSet():
+		if currentTx != nil {
+			currentTx.GTRID = sync.GlobalTransactionID()
+		}
+	}
 }
