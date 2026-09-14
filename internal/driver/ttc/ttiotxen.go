@@ -64,11 +64,11 @@ const (
 // tTIOtxen represents the OTXEN TTC function used to end, prepare, forget, or
 // recover an X/Open transaction.
 //
-// Its payload follows the server-side TTCHE definition:
+// Its payload follows the server-side definition:
 //
 //   - opcode (SWORD)
 //   - transaction context pointer and length
-//   - XID format id, GTRID length, and BQUAL length
+//   - XID format id, global transaction ID length, and BQUAL length
 //   - XID pointer and length
 //   - timeout (UWORD)
 //   - in-state/K2 command (UB4)
@@ -78,18 +78,21 @@ const (
 type tTIOtxen struct {
 	headerMarshaller driverCommon.Marshallable
 
-	operation          driverCommon.SB4
-	transactionContext driverCommon.B1Array
-	formatID           driverCommon.UB4
-	gtridLength        driverCommon.UB4
-	bqualLength        driverCommon.UB4
-	xid                driverCommon.B1Array
-	timeout            driverCommon.UB2
-	inState            driverCommon.UB4 // OTXEN in-state/K2 command
-	flags              driverCommon.UB4 // OTXEN transaction state change flags
+	operation                 driverCommon.SB4
+	transactionContext        driverCommon.B1Array
+	formatID                  driverCommon.UB4
+	globalTransactionIDLength driverCommon.UB4
+	bqualLength               driverCommon.UB4
+	xid                       driverCommon.B1Array
+	timeout                   driverCommon.UB2
+	inState                   driverCommon.UB4 // OTXEN in-state/K2 command
+	flags                     driverCommon.UB4 // OTXEN transaction state change flags
 }
 
 // newOTxEn creates an OTXEN function message using the standard TTIFUN header.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New OTXEN message.
 func newOTxEn() driverCommon.Message[driverCommon.MessageType] {
 	return &tTIOtxen{
 		headerMarshaller: &ttiFunHeader{_funcType: oTxEn},
@@ -97,6 +100,9 @@ func newOTxEn() driverCommon.Message[driverCommon.MessageType] {
 }
 
 // newOTxEn18 creates an OTXEN function message using the TTC 18+ TTIFUN header.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New TTC 18+ OTXEN message.
 func newOTxEn18() driverCommon.Message[driverCommon.MessageType] {
 	return &tTIOtxen{
 		headerMarshaller: &ttiFunHeader18{ttiFunHeader: &ttiFunHeader{_funcType: oTxEn}},
@@ -104,33 +110,69 @@ func newOTxEn18() driverCommon.Message[driverCommon.MessageType] {
 }
 
 // GetMsgCode returns the TTC message category used to send OTXEN.
+//
+// Returns:
+//   - driverCommon.MessageType: TTIFUN.
 func (m *tTIOtxen) GetMsgCode() driverCommon.MessageType { return TTIFUN }
 
 // GetFuncCode returns the TTC function code for OTXEN.
+//
+// Returns:
+//   - driverCommon.FunctionType: OTXEN function code.
 func (m *tTIOtxen) GetFuncCode() driverCommon.FunctionType { return oTxEn }
 
-func (m *tTIOtxen) confugureForCommit(transaction oracleTx) {
-	m._confugureForOperation(transaction, otxenCommit, k2cmdCommit)
+// configureForCommit configures m for a transaction commit operation.
+//
+// Parameters:
+//   - transaction: Transaction whose XID and timeout should be sent.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxen) configureForCommit(transaction oracleTx) {
+	m._configureForOperation(transaction, otxenCommit, k2cmdCommit)
 }
 
-func (m *tTIOtxen) confugureForAbort(transaction oracleTx) {
-	m._confugureForOperation(transaction, otxenAbort, k2cmdAbort)
+// configureForAbort configures m for a transaction rollback operation.
+//
+// Parameters:
+//   - transaction: Transaction whose XID and timeout should be sent.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxen) configureForAbort(transaction oracleTx) {
+	m._configureForOperation(transaction, otxenAbort, k2cmdAbort)
 }
 
-func (m *tTIOtxen) _confugureForOperation(transaction oracleTx, operation txStateChangeOperation, inState driverCommon.UB4) {
+// _configureForOperation sets the OTXEN operation and transaction identifiers.
+//
+// Parameters:
+//   - transaction: Transaction whose XID and timeout should be sent.
+//   - operation: OTXEN state-change operation.
+//   - inState: K2 transaction state command.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxen) _configureForOperation(transaction oracleTx, operation txStateChangeOperation, inState driverCommon.UB4) {
 	m.operation = driverCommon.SB4(operation)
 	m.inState = inState
 
 	if sessionlessTx, ok := transaction.(*sessionlessTransaction); ok {
 		m.formatID = k2gSessionless
 		m.xid = sessionlessTx.xid
-		m.gtridLength = sessionlessTx.gtridLength
+		m.globalTransactionIDLength = sessionlessTx.globalTransactionIDLength
 		m.bqualLength = sessionlessTx.bqualLength
 		m.timeout = driverCommon.UB2(sessionlessTx.timeout)
 	}
 }
 
-// MarshalTo serializes OTXEN according to the TTCHE transaction-end layout.
+// MarshalTo serializes OTXEN according to the transaction-end layout.
+//
+// Parameters:
+//   - ctx: Context used during serialization.
+//   - engine: Marshaller receiving the encoded message.
+//
+// Returns:
+//   - error: Error if any part of the message cannot be serialized.
 func (m *tTIOtxen) MarshalTo(ctx context.Context, engine driverCommon.Marshaller) error {
 	marshal := func(name string, f func() error) error {
 		if err := f(); err != nil {
@@ -163,7 +205,7 @@ func (m *tTIOtxen) MarshalTo(ctx context.Context, engine driverCommon.Marshaller
 	if err := marshal("format id", func() error { return engine.MarshalUB4(ctx, m.formatID) }); err != nil {
 		return err
 	}
-	if err := marshal("GTRID length", func() error { return engine.MarshalUB4(ctx, m.gtridLength) }); err != nil {
+	if err := marshal("global transaction ID length", func() error { return engine.MarshalUB4(ctx, m.globalTransactionIDLength) }); err != nil {
 		return err
 	}
 	if err := marshal("BQUAL length", func() error { return engine.MarshalUB4(ctx, m.bqualLength) }); err != nil {
@@ -217,18 +259,34 @@ type ttiOTxEnRPA struct {
 }
 
 // newOTxEnRPA creates the OTXEN TTIRPA decoder.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New OTXEN return-parameter decoder.
 func newOTxEnRPA() driverCommon.Message[driverCommon.MessageType] {
 	return &ttiOTxEnRPA{}
 }
 
 // GetMsgCode returns the TTC message category used for OTXEN return parameters.
+//
+// Returns:
+//   - driverCommon.MessageType: TTIRPA.
 func (m *ttiOTxEnRPA) GetMsgCode() driverCommon.MessageType { return TTIRPA }
 
 // GetOutState returns the transaction state returned by OTXEN.
+//
+// Returns:
+//   - driverCommon.UB4: Transaction state returned by the server.
 func (m *ttiOTxEnRPA) GetOutState() driverCommon.UB4 { return m.outState }
 
 // UnMarshalFrom decodes the OTXEN TTIRPA payload, which contains one UB4 out
 // state value.
+//
+// Parameters:
+//   - ctx: Context used during deserialization.
+//   - engine: Marshaller supplying the encoded payload.
+//
+// Returns:
+//   - error: Error if the out-state value cannot be deserialized.
 func (m *ttiOTxEnRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
 	outState, err := engine.UnmarshalUB4(ctx)
 	if err != nil {

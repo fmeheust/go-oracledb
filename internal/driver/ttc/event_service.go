@@ -48,8 +48,8 @@ const (
 	streamerOverFlowEvent             // too many incoming messages
 	streamerStaleEvent                // messages left unread
 	sessionPropertiesUpdateEvent      // session properties have been updated
-	sessionlessTranzactionStartClient // sessionless transaction started on client
-	sessionlessTranzactionEndClient   // sessionless transaction ended on client
+	sessionlessTransactionStartClient // sessionless transaction started on client
+	sessionlessTransactionEndClient   // sessionless transaction ended on client
 )
 
 type eventService struct {

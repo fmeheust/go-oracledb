@@ -140,8 +140,8 @@ func TestSessionlessTransactionEndUsesOTxEn(t *testing.T) {
 			if otxen.timeout != 300 {
 				t.Fatalf("%s OTXEN timeout = %d, want 300", test.name, otxen.timeout)
 			}
-			if otxen.gtridLength != 16 || otxen.bqualLength != driverCommon.UB4(len("test-instance")) {
-				t.Fatalf("%s OTXEN XID lengths = (%d, %d), want (16, %d)", test.name, otxen.gtridLength, otxen.bqualLength, len("test-instance"))
+			if otxen.globalTransactionIDLength != 16 || otxen.bqualLength != driverCommon.UB4(len("test-instance")) {
+				t.Fatalf("%s OTXEN XID lengths = (%d, %d), want (16, %d)", test.name, otxen.globalTransactionIDLength, otxen.bqualLength, len("test-instance"))
 			}
 		})
 	}
@@ -149,7 +149,7 @@ func TestSessionlessTransactionEndUsesOTxEn(t *testing.T) {
 
 // TestBeginSessionlessTx verifies that starting a new sessionless transaction
 // returns the Oracle-specific SessionlessTx contract and sends an OTXSE start
-// request with the generated GTRID and new-sessionless flags.
+// request with the generated global transaction ID and new-sessionless flags.
 func TestBeginSessionlessTx(t *testing.T) {
 	t.Parallel()
 
@@ -169,9 +169,9 @@ func TestBeginSessionlessTx(t *testing.T) {
 		t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", tx)
 	}
 	if got := sessionlessTx.GlobalTransactionID(); got == nil {
-		t.Fatal("BeginSessionlessTx returned an empty GTRID")
+		t.Fatal("BeginSessionlessTx returned an empty global transaction ID")
 	} else if len([]byte(got)) != 16 {
-		t.Fatalf("generated GTRID length = %d, want 16", len([]byte(got)))
+		t.Fatalf("generated global transaction ID length = %d, want 16", len([]byte(got)))
 	}
 
 	if mockStr.pushedMsg.Len() != 1 {
@@ -195,17 +195,17 @@ func TestBeginSessionlessTx(t *testing.T) {
 	if otxse.formatID != k2gSessionless {
 		t.Fatalf("OTXSE formatID = %#x, want %#x", otxse.formatID, k2gSessionless)
 	}
-	if len(otxse.xid) != maxSessionlessGTRIDSize+maxSessionlessBQUALSize {
-		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGTRIDSize+maxSessionlessBQUALSize)
+	if len(otxse.xid) != maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize {
+		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize)
 	}
 	if got := extensions.GlobalTransactionId(otxse.xid[:len(sessionlessTx.GlobalTransactionID())]); !slices.Equal(got, sessionlessTx.GlobalTransactionID()) {
-		t.Fatalf("OTXSE xid gtrid prefix = %q, want %q", got, sessionlessTx.GlobalTransactionID())
+		t.Fatalf("OTXSE xid global transaction ID prefix = %q, want %q", got, sessionlessTx.GlobalTransactionID())
 	}
 	if got := string(otxse.xid[len(sessionlessTx.GlobalTransactionID()) : len(sessionlessTx.GlobalTransactionID())+len("test-instance")]); got != "test-instance" {
 		t.Fatalf("OTXSE xid bqual segment = %q, want %q", got, "test-instance")
 	}
-	if otxse.gtridLength != driverCommon.UB4(len(sessionlessTx.GlobalTransactionID())) {
-		t.Fatalf("OTXSE gtridLength = %d, want %d", otxse.gtridLength, len(sessionlessTx.GlobalTransactionID()))
+	if otxse.globalTransactionIDLength != driverCommon.UB4(len(sessionlessTx.GlobalTransactionID())) {
+		t.Fatalf("OTXSE globalTransactionIDLength = %d, want %d", otxse.globalTransactionIDLength, len(sessionlessTx.GlobalTransactionID()))
 	}
 	if otxse.bqualLength != driverCommon.UB4(len("test-instance")) {
 		t.Fatalf("OTXSE bqualLength = %d, want %d", otxse.bqualLength, len("test-instance"))
@@ -213,23 +213,23 @@ func TestBeginSessionlessTx(t *testing.T) {
 }
 
 // TestResumeSessionlessTx verifies that resuming a sessionless transaction
-// preserves the caller-supplied GTRID and sends an OTXSE start request with the
+// preserves the caller-supplied global transaction ID and sends an OTXSE start request with the
 // resume-sessionless flags.
 func TestResumeSessionlessTx(t *testing.T) {
 	t.Parallel()
 
 	conn, mockStr := newSessionlessTransactionTestConnection()
-	gtrid := extensions.GlobalTransactionId("resume-gtrid")
+	globalTransactionID := extensions.GlobalTransactionId("resume-global-transaction-id")
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), gtrid)
+	tx, err := conn.ResumeSessionlessTx(context.Background(), globalTransactionID)
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed: %v", err)
 	}
 	if tx == nil {
 		t.Fatal("ResumeSessionlessTx returned nil transaction")
 	}
-	if got := tx.GlobalTransactionID(); !slices.Equal(got, gtrid) {
-		t.Fatalf("GlobalTransactionID = %q, want %q", got, gtrid)
+	if got := tx.GlobalTransactionID(); !slices.Equal(got, globalTransactionID) {
+		t.Fatalf("GlobalTransactionID = %q, want %q", got, globalTransactionID)
 	}
 
 	if mockStr.pushedMsg.Len() != 1 {
@@ -250,14 +250,14 @@ func TestResumeSessionlessTx(t *testing.T) {
 	if otxse.flags != otxseTransSessionless|otxseTransResume {
 		t.Fatalf("OTXSE flags = %#x, want %#x", otxse.flags, otxseTransSessionless|otxseTransResume)
 	}
-	if len(otxse.xid) != maxSessionlessGTRIDSize+maxSessionlessBQUALSize {
-		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGTRIDSize+maxSessionlessBQUALSize)
+	if len(otxse.xid) != maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize {
+		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize)
 	}
-	if got := extensions.GlobalTransactionId(otxse.xid[:len(gtrid)]); !slices.Equal(got, gtrid) {
-		t.Fatalf("OTXSE xid gtrid prefix = %q, want %q", got, gtrid)
+	if got := extensions.GlobalTransactionId(otxse.xid[:len(globalTransactionID)]); !slices.Equal(got, globalTransactionID) {
+		t.Fatalf("OTXSE xid global transaction ID prefix = %q, want %q", got, globalTransactionID)
 	}
-	if otxse.gtridLength != driverCommon.UB4(len(gtrid)) {
-		t.Fatalf("OTXSE gtridLength = %d, want %d", otxse.gtridLength, len(gtrid))
+	if otxse.globalTransactionIDLength != driverCommon.UB4(len(globalTransactionID)) {
+		t.Fatalf("OTXSE globalTransactionIDLength = %d, want %d", otxse.globalTransactionIDLength, len(globalTransactionID))
 	}
 	if otxse.bqualLength != driverCommon.UB4(len("test-instance")) {
 		t.Fatalf("OTXSE bqualLength = %d, want %d", otxse.bqualLength, len("test-instance"))
@@ -353,29 +353,29 @@ func TestBeginSessionlessTxDefersOER(t *testing.T) {
 	}
 }
 
-// TestResumeSessionlessTxInvalidGTRID verifies that invalid caller-provided
+// TestResumeSessionlessTxInvalidGlobalTransactionID verifies that invalid caller-provided
 // identifiers are rejected before any transaction is started.
-func TestResumeSessionlessTxInvalidGTRID(t *testing.T) {
+func TestResumeSessionlessTxInvalidGlobalTransactionID(t *testing.T) {
 	t.Parallel()
 
 	conn, _ := newSessionlessTransactionTestConnection()
 
 	tx, err := conn.ResumeSessionlessTx(context.Background(), nil)
 	if err == nil {
-		t.Fatal("ResumeSessionlessTx returned nil error for invalid gtrid")
+		t.Fatal("ResumeSessionlessTx returned nil error for invalid global transaction ID")
 	}
 	if tx != nil {
-		t.Fatalf("ResumeSessionlessTx returned transaction %T for invalid gtrid, want nil", tx)
+		t.Fatalf("ResumeSessionlessTx returned transaction %T for invalid global transaction ID, want nil", tx)
 	}
 	sqlErr, ok := err.(oracleErrors.SQLError)
 	if !ok {
 		t.Fatalf("ResumeSessionlessTx error type = %T, want common.SQLError", err)
 	}
-	if sqlErr.ErrorCode() != string(oracleErrors.InvalidGTRIDValue) {
-		t.Fatalf("ResumeSessionlessTx error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGTRIDValue)
+	if sqlErr.ErrorCode() != string(oracleErrors.InvalidGlobalTransactionIDValue) {
+		t.Fatalf("ResumeSessionlessTx error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGlobalTransactionIDValue)
 	}
 	if conn.shelf.isInTransaction() {
-		t.Fatal("ResumeSessionlessTx invalid gtrid should not register a transaction")
+		t.Fatal("ResumeSessionlessTx invalid global transaction ID should not register a transaction")
 	}
 }
 
@@ -388,7 +388,7 @@ func TestResumeSessionlessTxPushFailure(t *testing.T) {
 	conn, mockStr := newSessionlessTransactionTestConnection()
 	mockStr.pushErr = errors.New("push failed")
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-gtrid"))
+	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
 	if err == nil {
 		t.Fatal("ResumeSessionlessTx returned nil error on push failure")
 	}
@@ -417,7 +417,7 @@ func TestResumeSessionlessTxDefersFlush(t *testing.T) {
 	baseConn.shelf.RegisterMessageStreamer(streamer)
 	streamer.flushErr = errors.New("flush failed")
 
-	tx, err := baseConn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-gtrid"))
+	tx, err := baseConn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed despite deferred flush: %v", err)
 	}
@@ -434,7 +434,7 @@ func TestResumeSessionlessTxDefersPull(t *testing.T) {
 	conn, mockStr := newSessionlessTransactionTestConnection()
 	mockStr.pullErr = errors.New("pull failed")
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-gtrid"))
+	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed despite deferred pull: %v", err)
 	}
@@ -451,7 +451,7 @@ func TestResumeSessionlessTxDefersOER(t *testing.T) {
 	conn, mockStr := newSessionlessTransactionTestConnection()
 	mockStr.pullMsg = &mockOer{err: common.NewOERMessageError("ORA-24776", "resume failed")}
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-gtrid"))
+	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed despite deferred response: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestResumeSessionlessTxDefersOER(t *testing.T) {
 
 // TestSuspendSessionlessTx verifies that suspending the active sessionless
 // transaction uses the immediate OTXSE detach path, clears the transaction
-// GTRID, and unregisters the transaction from the connection shelf.
+// global transaction ID, and unregisters the transaction from the connection shelf.
 func TestSuspendSessionlessTx(t *testing.T) {
 	t.Parallel()
 
@@ -506,8 +506,8 @@ func TestSuspendSessionlessTx(t *testing.T) {
 	if len(otxse.xid) != 0 {
 		t.Fatalf("OTXSE xid length = %d, want 0", len(otxse.xid))
 	}
-	if otxse.gtridLength != 0 {
-		t.Fatalf("OTXSE gtridLength = %d, want 0", otxse.gtridLength)
+	if otxse.globalTransactionIDLength != 0 {
+		t.Fatalf("OTXSE globalTransactionIDLength = %d, want 0", otxse.globalTransactionIDLength)
 	}
 	if otxse.timeout != 0 {
 		t.Fatalf("OTXSE timeout = %d, want 0", otxse.timeout)
@@ -533,8 +533,7 @@ func TestSuspendNonSessionlessTx(t *testing.T) {
 }
 
 // TestSuspendSessionlessTxPushFailure verifies that a write failure while
-// sending the OTXSE detach leaves the local sessionless transaction registered
-// so the caller can still recover explicitly.
+// sending the OTXSE detach unregisters the local sessionless transaction.
 func TestSuspendSessionlessTxPushFailure(t *testing.T) {
 	t.Parallel()
 
@@ -569,7 +568,7 @@ func TestSuspendSessionlessTxPushFailure(t *testing.T) {
 }
 
 // TestSuspendSessionlessTxFlushFailure verifies that a flush failure while
-// sending the OTXSE detach leaves the active sessionless transaction intact.
+// sending the OTXSE detach unregisters the local sessionless transaction.
 func TestSuspendSessionlessTxFlushFailure(t *testing.T) {
 	t.Parallel()
 
@@ -604,12 +603,12 @@ func TestSuspendSessionlessTxFlushFailure(t *testing.T) {
 		t.Fatalf("GlobalTransactionID after failed suspend = %q, want empty", got)
 	}
 	if baseConn.shelf.isInTransaction() {
-		t.Fatal("Suspend flush failure should unregistered the transaction")
+		t.Fatal("Suspend flush failure should have unregistered the transaction")
 	}
 }
 
 // TestSuspendSessionlessTxPullFailure verifies that a read failure while waiting
-// for the detach response does not clear the local sessionless transaction.
+// for the detach response unregisters the local sessionless transaction.
 func TestSuspendSessionlessTxPullFailure(t *testing.T) {
 	t.Parallel()
 
@@ -639,12 +638,12 @@ func TestSuspendSessionlessTxPullFailure(t *testing.T) {
 		t.Fatalf("GlobalTransactionID after failed suspend = %q, want empty", got)
 	}
 	if conn.shelf.isInTransaction() {
-		t.Fatal("Suspend pull failure should unregistered the transaction")
+		t.Fatal("Suspend pull failure should have unregistered the transaction")
 	}
 }
 
 // TestSuspendSessionlessTxOERFailure verifies that a server-side detach error is
-// surfaced and leaves the active sessionless transaction registered locally.
+// surfaced and unregisters the local sessionless transaction.
 func TestSuspendSessionlessTxOERFailure(t *testing.T) {
 	t.Parallel()
 

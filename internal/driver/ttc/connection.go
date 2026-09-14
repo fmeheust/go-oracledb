@@ -77,6 +77,16 @@ type connection struct {
 
 // newConnection constructs a new Oracle connection wrapping negotiated state.
 // It returns an error when the server timezone cannot be initialized.
+//
+// Parameters:
+//   - ctx: Context used while initializing the connection.
+//   - shelf: TTC message, capability, and event state for the connection.
+//   - sessCtx: Session context negotiated with the server.
+//   - ns: Network session used by the connection.
+//
+// Returns:
+//   - *connection: Initialized connection.
+//   - error: Error if connection initialization fails.
 func newConnection(
 	ctx context.Context,
 	shelf *ttiShelf[driverCommon.MessageType],
@@ -182,36 +192,60 @@ func (c *connection) cancelCurrentExecution(ctx context.Context) error {
 	return nil
 }
 
-// Handle invalidating connections when connectionStatusReceiver is received in
-// TTIOER or TTISTA due to planned-down.
-
-// connectionStatusProvider implemented by messages that may received end of
-// call status like TTIOER and TTISTA
+// connectionStatusProvider is implemented by messages that may receive
+// end-of-call status, such as TTIOER and TTISTA.
+//
+// End-of-call status message contains information about the current
+// connection such as: the connection is being drained or there is an
+// active transaction in the connection. Messages that implement this
+// interface are handled by the connection to update its status.
 type connectionStatusProvider interface {
-	// isBeingDrainned returns true if the connection should be dropped due to a
-	// planned-down, otherwise false
-	isBeingDrainned() bool
+	// isBeingDrained returns true if the connection should be dropped due to a
+	// planned-down; otherwise, it returns false.
+	//
+	// Returns:
+	//   - bool: Whether the connection should be dropped.
+	isBeingDrained() bool
 	// isInTransaction returns true if the connection is currently in a transaction,
 	// otherwise false.
+	//
+	// Returns:
+	//   - bool: Whether the connection has an active transaction.
 	isInTransaction() bool
 }
 
-// _registerHandleEndOfCallStatus registers post unmarshal callbacks
-// that invalidates connections that should be dropped due to a planned-down
+// _registerHandleEndOfCallStatus registers post-unmarshal callbacks that
+// handles end-of-call status messages.
+//
+// Parameters:
+//   - shelf: TTC shelf whose message streamer receives the callbacks.
+//   - connection: Connection whose validity is updated by the callbacks.
+//
+// Returns:
+//   - None. The callbacks are registered on the message streamer.
 func _registerHandleEndOfCallStatus(shelf *ttiShelf[driverCommon.MessageType], connection *connection) {
 	messageStreamer := shelf.GetMessageStreamer().(MessageStreamerInterface)
-	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, connection._handleConnectionShouldBeDropped)
-	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, connection._handleConnectionShouldBeDropped)
+	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, connection._handleEndOfCallStatus)
+	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, connection._handleEndOfCallStatus)
 }
 
-// _handleConnectionShouldBeDropped post unmarshal callback that invalidates
-// connections that should be dropped. Messages are kept in the queue to be
-// handled by the caller
-func (c *connection) _handleConnectionShouldBeDropped(msg driverCommon.Message[driverCommon.MessageType], _ error) (bool, error) {
-	// if connectionSouldBeDropped flag was received in TTISTA or TTIOER, it means
-	// that the connection is being drainned and it should be closed and not
+// _handleEndOfCallStatus is a post-unmarshal callback that handles end-of-call
+// messages. It can invalidate connections that should be dropped, or update the
+// connections active trasaction status. Messages are kept in the queue to be
+// handled by the caller.
+//
+// Parameters:
+//   - msg: Message containing end-of-call status.
+//   - _: Previous unmarshalling error, ignored by this callback.
+//
+// Returns:
+//   - bool: Always true so the message remains available to the caller.
+//   - error: Always nil.
+func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommon.MessageType], _ error) (bool, error) {
+	// If the connectionShouldBeDropped flag was received in TTISTA or TTIOER, it means
+	// that the connection is being drained and it should be closed and not
 	// released to the connection pool
-	c._isValid = !msg.(connectionStatusProvider).isBeingDrainned()
+	c._isValid = !msg.(connectionStatusProvider).isBeingDrained()
 	// return always true, the incoming message should be kept
 	c._isInTransaction = msg.(connectionStatusProvider).isInTransaction()
 	if c._isInTransaction {
@@ -220,11 +254,22 @@ func (c *connection) _handleConnectionShouldBeDropped(msg driverCommon.Message[d
 	return true, nil
 }
 
-// String implements the Stringer interface
+// String implements the Stringer interface.
+//
+// Returns:
+//   - string: Human-readable connection state.
 func (c *connection) String() string {
 	return fmt.Sprintf("Connection { isOpen: %v, isValid: %v }", !c._isClosed, c._isValid)
 }
 
+// registerEventListeners registers connection handlers for connection and
+// session-property events.
+//
+// Parameters:
+//   - service: Event service receiving the connection handlers.
+//
+// Returns:
+//   - None. The listeners are registered on service.
 func (c *connection) registerEventListeners(service *eventService) {
 	service.register(c, streamerStaleEvent)
 	service.register(c, streamerOverFlowEvent)
@@ -232,6 +277,12 @@ func (c *connection) registerEventListeners(service *eventService) {
 }
 
 // notify implements eventListener.
+//
+// Parameters:
+//   - event: Event received by the connection.
+//
+// Returns:
+//   - None. Connection state and transaction state may be updated in place.
 func (c *connection) notify(event eventType) {
 	var wasValid = c._isValid == true
 	switch event {
@@ -349,37 +400,39 @@ func parseTimeZone(timezone string) (int, int, error) {
 	return sign * TZH, sign * TZM, nil
 }
 
+// handleSessionPropertyChange applies a sessionless transaction state change
+// reported through the SESSIONLESS_GTRID session property.
 func (c *connection) handleSessionPropertyChange() {
-	newValue := c.sessCtx.GetSessionProperties().GetProperty(sessionlessGTRIDProperty)
-	sync, ok := newValue.(SessionlessGTRIDSync)
+	newValue := c.sessCtx.GetSessionProperties().GetProperty(sessionlessGlobalTransactionIDProperty)
+	sync, ok := newValue.(SessionlessGlobalTransactionIDSync)
 	if !ok {
 		return
 	}
 
 	switch {
 	case sync.IsSet() && sync.IsSyncClient():
-		common.Odl.Debug("Client transaction started", "GTRID", sync.gtrid)
-		c.shelf.getEventService().post(sessionlessTranzactionStartClient)
+		common.Odl.Debug("Client transaction started", "global transaction ID", sync.globalTransactionID)
+		c.shelf.getEventService().post(sessionlessTransactionStartClient)
 	case sync.IsUnset() && sync.IsSyncClient():
-		common.Odl.Debug("Client transaction ended", "GTRID", sync.gtrid)
-		c.shelf.getEventService().post(sessionlessTranzactionEndClient)
+		common.Odl.Debug("Client transaction ended", "global transaction ID", sync.globalTransactionID)
+		c.shelf.getEventService().post(sessionlessTransactionEndClient)
 	case sync.IsSet() && sync.IsSyncServer():
-		// start un implicit sessionless transaction
-		common.Odl.Debug("Server transaction started, starting implicit trasnaction", "GTRID", sync.gtrid)
+		// start an implicit sessionless transaction
+		common.Odl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", sync.globalTransactionID)
 		currentTx := c.shelf.getTransaction()
 		var sessionlessTransaction *sessionlessTransaction
 		if currentTx == nil {
-			sessionlessTransaction = newSessionlesTransaction(c, context.Background(), sync.gtrid, 0)
+			sessionlessTransaction = newSessionlessTransaction(context.Background(), c, sync.globalTransactionID, 0)
 		} else {
 			if tx, ok := currentTx.(*transaction); ok {
-				sessionlessTransaction = upgradeFromTransaction(tx, sync.gtrid, 0)
+				sessionlessTransaction = upgradeFromTransaction(tx, sync.globalTransactionID, 0)
 			} else {
 				panic("Already in sessionless transaction")
 			}
 		}
 		c.shelf.registerTransaction(sessionlessTransaction)
 	case sync.IsUnset() && sync.IsSyncServer():
-		common.Odl.Debug("Server transaction ended, ending implicit trasnaction", "GTRID", sync.gtrid)
+		common.Odl.Debug("Server transaction ended, ending implicit transaction", "global transaction ID", sync.globalTransactionID)
 		// end implicit sessionless transaction
 		c.shelf.unregisterTransaction()
 	}

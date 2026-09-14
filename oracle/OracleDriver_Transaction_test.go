@@ -78,8 +78,6 @@ func TestCommit(t *testing.T) {
 		t.Fatalf("Unexpected error %v", err)
 	}
 
-	tx.ExecContext(context.Background(), "ALTER SESSION SET ISOLATION_LEVEL = SERIALIZABLE")
-
 	// Insert data
 	result, err := tx.ExecContext(context.Background(), "INSERT INTO "+table+" (str_value) values ('test')")
 	if err != nil {
@@ -91,7 +89,7 @@ func TestCommit(t *testing.T) {
 		t.Fatalf("Unexpected error %v", err)
 	}
 	if rowsAffected != 1 {
-		t.Fatalf("Wrong number of rows affected, extected 1 but was %d", rowsAffected)
+		t.Fatalf("Wrong number of rows affected, expected 1 but was %d", rowsAffected)
 	}
 
 	// Before the transaction is committed the line inserted above should not be seen by other connections
@@ -132,7 +130,7 @@ func TestCommit(t *testing.T) {
 
 }
 
-// TestRollback hecks that changes are not available to other transactions while
+// TestRollback checks that changes are not available to other transactions while
 // the transaction is opened and that they are not available after the
 // transaction is rolled back
 func TestRollback(t *testing.T) {
@@ -196,8 +194,8 @@ func TestRollback(t *testing.T) {
 
 }
 
-// TestRollbackThroughContextServerSleep tests that the transaction is correcly
-// rollback and that the execution is stopped when the transaction context is
+// TestRollbackThroughContextServerSleep verifies that the transaction is rolled
+// back and execution stops when the transaction context is
 // cancelled before the end of the statement execution.
 func TestRollbackThroughContextServerSleep(t *testing.T) {
 	t.Parallel()
@@ -261,8 +259,8 @@ func TestRollbackThroughContextServerSleep(t *testing.T) {
 
 }
 
-// TestRollbackThroughContextCancel tests that the transaction is correcly
-// rollback when the transaction context is cancelled.
+// TestRollbackThroughContextCancel verifies that the transaction is rolled back
+// when the transaction context is cancelled.
 func TestRollbackThroughContextCancel(t *testing.T) {
 	t.Parallel()
 	if TestingConfig == nil {
@@ -325,6 +323,7 @@ func TestRollbackThroughContextCancel(t *testing.T) {
 	}
 }
 
+// TestReadOnlyTransaction verifies that a read-only transaction rejects writes.
 func TestReadOnlyTransaction(t *testing.T) {
 	t.Parallel()
 	if TestingConfig == nil {

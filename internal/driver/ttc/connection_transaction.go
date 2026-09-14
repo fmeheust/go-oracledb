@@ -49,18 +49,29 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-// Begin starts and returns a new transaction with isolation level read
-// committed.
+// Begin starts and returns a new transaction with read-committed isolation.
+//
+// Returns:
+//   - driver.Tx: Started transaction.
+//   - error: Error if the transaction cannot be started.
 func (c *connection) Begin() (driver.Tx, error) {
-	context := context.Background()
+	ctx := context.Background()
 	opts := driver.TxOptions{
 		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
 		ReadOnly:  false,
 	}
-	return c.BeginTx(context, opts)
+	return c.BeginTx(ctx, opts)
 }
 
 // BeginTx starts and returns a new transaction.
+//
+// Parameters:
+//   - ctx: Context used for the transaction start operation.
+//   - opts: Transaction isolation and read-only options.
+//
+// Returns:
+//   - driver.Tx: Started transaction.
+//   - error: Error if the transaction cannot be started.
 func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	common.Odl.Debug("Starting transaction")
 
@@ -77,12 +88,21 @@ func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 
 	err := c.beginTransaction(ctx, tx, opts)
 	if err != nil {
+		c.shelf.unregisterTransaction()
 		return nil, err
 	}
 
 	return tx, nil
 }
 
+// isSupportedIsolationLevel reports whether opts uses an isolation level
+// supported by the driver.
+//
+// Parameters:
+//   - opts: Transaction options to validate.
+//
+// Returns:
+//   - bool: True when the isolation level is supported.
 func isSupportedIsolationLevel(opts driver.TxOptions) bool {
 	switch sql.IsolationLevel(opts.Isolation) {
 	case sql.LevelDefault, sql.LevelReadCommitted, sql.LevelSerializable:
@@ -92,10 +112,19 @@ func isSupportedIsolationLevel(opts driver.TxOptions) bool {
 	}
 }
 
+// beginTransaction queues an OTXSE transaction start operation.
+//
+// Parameters:
+//   - ctx: Context used for queuing the operation.
+//   - transaction: Transaction to start.
+//   - opts: Transaction isolation and read-only options.
+//
+// Returns:
+//   - error: Error if the OTXSE message cannot be created or queued.
 func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx, opts driver.TxOptions) error {
 	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 	if !ok {
-		common.Odl.Warn("Sessionless transactions require a message streamer with callback support")
+		common.Odl.Warn("beginTransaction requires a message streamer with callback support")
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
@@ -111,7 +140,7 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
-	otxse.confugureForStart(transaction, opts)
+	otxse.configureForStart(transaction, opts)
 
 	err = stmr.Push(ctx, msg)
 	if err != nil {
@@ -126,6 +155,14 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 // runOTxEn sends a transaction end operation and waits for its return state and
 // terminal status. OTXEN returns the transaction state in TTIRPA and completes
 // with TTIOER or TTISTA.
+//
+// Parameters:
+//   - ctx: Context used for the transaction-end operation.
+//   - operation: OTXEN state-change operation to execute.
+//   - transaction: Transaction whose state should be changed.
+//
+// Returns:
+//   - error: Error if the operation cannot be sent or the server reports a failure.
 func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperation, transaction oracleTx) error {
 	common.Odl.Debug("Running OTXEN", "operation", operation)
 
@@ -148,9 +185,9 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 
 	switch operation {
 	case otxenCommit:
-		otxen.confugureForCommit(transaction)
+		otxen.configureForCommit(transaction)
 	case otxenAbort:
-		otxen.confugureForAbort(transaction)
+		otxen.configureForAbort(transaction)
 	default:
 		common.Odl.Warn("Unsupported OTXEN operation", "operation", operation)
 		return common.NewOracleError(oracleErrors.InternalError, nil)
@@ -193,6 +230,13 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 	}
 }
 
+// convertTxOptionsToFlags converts standard transaction options to OTXSE flags.
+//
+// Parameters:
+//   - opts: Transaction isolation and read-only options.
+//
+// Returns:
+//   - driverCommon.UB4: OTXSE flags representing opts.
 func convertTxOptionsToFlags(opts driver.TxOptions) driverCommon.UB4 {
 	flags := otxseTransNew
 	if opts.ReadOnly {

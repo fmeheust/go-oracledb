@@ -297,7 +297,7 @@ func newCapabilityMetadata() *capability {
 			kpccapCtbShrdKeys:              {index: 43, value: 0x00, isFlag: true, isDefault: true},  // Not used default value
 			kpccapCtbTtc5Vector:            {index: 44, value: 0x08, isFlag: true, isDefault: true},  // vector type supported
 			kpccapCtbTtc5PipelineBreak:     {index: 44, value: 0x10, isFlag: true, isDefault: false}, // supports pipeline break
-			kpccapCtbTtc5SessionlessTxn:    {index: 44, value: 0x20, isFlag: true, isDefault: true},  // supports sessionles transaction
+			kpccapCtbTtc5SessionlessTxn:    {index: 44, value: 0x20, isFlag: true, isDefault: true},  // supports sessionless transactions
 			kpccapCtbTtc5CqnPull:           {index: 44, value: 0x40, isFlag: true, isDefault: true},  // supports CQN pull model
 			kpccapCtbTtc5PdbParams:         {index: 44, value: 0x80, isFlag: true, isDefault: true},  // container params
 			kpccapCtbTtcspareAltsess:       {index: 45, value: 0x01, isFlag: true, isDefault: true},  // understands alter session pbk

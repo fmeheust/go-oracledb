@@ -104,6 +104,10 @@ type tTIoer struct {
 	eocStatus *endOfCallStatus
 }
 
+// String returns a human-readable representation of the TTIOER message.
+//
+// Returns:
+//   - string: Formatted TTIOER state.
 func (e tTIoer) String() string {
 	return fmt.Sprintf("TTIoer {endToEndECIDSequenceNumber: [%v], callNumber: [%v], retCode: [%v], oerrcd2: [%v], errorMsg: [%v]}",
 		e.endToEndECIDSequenceNumber,
@@ -122,16 +126,30 @@ type endOfCallStatus struct {
 	endOfCallStatusFlags driverCommon.UB4
 }
 
+// String returns a human-readable representation of end-of-call status.
+//
+// Returns:
+//   - string: Formatted end-of-call status.
 func (e *endOfCallStatus) String() string {
 	return fmt.Sprintf("endOfCallStatus {elapsedTime: [%v], connectionShouldBeDropped: [%v]}",
 		e.elapsedTime,
 		e.connectionShouldBeDropped())
 }
 
+// connectionShouldBeDropped reports whether the end-of-call status requests
+// that the connection be removed from the pool.
+//
+// Returns:
+//   - bool: True when the planned-down flag is set.
 func (e *endOfCallStatus) connectionShouldBeDropped() bool {
 	return e.endOfCallStatusFlags&ttiEocfDropWhenReturned != 0
 }
 
+// inTransaction reports whether the end-of-call status indicates an active
+// transaction on the server.
+//
+// Returns:
+//   - bool: True if the server reports an active transaction.
 func (e *endOfCallStatus) inTransaction() bool {
 	return e.endOfCallStatusFlags&ttiEocCur != 0
 }
@@ -487,6 +505,16 @@ func (o *tTIoer) _unmarshalWarning(ctx context.Context, mar driverCommon.Marshal
 	return nil
 }
 
+// unmarshalEndOfCallStatus decodes the end-of-call status flags and elapsed
+// time from a TTC response.
+//
+// Parameters:
+//   - ctx: Context used during deserialization.
+//   - mar: Marshaller supplying the encoded status.
+//
+// Returns:
+//   - *endOfCallStatus: Decoded end-of-call status.
+//   - error: Error if the status cannot be deserialized.
 func unmarshalEndOfCallStatus(ctx context.Context, mar driverCommon.Marshaller) (*endOfCallStatus, error) {
 	var err error
 	retVal := &endOfCallStatus{elapsedTime: 0}
@@ -512,19 +540,31 @@ func unmarshalEndOfCallStatus(ctx context.Context, mar driverCommon.Marshaller) 
 	return retVal, nil
 }
 
-// SetEocsCap sets End Of Call Status capability
+// setSupportsEndOfCallStatus enables or disables end-of-call status support.
+//
+// Parameters:
+//   - supportsEndOfCallStatus: Whether end-of-call status is supported.
+//
+// Returns:
+//   - None. The capability is updated in place.
 func (o *tTIoer) setSupportsEndOfCallStatus(supportsEndOfCallStatus bool) {
 	o._supportsEndOfCallStatus = supportsEndOfCallStatus
 }
 
-// isBeingDrainned returns true if the connection should be dropped
+// isBeingDrained returns true if the connection should be dropped
 // due to a planned-down, otherwise false
-func (o *tTIoer) isBeingDrainned() bool {
+//
+// Returns:
+//   - bool: Whether the connection should be dropped.
+func (o *tTIoer) isBeingDrained() bool {
 	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.connectionShouldBeDropped()
 }
 
 // isInTransaction returns true if the connection is currently in a transaction,
 // otherwise false.
+//
+// Returns:
+//   - bool: Whether the server reports an active transaction.
 func (o *tTIoer) isInTransaction() bool {
 	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.inTransaction()
 }

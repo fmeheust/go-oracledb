@@ -106,7 +106,7 @@ func TestRegisterServerToClientPiggybacks(t *testing.T) {
 
 	_, err = messageStreamer.Pull(context.Background(), TTIPRO)
 	if err == nil {
-		t.Fatalf("Streamer should throw error, if SPF was correcly handled by callback, mock data buffer returns EOR")
+		t.Fatalf("Streamer should throw an error if SPF was correctly handled by the callback; the mock data buffer returns EOR")
 	}
 
 }

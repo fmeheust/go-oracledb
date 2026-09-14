@@ -73,17 +73,20 @@ type tTIOtxse struct {
 	headerMarshaller driverCommon.Marshallable
 	msgCode          driverCommon.MessageType
 
-	operation        driverCommon.SB4
-	xid              driverCommon.B1Array
-	formatID         driverCommon.UB4
-	gtridLength      driverCommon.UB4
-	bqualLength      driverCommon.UB4
-	flags            driverCommon.UB4
-	timeout          driverCommon.UB2
-	applicationValue *driverCommon.UB4
+	operation                 driverCommon.SB4
+	xid                       driverCommon.B1Array
+	formatID                  driverCommon.UB4
+	globalTransactionIDLength driverCommon.UB4
+	bqualLength               driverCommon.UB4
+	flags                     driverCommon.UB4
+	timeout                   driverCommon.UB2
+	applicationValue          *driverCommon.UB4
 }
 
 // newOTxSe creates an OTXSE function message using the standard TTIFUN header.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New OTXSE message.
 func newOTxSe() driverCommon.Message[driverCommon.MessageType] {
 	return &tTIOtxse{
 		headerMarshaller: &ttiFunHeader{_funcType: oTxSe},
@@ -94,6 +97,9 @@ func newOTxSe() driverCommon.Message[driverCommon.MessageType] {
 }
 
 // newOTxSe18 creates an OTXSE function message using the TTC 18+ TTIFUN header.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New TTC 18+ OTXSE message.
 func newOTxSe18() driverCommon.Message[driverCommon.MessageType] {
 	return &tTIOtxse{
 		headerMarshaller: &ttiFunHeader18{ttiFunHeader: &ttiFunHeader{_funcType: oTxSe}},
@@ -104,6 +110,9 @@ func newOTxSe18() driverCommon.Message[driverCommon.MessageType] {
 }
 
 // newOTxSePfn creates an OTXSE piggyback message using the standard TTIPFN header.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New OTXSE piggyback message.
 func newOTxSePfn() driverCommon.Message[driverCommon.MessageType] {
 	return &tTIOtxse{
 		headerMarshaller: &ttiFunHeader{_funcType: oTxSe},
@@ -114,6 +123,9 @@ func newOTxSePfn() driverCommon.Message[driverCommon.MessageType] {
 }
 
 // newOTxSePfn18 creates an OTXSE piggyback message using the TTC 18+ TTIPFN header.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New TTC 18+ OTXSE piggyback message.
 func newOTxSePfn18() driverCommon.Message[driverCommon.MessageType] {
 	return &tTIOtxse{
 		headerMarshaller: &ttiFunHeader18{ttiFunHeader: &ttiFunHeader{_funcType: oTxSe}},
@@ -124,30 +136,55 @@ func newOTxSePfn18() driverCommon.Message[driverCommon.MessageType] {
 }
 
 // GetMsgCode returns the TTC message category used to send this OTXSE request.
+//
+// Returns:
+//   - driverCommon.MessageType: Message category configured for this request.
 func (m *tTIOtxse) GetMsgCode() driverCommon.MessageType { return m.msgCode }
 
 // GetFuncCode returns the TTC function code for transaction switching operations.
+//
+// Returns:
+//   - driverCommon.FunctionType: OTXSE function code.
 func (m *tTIOtxse) GetFuncCode() driverCommon.FunctionType { return oTxSe }
 
-func (m *tTIOtxse) confugureForStart(tx oracleTx, opts driver.TxOptions) {
+// configureForStart configures m for a new transaction start operation.
+//
+// Parameters:
+//   - tx: Transaction to start.
+//   - opts: Transaction isolation and read-only options.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxse) configureForStart(tx oracleTx, opts driver.TxOptions) {
 	m.operation = otxseStart
 	applicationValue := driverCommon.UB4(0)
 	m.applicationValue = &applicationValue
 	m.flags = convertTxOptionsToFlags(opts)
 	if sessionlessTx, ok := tx.(*sessionlessTransaction); ok {
-		m._confugureSessionless(sessionlessTx)
+		m._configureSessionless(sessionlessTx)
 	}
 }
 
-func (m *tTIOtxse) confugureForResume(sessionlessTx *sessionlessTransaction) {
+// configureForResume configures m for resuming a sessionless transaction.
+//
+// Parameters:
+//   - sessionlessTx: Sessionless transaction to resume.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxse) configureForResume(sessionlessTx *sessionlessTransaction) {
 	m.operation = otxseStart
 	m.flags = otxseTransResume
 	applicationValue := driverCommon.UB4(0)
 	m.applicationValue = &applicationValue
-	m._confugureSessionless(sessionlessTx)
+	m._configureSessionless(sessionlessTx)
 }
 
-func (m *tTIOtxse) confugureForSuspend() {
+// configureForSuspend configures m for detaching a sessionless transaction.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxse) configureForSuspend() {
 	m.operation = otxseDetach
 	m.flags = otxseTransSessionless
 	m.formatID = k2gSessionless
@@ -155,16 +192,30 @@ func (m *tTIOtxse) confugureForSuspend() {
 	m.applicationValue = &applicationValue
 }
 
-func (m *tTIOtxse) _confugureSessionless(sessionlessTx *sessionlessTransaction) {
+// _configureSessionless copies sessionless transaction identifiers into m.
+//
+// Parameters:
+//   - sessionlessTx: Sessionless transaction whose identifiers should be sent.
+//
+// Returns:
+//   - None. The message is updated in place.
+func (m *tTIOtxse) _configureSessionless(sessionlessTx *sessionlessTransaction) {
 	m.formatID = k2gSessionless
 	m.xid = sessionlessTx.xid
-	m.gtridLength = sessionlessTx.gtridLength
+	m.globalTransactionIDLength = sessionlessTx.globalTransactionIDLength
 	m.bqualLength = sessionlessTx.bqualLength
 	m.timeout = driverCommon.UB2(sessionlessTx.timeout)
 	m.flags |= otxseTransSessionless
 }
 
 // MarshalTo serializes the OTXSE request using the TTC wire layout for transaction switching.
+//
+// Parameters:
+//   - ctx: Context used during serialization.
+//   - engine: Marshaller receiving the encoded message.
+//
+// Returns:
+//   - error: Error if any part of the message cannot be serialized.
 func (m *tTIOtxse) MarshalTo(ctx context.Context, engine driverCommon.Marshaller) error {
 	if err := m.headerMarshaller.MarshalTo(ctx, engine); err != nil {
 		common.Odl.Warn("Error marshalling OTXSE header", "error", err)
@@ -191,8 +242,8 @@ func (m *tTIOtxse) MarshalTo(ctx context.Context, engine driverCommon.Marshaller
 		common.Odl.Warn("Error marshalling OTXSE format id", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := engine.MarshalUB4(ctx, m.gtridLength); err != nil {
-		common.Odl.Warn("Error marshalling OTXSE gtrid length", "error", err)
+	if err := engine.MarshalUB4(ctx, m.globalTransactionIDLength); err != nil {
+		common.Odl.Warn("Error marshalling OTXSE global transaction ID length", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 	if err := engine.MarshalUB4(ctx, m.bqualLength); err != nil {
@@ -286,25 +337,46 @@ type ttiOTxSeRPA struct {
 	context          driverCommon.B1Array
 }
 
+// newOTxSeRPA creates an OTXSE TTIRPA decoder.
+//
+// Returns:
+//   - driverCommon.Message[driverCommon.MessageType]: New OTXSE return-parameter decoder.
 func newOTxSeRPA() driverCommon.Message[driverCommon.MessageType] {
 	return &ttiOTxSeRPA{}
 }
 
+// GetMsgCode returns the TTC message category used for OTXSE return parameters.
+//
+// Returns:
+//   - driverCommon.MessageType: TTIRPA.
 func (m *ttiOTxSeRPA) GetMsgCode() driverCommon.MessageType {
 	return TTIRPA
 }
 
 // GetApplicationValue returns the O2U application value returned by the server.
+//
+// Returns:
+//   - driverCommon.UB4: Application value returned by the server.
 func (m *ttiOTxSeRPA) GetApplicationValue() driverCommon.UB4 {
 	return m.applicationValue
 }
 
 // GetContext returns the transaction context returned by the server.
+//
+// Returns:
+//   - driverCommon.B1Array: Transaction context returned by the server.
 func (m *ttiOTxSeRPA) GetContext() driverCommon.B1Array {
 	return m.context
 }
 
 // UnMarshalFrom decodes the OTXSE reply payload returned in TTIRPA.
+//
+// Parameters:
+//   - ctx: Context used during deserialization.
+//   - engine: Marshaller supplying the encoded payload.
+//
+// Returns:
+//   - error: Error if the reply payload cannot be deserialized.
 func (m *ttiOTxSeRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
 	applicationValue, err := engine.UnmarshalUB4(ctx)
 	if err != nil {

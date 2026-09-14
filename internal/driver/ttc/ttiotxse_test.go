@@ -76,13 +76,13 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	msg := newOTxSe18().(*tTIOtxse)
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID: extensions.GlobalTransactionId("g1"),
-		xid:                 xid,
-		timeout:             30,
-		bqualLength:         2,
-		gtridLength:         2,
+		globalTransactionID:       extensions.GlobalTransactionId("g1"),
+		xid:                       xid,
+		timeout:                   30,
+		bqualLength:               2,
+		globalTransactionIDLength: 2,
 	}
-	msg.confugureForStart(tx, driver.TxOptions{
+	msg.configureForStart(tx, driver.TxOptions{
 		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
 	})
 
@@ -116,8 +116,8 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	if msg.formatID != k2gSessionless {
 		t.Fatalf("format ID = %#x, want %#x", msg.formatID, k2gSessionless)
 	}
-	if msg.gtridLength != 2 || msg.bqualLength != 2 {
-		t.Fatalf("XID lengths = (%d, %d), want (2, 2)", msg.gtridLength, msg.bqualLength)
+	if msg.globalTransactionIDLength != 2 || msg.bqualLength != 2 {
+		t.Fatalf("XID lengths = (%d, %d), want (2, 2)", msg.globalTransactionIDLength, msg.bqualLength)
 	}
 	if msg.flags != otxseTransSessionless|otxseTransNew|otxseTransReadWrite {
 		t.Fatalf("flags = %#x, want %#x", msg.flags, otxseTransSessionless|otxseTransNew|otxseTransReadWrite)
@@ -133,7 +133,7 @@ func TestOTxSe_MarshalTo_Suspend(t *testing.T) {
 	t.Parallel()
 
 	msg := newOTxSe().(*tTIOtxse)
-	msg.confugureForSuspend()
+	msg.configureForSuspend()
 
 	buf, engine := newOTxSeEngine(256)
 	if err := msg.MarshalTo(context.Background(), engine); err != nil {
@@ -161,75 +161,78 @@ func TestOTxSe_MarshalTo_Suspend(t *testing.T) {
 	}
 }
 
-// TestGenerateSessionlessGTRID verifies that the default generated GTRID uses
-// the same 16-byte UUID-shaped layout as the JDBC driver.
-func TestGenerateSessionlessGTRID(t *testing.T) {
+// TestGenerateSessionlessGlobalTransactionID verifies that the default generated
+// global transaction ID uses
+// the same 16-byte UUID-shaped layout.
+func TestGenerateSessionlessGlobalTransactionID(t *testing.T) {
 	t.Parallel()
 
-	gtrid, err := generateGlobalTransactionId()
+	globalTransactionID, err := generateGlobalTransactionID()
 	if err != nil {
-		t.Fatalf("generateSessionlessGTRID failed: %v", err)
+		t.Fatalf("generateGlobalTransactionID failed: %v", err)
 	}
-	if len(gtrid) != 16 {
-		t.Fatalf("generated GTRID length = %d, want 16", len(gtrid))
+	if len(globalTransactionID) != 16 {
+		t.Fatalf("generated global transaction ID length = %d, want 16", len(globalTransactionID))
 	}
 
-	bytes := []byte(gtrid)
+	bytes := []byte(globalTransactionID)
 	if version := bytes[6] >> 4; version != 4 {
-		t.Fatalf("generated GTRID UUID version nibble = %d, want 4", version)
+		t.Fatalf("generated global transaction ID UUID version nibble = %d, want 4", version)
 	}
 	if variant := bytes[8] >> 6; variant != 2 {
-		t.Fatalf("generated GTRID UUID variant bits = %d, want 2", variant)
+		t.Fatalf("generated global transaction ID UUID variant bits = %d, want 2", variant)
 	}
 }
 
-// TestValidateSessionlessGTRID verifies that client-side validation only rejects
+// TestValidateSessionlessGlobalTransactionID verifies that client-side validation only rejects
 // clearly invalid values before deferring transaction existence checks to the
 // server.
-func TestValidateSessionlessGTRID(t *testing.T) {
+func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 	t.Parallel()
 
-	t.Run("accepts non-empty gtrid within server size limit", func(t *testing.T) {
-		if err := validateSessionlessGTRID(extensions.GlobalTransactionId("valid-gtrid")); err != nil {
-			t.Fatalf("validateSessionlessGTRID returned unexpected error: %v", err)
+	t.Run("accepts non-empty global transaction ID within server size limit", func(t *testing.T) {
+		if err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionId("valid-global-transaction-id")); err != nil {
+			t.Fatalf("validateSessionlessGlobalTransactionID returned unexpected error: %v", err)
 		}
 	})
 
-	t.Run("rejects empty gtrid", func(t *testing.T) {
-		err := validateSessionlessGTRID(extensions.GlobalTransactionId(""))
+	t.Run("rejects empty global transaction ID", func(t *testing.T) {
+		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionId(""))
 		if err == nil {
-			t.Fatal("validateSessionlessGTRID returned nil for empty gtrid")
+			t.Fatal("validateSessionlessGlobalTransactionID returned nil for empty global transaction ID")
 		}
 		sqlErr, ok := err.(oracleErrors.SQLError)
 		if !ok {
-			t.Fatalf("validateSessionlessGTRID error type = %T, want common.SQLError", err)
+			t.Fatalf("validateSessionlessGlobalTransactionID error type = %T, want common.SQLError", err)
 		}
-		if sqlErr.ErrorCode() != string(oracleErrors.InvalidGTRIDValue) {
-			t.Fatalf("validateSessionlessGTRID error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGTRIDValue)
+		if sqlErr.ErrorCode() != string(oracleErrors.InvalidGlobalTransactionIDValue) {
+			t.Fatalf("validateSessionlessGlobalTransactionID error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGlobalTransactionIDValue)
 		}
 	})
 
-	t.Run("rejects gtrid larger than server limit", func(t *testing.T) {
-		err := validateSessionlessGTRID(extensions.GlobalTransactionId(strings.Repeat("a", maxSessionlessGTRIDSize+1)))
+	t.Run("rejects global transaction ID larger than server limit", func(t *testing.T) {
+		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionId(strings.Repeat("a", maxSessionlessGlobalTransactionIDSize+1)))
 		if err == nil {
-			t.Fatal("validateSessionlessGTRID returned nil for oversized gtrid")
+			t.Fatal("validateSessionlessGlobalTransactionID returned nil for oversized global transaction ID")
 		}
 		sqlErr, ok := err.(oracleErrors.SQLError)
 		if !ok {
-			t.Fatalf("validateSessionlessGTRID error type = %T, want common.SQLError", err)
+			t.Fatalf("validateSessionlessGlobalTransactionID error type = %T, want common.SQLError", err)
 		}
-		if sqlErr.ErrorCode() != string(oracleErrors.InvalidGTRIDValue) {
-			t.Fatalf("validateSessionlessGTRID error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGTRIDValue)
+		if sqlErr.ErrorCode() != string(oracleErrors.InvalidGlobalTransactionIDValue) {
+			t.Fatalf("validateSessionlessGlobalTransactionID error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGlobalTransactionIDValue)
 		}
 	})
 }
 
-func TestNewSessionlessGTRIDSync(t *testing.T) {
+// TestNewSessionlessGlobalTransactionIDSync verifies that a SESSIONLESS_GTRID payload is
+// decoded correctly and that returned byte slices cannot mutate the value.
+func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	t.Parallel()
 
-	sync, err := NewSessionlessGTRIDSync(driverCommon.B1Array{'a', 'b', sessionlessGTRIDSyncSet, 2})
+	sync, err := NewSessionlessGlobalTransactionIDSync(driverCommon.B1Array{'a', 'b', sessionlessGlobalTransactionIDSyncSet, 2})
 	if err != nil {
-		t.Fatalf("NewSessionlessGTRIDSync failed: %v", err)
+		t.Fatalf("NewSessionlessGlobalTransactionIDSync failed: %v", err)
 	}
 	if !sync.IsSet() {
 		t.Fatal("expected decoded sync payload to be set")
@@ -237,8 +240,13 @@ func TestNewSessionlessGTRIDSync(t *testing.T) {
 	if sync.IsUnset() {
 		t.Fatal("did not expect decoded sync payload to be unset")
 	}
-	if !slices.Equal(sync.GlobalTransactionID(), extensions.GlobalTransactionId("ab")) {
+	globalTransactionID := sync.GlobalTransactionID()
+	if !slices.Equal(globalTransactionID, extensions.GlobalTransactionId("ab")) {
 		t.Fatalf("GlobalTransactionID = %q, want %q", sync.GlobalTransactionID(), "ab")
+	}
+	globalTransactionID[0] = 'z'
+	if !slices.Equal(sync.GlobalTransactionID(), extensions.GlobalTransactionId("ab")) {
+		t.Fatalf("GlobalTransactionID changed through returned slice: %q", sync.GlobalTransactionID())
 	}
 	if sync.Version() != 2 {
 		t.Fatalf("Version = %d, want 2", sync.Version())
@@ -248,8 +256,8 @@ func TestNewSessionlessGTRIDSync(t *testing.T) {
 	}
 }
 
-// TestOTxSeRPA_UnMarshalFrom_Success verifies the Go decoder matches JDBC's
-// readRPA() layout: UB4 application value, UB2 context length, then raw bytes.
+// TestOTxSeRPA_UnMarshalFrom_Success verifies the OTXSE RPA unmarshalls
+// correctly: UB4 application value, UB2 context length, then raw bytes.
 func TestOTxSeRPA_UnMarshalFrom_Success(t *testing.T) {
 	t.Parallel()
 

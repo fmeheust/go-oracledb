@@ -169,9 +169,9 @@ const (
 	InvalidIdentifier ErrorCode = "OGD-00162"
 	// NetworkInternalError indicates an unexpected network-driver state.
 	NetworkInternalError ErrorCode = "OGD-00163"
-	// InvalidGTRIDValue indicates a provided global transaction identifier is empty
+	// InvalidGlobalTransactionIDValue indicates a provided global transaction identifier is empty
 	// or exceeds the server-supported size limit.
-	InvalidGTRIDValue ErrorCode = "OGD-00164"
+	InvalidGlobalTransactionIDValue ErrorCode = "OGD-00164"
 
 	// Driver Internal Error
 	InternalError ErrorCode = "OGD-00062"

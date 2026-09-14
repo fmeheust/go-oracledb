@@ -436,20 +436,22 @@ func TestTTIoer_UnmarshalWarning(t *testing.T) {
 	}
 }
 
+// TestTTIoer_getConnectionShouldBeDropped verifies planned-down and active
+// transaction flags from TTIOER end-of-call status.
 func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 	t.Parallel()
 	msg := &tTIoer{
 		_supportsEndOfCallStatus: false,
 		eocStatus:                nil,
 	}
-	if msg.isBeingDrainned() {
+	if msg.isBeingDrained() {
 		t.Fatalf("Wrong value returned by connectionStatus.getConnectionShouldBeDropped()")
 	}
 	msg = &tTIoer{
 		_supportsEndOfCallStatus: true,
 		eocStatus:                nil,
 	}
-	if msg.isBeingDrainned() {
+	if msg.isBeingDrained() {
 		t.Fatalf("Wrong value returned by connectionStatus.getConnectionShouldBeDropped()")
 	}
 	msg = &tTIoer{
@@ -459,7 +461,7 @@ func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 			endOfCallStatusFlags: 0,
 		},
 	}
-	if msg.isBeingDrainned() {
+	if msg.isBeingDrained() {
 		t.Fatalf("Wrong value returned by connectionStatus.getConnectionShouldBeDropped()")
 	}
 	msg = &tTIoer{
@@ -469,7 +471,7 @@ func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 			endOfCallStatusFlags: ttiEocfDropWhenReturned,
 		},
 	}
-	if !msg.isBeingDrainned() {
+	if !msg.isBeingDrained() {
 		t.Fatalf("Wrong value returned by connectionStatus.getConnectionShouldBeDropped()")
 	}
 

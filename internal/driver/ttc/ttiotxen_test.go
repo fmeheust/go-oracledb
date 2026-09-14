@@ -22,6 +22,8 @@ func newOTxEnEngine(capacity int) (*ArrayBasedDataBuffer, *MarshalEngine) {
 	return buf, engine
 }
 
+// TestOTxEnFactoryRegistration verifies that OTXEN request messages are
+// registered for both legacy and TTC 18+ protocol versions.
 func TestOTxEnFactoryRegistration(t *testing.T) {
 	t.Parallel()
 
@@ -50,21 +52,23 @@ func TestOTxEnFactoryRegistration(t *testing.T) {
 	}
 }
 
+// TestOTxEnMarshalTo verifies that a sessionless commit OTXEN message matches
+// the expected TTC wire layout.
 func TestOTxEnMarshalTo(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID: extensions.GlobalTransactionId("g1"),
-		xid:                 xid,
-		gtridLength:         2,
-		bqualLength:         2,
-		timeout:             30,
+		globalTransactionID:       extensions.GlobalTransactionId("g1"),
+		xid:                       xid,
+		globalTransactionIDLength: 2,
+		bqualLength:               2,
+		timeout:                   30,
 	}
 
 	msg := newOTxEn18().(*tTIOtxen)
-	msg.confugureForCommit(tx)
+	msg.configureForCommit(tx)
 
 	buf, engine := newOTxEnEngine(256)
 	if err := msg.MarshalTo(ctx, engine); err != nil {
@@ -102,7 +106,7 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	assertPointer("transaction context pointer", 0)
 	assertUniversal("transaction context length", 0)
 	assertUniversal("format ID", int(k2gSessionless))
-	assertUniversal("GTRID length", 2)
+	assertUniversal("global transaction ID length", 2)
 	assertUniversal("BQUAL length", 2)
 	assertPointer("XID pointer", 1)
 	assertUniversal("XID length", len(xid))
@@ -120,11 +124,13 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	}
 }
 
+// TestOTxEnMarshalToEmptyVariableData verifies that OTXEN encodes null
+// pointers correctly when transaction context and XID data are absent.
 func TestOTxEnMarshalToEmptyVariableData(t *testing.T) {
 	t.Parallel()
 
 	msg := newOTxEn().(*tTIOtxen)
-	msg.confugureForAbort(nil)
+	msg.configureForAbort(nil)
 	buf, engine := newOTxEnEngine(128)
 	if err := msg.MarshalTo(context.Background(), engine); err != nil {
 		t.Fatalf("MarshalTo failed: %v", err)
@@ -143,7 +149,7 @@ func TestOTxEnMarshalToEmptyVariableData(t *testing.T) {
 	idx++
 	idx += universalSizeAt(t, got, idx, "transaction context length")
 	idx += universalSizeAt(t, got, idx, "format ID")
-	idx += universalSizeAt(t, got, idx, "GTRID length")
+	idx += universalSizeAt(t, got, idx, "global transaction ID length")
 	idx += universalSizeAt(t, got, idx, "BQUAL length")
 	if got[idx] != 0 {
 		t.Fatalf("XID pointer = %#x, want null", got[idx])
@@ -159,15 +165,17 @@ func TestOTxEnMarshalToEmptyVariableData(t *testing.T) {
 	idx += universalSizeAt(t, got, idx, "transaction state change flags")
 }
 
+// TestOTxEnConfigureOperations verifies that commit and rollback operations
+// populate the expected OTXEN opcode, K2 state, XID, and timeout.
 func TestOTxEnConfigureOperations(t *testing.T) {
 	t.Parallel()
 
 	tx := &sessionlessTransaction{
-		globalTransactionID: extensions.GlobalTransactionId("g1"),
-		xid:                 driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
-		gtridLength:         2,
-		bqualLength:         2,
-		timeout:             30,
+		globalTransactionID:       extensions.GlobalTransactionId("g1"),
+		xid:                       driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
+		globalTransactionIDLength: 2,
+		bqualLength:               2,
+		timeout:                   30,
 	}
 	tests := []struct {
 		name      string
@@ -175,8 +183,8 @@ func TestOTxEnConfigureOperations(t *testing.T) {
 		operation driverCommon.SB4
 		inState   driverCommon.UB4
 	}{
-		{name: "commit", configure: func(msg *tTIOtxen, tx oracleTx) { msg.confugureForCommit(tx) }, operation: driverCommon.SB4(otxenCommit), inState: k2cmdCommit},
-		{name: "abort", configure: func(msg *tTIOtxen, tx oracleTx) { msg.confugureForAbort(tx) }, operation: driverCommon.SB4(otxenAbort), inState: k2cmdAbort},
+		{name: "commit", configure: func(msg *tTIOtxen, tx oracleTx) { msg.configureForCommit(tx) }, operation: driverCommon.SB4(otxenCommit), inState: k2cmdCommit},
+		{name: "abort", configure: func(msg *tTIOtxen, tx oracleTx) { msg.configureForAbort(tx) }, operation: driverCommon.SB4(otxenAbort), inState: k2cmdAbort},
 	}
 
 	for _, test := range tests {
@@ -206,6 +214,8 @@ func TestOTxEnConfigureOperations(t *testing.T) {
 	}
 }
 
+// TestOTxEnRPAFactoryRegistration verifies that the OTXEN return-parameter
+// decoder is registered for TTIRPA responses.
 func TestOTxEnRPAFactoryRegistration(t *testing.T) {
 	t.Parallel()
 
@@ -228,6 +238,8 @@ func TestOTxEnRPAFactoryRegistration(t *testing.T) {
 	}
 }
 
+// TestOTxEnRPAUnMarshalFrom verifies that an OTXEN return-state value is
+// decoded from a TTIRPA payload.
 func TestOTxEnRPAUnMarshalFrom(t *testing.T) {
 	t.Parallel()
 
@@ -246,6 +258,8 @@ func TestOTxEnRPAUnMarshalFrom(t *testing.T) {
 	}
 }
 
+// TestOTxEnRPAUnMarshalFromFailure verifies that malformed OTXEN return
+// parameters are reported as unmarshalling errors.
 func TestOTxEnRPAUnMarshalFromFailure(t *testing.T) {
 	t.Parallel()
 

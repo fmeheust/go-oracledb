@@ -46,7 +46,9 @@ import (
 )
 
 type oracleTx interface {
+	// transactionContext returns the context associated with the transaction.
 	transactionContext() context.Context
+	// underlyingConnection returns the connection associated with the transaction.
 	underlyingConnection() *connection
 }
 
@@ -56,10 +58,14 @@ type transaction struct {
 	_transactionContext context.Context
 }
 
-// newTransaction creates a new transaction with the given context
+// newTransaction creates a new transaction with the given connection and context.
 //
-// Parameters
-//   - ctx: the transaction context
+// Parameters:
+//   - conn: Connection associated with the transaction.
+//   - ctx: Context associated with the transaction.
+//
+// Returns:
+//   - *transaction: Initialized transaction.
 func newTransaction(conn *connection, ctx context.Context) *transaction {
 	return &transaction{
 		_underlyingConnection: conn,
@@ -70,18 +76,25 @@ func newTransaction(conn *connection, ctx context.Context) *transaction {
 // transactionContext returns the current transaction context. This function
 // can be used by statements to register after functions on the context in case
 // the context is cancelled during the execution.
+//
+// Returns:
+//   - context.Context: Transaction context.
 func (t *transaction) transactionContext() context.Context {
 	return t._transactionContext
 }
 
-// transactionContext returns the current transaction context. This function
-// can be used by statements to register after functions on the context in case
-// the context is cancelled during the execution.
+// underlyingConnection returns the connection associated with the transaction.
+//
+// Returns:
+//   - *connection: Transaction connection.
 func (t *transaction) underlyingConnection() *connection {
 	return t._underlyingConnection
 }
 
-// Commit commits the transaction
+// Commit commits the transaction.
+//
+// Returns:
+//   - error: Error if no transaction is active or the commit fails.
 func (t *transaction) Commit() error {
 	common.Odl.Debug("Transaction commit")
 	if !t._underlyingConnection.shelf.isInTransaction() {
@@ -104,7 +117,10 @@ func (t *transaction) Commit() error {
 	return nil
 }
 
-// Rollback rolls back the transaction
+// Rollback rolls back the transaction.
+//
+// Returns:
+//   - error: Error if no transaction is active or the rollback fails.
 func (t *transaction) Rollback() error {
 	common.Odl.Debug("Transaction rollback")
 	if !t._underlyingConnection.shelf.isInTransaction() {
@@ -126,7 +142,10 @@ func (t *transaction) Rollback() error {
 	return nil
 }
 
-// newNotInTransactionError return a not in transaction error
+// newNotInTransactionError returns a not-in-transaction error.
+//
+// Returns:
+//   - error: NotInTransaction Oracle error.
 func newNotInTransactionError() error {
 	return common.NewOracleError(oracleErrors.NotInTransaction, nil, nil)
 }

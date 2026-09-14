@@ -150,6 +150,8 @@ func TestTransactionRollbackSuccess(t *testing.T) {
 	}
 }
 
+// TestTransactionEndConsumesOTxEnRPA verifies that transaction end consumes
+// OTXEN return parameters before reading the terminal status message.
 func TestTransactionEndConsumesOTxEnRPA(t *testing.T) {
 	t.Parallel()
 	streamer := &mockStreamer{
@@ -309,6 +311,9 @@ func TestConnectionBeginTxReturnsPushError(t *testing.T) {
 	}
 	if streamer.pushedMsg.Len() != 1 {
 		t.Fatalf("pushed messages = %d, want 1", streamer.pushedMsg.Len())
+	}
+	if conn.shelf.isInTransaction() {
+		t.Fatal("BeginTx push failure should unregister the transaction")
 	}
 }
 
