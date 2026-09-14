@@ -293,25 +293,23 @@ func checkNamedValue(nv *driver.NamedValue) error {
 func (c *connection) _registerServerTimezoneOffset(ctx context.Context) error {
 	// DBTIMEZONE can return either a region name or an offset; TZ_OFFSET normalizes
 	// both forms to the +/-HH:MM format expected by parseTimeZone.
-	/*
-		rows, err := c.QueryContext(ctx, "SELECT TZ_OFFSET(DBTIMEZONE) FROM SYS.DUAL", nil)
-		if err != nil {
-			return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "query"))
-		}
-		defer rows.Close()
-		values := make([]driver.Value, 1)
-		var serverTimeZone string
-		values[0] = &serverTimeZone
-		if err := rows.Next(values); err != nil {
-			return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "retrieve"))
-		}
-		serverTimeZoneValue := values[0].(string)
-		TZH, TZM, err := parseTimeZone(serverTimeZoneValue)
-		if err != nil {
-			return err
-		}
-		c.shelf.registerServerTimeZoneOffset(int16(TZH*3600 + TZM*60))
-	*/
+	rows, err := c.QueryContext(ctx, "SELECT TZ_OFFSET(DBTIMEZONE) FROM SYS.DUAL", nil)
+	if err != nil {
+		return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "query"))
+	}
+	defer rows.Close()
+	values := make([]driver.Value, 1)
+	var serverTimeZone string
+	values[0] = &serverTimeZone
+	if err := rows.Next(values); err != nil {
+		return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "retrieve"))
+	}
+	serverTimeZoneValue := values[0].(string)
+	TZH, TZM, err := parseTimeZone(serverTimeZoneValue)
+	if err != nil {
+		return err
+	}
+	c.shelf.registerServerTimeZoneOffset(int16(TZH*3600 + TZM*60))
 	return nil
 }
 

@@ -79,6 +79,8 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 		globalTransactionID: extensions.GlobalTransactionId("g1"),
 		xid:                 xid,
 		timeout:             30,
+		bqualLength:         2,
+		gtridLength:         2,
 	}
 	msg.confugureForStart(tx, driver.TxOptions{
 		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),

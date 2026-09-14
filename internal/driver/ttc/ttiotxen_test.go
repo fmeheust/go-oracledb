@@ -58,6 +58,8 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	tx := &sessionlessTransaction{
 		globalTransactionID: extensions.GlobalTransactionId("g1"),
 		xid:                 xid,
+		gtridLength:         2,
+		bqualLength:         2,
 		timeout:             30,
 	}
 
@@ -163,6 +165,8 @@ func TestOTxEnConfigureOperations(t *testing.T) {
 	tx := &sessionlessTransaction{
 		globalTransactionID: extensions.GlobalTransactionId("g1"),
 		xid:                 driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
+		gtridLength:         2,
+		bqualLength:         2,
 		timeout:             30,
 	}
 	tests := []struct {
