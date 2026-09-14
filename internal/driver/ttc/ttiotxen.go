@@ -1,0 +1,240 @@
+/*
+** Copyright (c) 2026 Oracle and/or its affiliates.
+**
+** The Universal Permissive License (UPL), Version 1.0
+**
+** Subject to the condition set forth below, permission is hereby granted to any
+** person obtaining a copy of this software, associated documentation and/or data
+** (collectively, the "Software"), free of charge and under any and all
+** copyright and patent rights owned or freely licensable by each licensor
+** covering either (i) the unmodified Software as contributed to or provided by
+** such licensors, or (ii) the Larger Works (as defined below), to deal in both
+** (a) the Software, and (b) any piece of software and/or hardware listed in the
+** lrgrwrks.txt file if one is included with the Software (each a "Larger Work"
+** to which the Software is contributed by such licensors), without restriction,
+** including without limitation the rights to copy, create derivative works of,
+** display, perform, and distribute the Software, and to sublicense the foregoing
+** rights on either these or other terms.
+**
+** This license is subject to the condition that the above copyright notice and
+** either this complete permission notice or at a minimum a reference to the UPL
+** must be included in all copies or substantial portions of the Software.
+**
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+** SOFTWARE.
+ */
+
+package ttc
+
+import (
+	"context"
+
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+)
+
+type txStateChangeOperation driverCommon.SB4
+
+// OTXEN transaction state-change operations.
+const (
+	otxenCommit  txStateChangeOperation = 0x01
+	otxenAbort   txStateChangeOperation = 0x02
+	otxenPrepare txStateChangeOperation = 0x03
+	otxenForget  txStateChangeOperation = 0x04
+	otxenRecover txStateChangeOperation = 0x05
+	otxmlPrepare txStateChangeOperation = 0x06
+
+	// K2 commands supplied as the OTXEN in-state value.
+	k2cmdPrepare       driverCommon.UB4 = 0
+	k2cmdRequestCommit driverCommon.UB4 = 1
+	k2cmdCommit        driverCommon.UB4 = 2
+	k2cmdAbort         driverCommon.UB4 = 3
+	k2cmdReadOnly      driverCommon.UB4 = 4
+	k2cmdForget        driverCommon.UB4 = 5
+	k2cmdRecovered     driverCommon.UB4 = 7
+	k2cmdTimeout       driverCommon.UB4 = 8
+)
+
+// tTIOtxen represents the OTXEN TTC function used to end, prepare, forget, or
+// recover an X/Open transaction.
+//
+// Its payload follows the server-side TTCHE definition:
+//
+//   - opcode (SWORD)
+//   - transaction context pointer and length
+//   - XID format id, GTRID length, and BQUAL length
+//   - XID pointer and length
+//   - timeout (UWORD)
+//   - in-state/K2 command (UB4)
+//   - out-state pointer
+//   - transaction state change flags (UB4)
+//   - transaction context and XID variable data
+type tTIOtxen struct {
+	headerMarshaller driverCommon.Marshallable
+
+	operation          driverCommon.SB4
+	transactionContext driverCommon.B1Array
+	formatID           driverCommon.UB4
+	gtridLength        driverCommon.UB4
+	bqualLength        driverCommon.UB4
+	xid                driverCommon.B1Array
+	timeout            driverCommon.UB2
+	inState            driverCommon.UB4 // OTXEN in-state/K2 command
+	flags              driverCommon.UB4 // OTXEN transaction state change flags
+}
+
+// newOTxEn creates an OTXEN function message using the standard TTIFUN header.
+func newOTxEn() driverCommon.Message[driverCommon.MessageType] {
+	return &tTIOtxen{
+		headerMarshaller: &ttiFunHeader{_funcType: oTxEn},
+	}
+}
+
+// newOTxEn18 creates an OTXEN function message using the TTC 18+ TTIFUN header.
+func newOTxEn18() driverCommon.Message[driverCommon.MessageType] {
+	return &tTIOtxen{
+		headerMarshaller: &ttiFunHeader18{ttiFunHeader: &ttiFunHeader{_funcType: oTxEn}},
+	}
+}
+
+// GetMsgCode returns the TTC message category used to send OTXEN.
+func (m *tTIOtxen) GetMsgCode() driverCommon.MessageType { return TTIFUN }
+
+// GetFuncCode returns the TTC function code for OTXEN.
+func (m *tTIOtxen) GetFuncCode() driverCommon.FunctionType { return oTxEn }
+
+func (m *tTIOtxen) confugureForCommit(transaction oracleTx) {
+	m._confugureForOperation(transaction, otxenCommit, k2cmdCommit)
+}
+
+func (m *tTIOtxen) confugureForAbort(transaction oracleTx) {
+	m._confugureForOperation(transaction, otxenAbort, k2cmdAbort)
+}
+
+func (m *tTIOtxen) _confugureForOperation(transaction oracleTx, operation txStateChangeOperation, inState driverCommon.UB4) {
+	m.operation = driverCommon.SB4(operation)
+	m.inState = inState
+
+	if sessionlessTx, ok := transaction.(*sessionlessTransaction); ok {
+		m.formatID = k2gSessionless
+		m.xid = sessionlessTx.xid
+		m.gtridLength = sessionlessTx.gtridLength
+		m.bqualLength = sessionlessTx.bqualLength
+		m.timeout = driverCommon.UB2(sessionlessTx.timeout)
+	}
+}
+
+// MarshalTo serializes OTXEN according to the TTCHE transaction-end layout.
+func (m *tTIOtxen) MarshalTo(ctx context.Context, engine driverCommon.Marshaller) error {
+	marshal := func(name string, f func() error) error {
+		if err := f(); err != nil {
+			common.Odl.Warn("Error marshalling OTXEN "+name, "error", err)
+			return common.NewOracleError(oracleErrors.FailMarshal, err, TTCMsgTypeDescription[m.GetMsgCode()])
+		}
+		return nil
+	}
+
+	if err := marshal("header", func() error { return m.headerMarshaller.MarshalTo(ctx, engine) }); err != nil {
+		return err
+	}
+	if err := marshal("operation", func() error { return engine.MarshalSB4(ctx, m.operation) }); err != nil {
+		return err
+	}
+
+	if len(m.transactionContext) > 0 {
+		if err := marshal("transaction context pointer", func() error { return engine.MarshalPTR(ctx) }); err != nil {
+			return err
+		}
+	} else if err := marshal("null transaction context pointer", func() error { return engine.MarshalNullPTR(ctx) }); err != nil {
+		return err
+	}
+	if err := marshal("transaction context length", func() error {
+		return engine.MarshalUB4(ctx, driverCommon.UB4(len(m.transactionContext)))
+	}); err != nil {
+		return err
+	}
+
+	if err := marshal("format id", func() error { return engine.MarshalUB4(ctx, m.formatID) }); err != nil {
+		return err
+	}
+	if err := marshal("GTRID length", func() error { return engine.MarshalUB4(ctx, m.gtridLength) }); err != nil {
+		return err
+	}
+	if err := marshal("BQUAL length", func() error { return engine.MarshalUB4(ctx, m.bqualLength) }); err != nil {
+		return err
+	}
+
+	if len(m.xid) > 0 {
+		if err := marshal("XID pointer", func() error { return engine.MarshalPTR(ctx) }); err != nil {
+			return err
+		}
+	} else if err := marshal("null XID pointer", func() error { return engine.MarshalNullPTR(ctx) }); err != nil {
+		return err
+	}
+	if err := marshal("XID length", func() error {
+		return engine.MarshalUB4(ctx, driverCommon.UB4(len(m.xid)))
+	}); err != nil {
+		return err
+	}
+	if err := marshal("timeout", func() error { return engine.MarshalUB2(ctx, m.timeout) }); err != nil {
+		return err
+	}
+	if err := marshal("in state", func() error { return engine.MarshalUB4(ctx, m.inState) }); err != nil {
+		return err
+	}
+	if err := marshal("out-state pointer", func() error { return engine.MarshalPTR(ctx) }); err != nil {
+		return err
+	}
+	if err := marshal("transaction state change flags", func() error { return engine.MarshalUB4(ctx, m.flags) }); err != nil {
+		return err
+	}
+
+	if len(m.transactionContext) > 0 {
+		if err := marshal("transaction context", func() error {
+			return engine.MarshalB1Array(ctx, m.transactionContext)
+		}); err != nil {
+			return err
+		}
+	}
+	if len(m.xid) > 0 {
+		if err := marshal("XID", func() error { return engine.MarshalB1Array(ctx, m.xid) }); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ttiOTxEnRPA carries the OTXEN transaction state returned in TTIRPA.
+type ttiOTxEnRPA struct {
+	outState driverCommon.UB4
+}
+
+// newOTxEnRPA creates the OTXEN TTIRPA decoder.
+func newOTxEnRPA() driverCommon.Message[driverCommon.MessageType] {
+	return &ttiOTxEnRPA{}
+}
+
+// GetMsgCode returns the TTC message category used for OTXEN return parameters.
+func (m *ttiOTxEnRPA) GetMsgCode() driverCommon.MessageType { return TTIRPA }
+
+// GetOutState returns the transaction state returned by OTXEN.
+func (m *ttiOTxEnRPA) GetOutState() driverCommon.UB4 { return m.outState }
+
+// UnMarshalFrom decodes the OTXEN TTIRPA payload, which contains one UB4 out
+// state value.
+func (m *ttiOTxEnRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
+	outState, err := engine.UnmarshalUB4(ctx)
+	if err != nil {
+		common.Odl.Warn("Error unmarshalling OTXEN RPA out state", "error", err)
+		return common.NewOracleError(oracleErrors.FailUnmarshal, err, TTCMsgTypeDescription[m.GetMsgCode()])
+	}
+	m.outState = outState
+	return nil
+}

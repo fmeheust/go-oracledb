@@ -3,51 +3,39 @@ package oracle
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 
-	"github.com/oracle/go-oracledb/v26/internal/common"
+	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
-type SessionlessTransaction interface {
-	Suspend() error
-	Commit() error
-	Rollback() error
-	GlobalTransactionID() string
-}
-
-func StartSessionlessTransaction(ctx context.Context, connection *sql.Conn, opts driver.TxOptions, timeout uint16) (SessionlessTransaction, error) {
-	var publicSessionlessTransaction SessionlessTransaction
+func BeginSessionlessTx(ctx context.Context, connection *sql.Conn, opts sql.TxOptions, timeout uint16) (extensions.SessionlessTx, error) {
+	var publicSessionlessTransaction extensions.SessionlessTx
 	err := connection.Raw(func(c any) error {
-		sessionlessTxStarter, ok := c.(common.ConnBeginSessionlessTx)
+		var err error
+		sessionlessTxStarter, ok := c.(extensions.ConnSessionlessTx)
 		if !ok {
 			return errors.New("the connection does not support sessionless transactions")
 		}
-		sessionlessTx, internalErr := sessionlessTxStarter.BeginSessionlessTx(ctx, opts, timeout)
-		if internalErr != nil {
-			return internalErr
-		}
-		if publicSessionlessTransaction, ok = sessionlessTx.(SessionlessTransaction); !ok {
-			return errors.New("invalid transaction returned")
+		publicSessionlessTransaction, err = sessionlessTxStarter.BeginSessionlessTx(ctx, opts, timeout)
+		if err != nil {
+			return err
 		}
 		return nil
 	})
 	return publicSessionlessTransaction, err
 }
 
-func ResumeSessionlessTransaction(ctx context.Context, connection *sql.Conn, globalTransactionID string) (SessionlessTransaction, error) {
-	var publicSessionlessTransaction SessionlessTransaction
+func ResumeSessionlessTransaction(ctx context.Context, connection *sql.Conn, globalTransactionID extensions.GlobalTransactionId) (extensions.SessionlessTx, error) {
+	var publicSessionlessTransaction extensions.SessionlessTx
 	err := connection.Raw(func(c any) error {
-		sessionlessTxStarter, ok := c.(common.ConnBeginSessionlessTx)
+		var err error
+		sessionlessTxStarter, ok := c.(extensions.ConnSessionlessTx)
 		if !ok {
 			return errors.New("the connection does not support sessionless transactions")
 		}
-		sessionlessTx, internalErr := sessionlessTxStarter.ResumeSessionlessTx(ctx, globalTransactionID)
-		if internalErr != nil {
-			return internalErr
-		}
-		if publicSessionlessTransaction, ok = sessionlessTx.(SessionlessTransaction); !ok {
-			return errors.New("invalid transaction returned")
+		publicSessionlessTransaction, err = sessionlessTxStarter.ResumeSessionlessTx(ctx, globalTransactionID)
+		if err != nil {
+			return err
 		}
 		return nil
 	})

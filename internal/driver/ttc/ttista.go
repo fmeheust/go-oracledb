@@ -111,5 +111,11 @@ func RegisterSTAWithCapability() {
 // isBeingDrainned returns true if the connection should be dropped
 // due to a planned-down, otherwise false
 func (sta *ttiSTA) isBeingDrainned() bool {
-	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.connectionShouldBeDropped
+	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.connectionShouldBeDropped()
+}
+
+// isInTransaction returns true if the connection is currently in a transaction,
+// otherwise false.
+func (sta *ttiSTA) isInTransaction() bool {
+	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.inTransaction()
 }

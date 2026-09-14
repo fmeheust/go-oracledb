@@ -45,12 +45,15 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
+type oracleTx interface {
+	transactionContext() context.Context
+	underlyingConnection() *connection
+}
+
 type transaction struct {
 	_underlyingConnection *connection
 	// the current transaction context
 	_transactionContext context.Context
-	// GTRID is set for sessionless transactions and empty for regular transactions.
-	GTRID string
 }
 
 // newTransaction creates a new transaction with the given context
@@ -64,17 +67,18 @@ func newTransaction(conn *connection, ctx context.Context) *transaction {
 	}
 }
 
-// getTransactionContext returns the current transaction context. This function
+// transactionContext returns the current transaction context. This function
 // can be used by statements to register after functions on the context in case
 // the context is cancelled during the execution.
-func (t *transaction) getTransactionContext() context.Context {
+func (t *transaction) transactionContext() context.Context {
 	return t._transactionContext
 }
 
-// IsSessionlessTx reports whether this transaction was started or resumed as a
-// sessionless transaction.
-func (t *transaction) IsSessionlessTx() bool {
-	return t.GTRID != ""
+// transactionContext returns the current transaction context. This function
+// can be used by statements to register after functions on the context in case
+// the context is cancelled during the execution.
+func (t *transaction) underlyingConnection() *connection {
+	return t._underlyingConnection
 }
 
 // Commit commits the transaction
@@ -84,8 +88,9 @@ func (t *transaction) Commit() error {
 		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
 	}
 
-	ctx := t._underlyingConnection.shelf.getTransaction().getTransactionContext()
-	readFuncError := t._underlyingConnection.runFunctionWithFunHeader(ctx, commit)
+	currentTransaction := t._underlyingConnection.shelf.getTransaction()
+	ctx := currentTransaction.transactionContext()
+	readFuncError := t._underlyingConnection.runOTxEn(ctx, otxenCommit, currentTransaction)
 
 	if err := t._underlyingConnection.shelf.checkCurrentState(ctx); err != nil {
 		return err
@@ -106,7 +111,8 @@ func (t *transaction) Rollback() error {
 		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
 	}
 
-	runFuncErr := t._underlyingConnection.runFunctionWithFunHeader(common.BackgroundContext, rollback)
+	currentTransaction := t._underlyingConnection.shelf.getTransaction()
+	runFuncErr := t._underlyingConnection.runOTxEn(common.BackgroundContext, otxenAbort, currentTransaction)
 
 	if err := t._underlyingConnection.shelf.checkCurrentState(common.BackgroundContext); err != nil {
 		return err

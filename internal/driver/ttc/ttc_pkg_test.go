@@ -512,7 +512,7 @@ var testCases = []struct {
 	{"TestCallBeginTxTwice", "unitary", false, TestCallBeginTxTwice},
 	{"TestConnectionBeginUsesDefaultIsolationLevel", "unitary", false, TestConnectionBeginUsesDefaultIsolationLevel},
 	{"TestConnectionBeginTxRejectsUnsupportedIsolationLevel", "unitary", false, TestConnectionBeginTxRejectsUnsupportedIsolationLevel},
-	{"TestConnectionBeginTxUnregistersAfterSetupErrors", "unitary", false, TestConnectionBeginTxUnregistersAfterSetupErrors},
+	{"TestConnectionBeginTxReturnsPushError", "unitary", false, TestConnectionBeginTxReturnsPushError},
 	{"TestTransactionOperationErrors", "unitary", false, TestTransactionOperationErrors},
 	{"TestTransactionOperationRejectsStaleMessages", "unitary", false, TestTransactionOperationRejectsStaleMessages},
 
@@ -1152,7 +1152,7 @@ func newTestConnection(
 		_isClosed: false,
 	}
 	conn.registerEventListeners(conn.shelf.getEventService())
-	_registerHandleConnectionShouldBeDropped(shelf, conn)
+	_registerHandleEndOfCallStatus(shelf, conn)
 	shelf.registerCancelExecution(conn.cancelCurrentExecution)
 	return conn
 }

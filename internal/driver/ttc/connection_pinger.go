@@ -54,9 +54,15 @@ import (
 //
 //	otherwise nil
 func (c *connection) Ping(ctx context.Context) error {
-	err := c.runFunctionWithFunHeader(ctx, ping)
-	if err != nil {
+	if !c.IsValid() {
 		return driver.ErrBadConn
+	}
+	err := c.runFunctionWithFunHeader(ctx, ping)
+	if !c.IsValid() {
+		return driver.ErrBadConn
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }

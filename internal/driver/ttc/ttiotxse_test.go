@@ -9,12 +9,15 @@ package ttc
 import (
 	"bytes"
 	"context"
+	"database/sql"
+	"database/sql/driver"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 func newOTxSeEngine(capacity int) (*ArrayBasedDataBuffer, *MarshalEngine) {
@@ -66,19 +69,20 @@ func TestOTxSe_FactoryRegistration_MessageCodes(t *testing.T) {
 }
 
 // TestOTxSe_MarshalTo_StartSessionless verifies that a sessionless start
-// request marshals without error and includes the expected function header and
-// trailing variable-length client name payload.
+// request is configured with the expected transaction identifier and options.
 func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	t.Parallel()
 
 	msg := newOTxSe18().(*tTIOtxse)
-	msg.setOperation(otxseStart)
-	msg.setXID(driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}, 2, 2)
-	msg.setFlags(otxseTransSessionless | otxseTransNew)
-	msg.setTimeout(30)
-	msg.setApplicationValue(7)
-	msg.setInternalName(driverCommon.B1Array("go-driver"))
-	msg.setExternalName(driverCommon.B1Array("sessionless"))
+	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
+	tx := &sessionlessTransaction{
+		globalTransactionID: extensions.GlobalTransactionId("g1"),
+		xid:                 xid,
+		timeout:             30,
+	}
+	msg.confugureForStart(tx, driver.TxOptions{
+		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
+	})
 
 	buf, engine := newOTxSeEngine(512)
 	if err := msg.MarshalTo(context.Background(), engine); err != nil {
@@ -92,21 +96,42 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	if got[0] != byte(oTxSe) {
 		t.Fatalf("first byte = %d, want function code %d", got[0], oTxSe)
 	}
-	if got[len(got)-1] != byte('s') {
-		t.Fatalf("expected external name payload to be marshalled at end, got last byte %d", got[len(got)-1])
+	// The test engine uses universal UB4 encoding, where UB4(0) is one byte.
+	const applicationValueSize = 1
+	if len(got) < len(xid)+applicationValueSize ||
+		!bytes.Equal(got[len(got)-applicationValueSize-len(xid):len(got)-applicationValueSize], xid) {
+		t.Fatalf("expected XID payload before application value, got % X", got[len(got)-applicationValueSize-len(xid):])
+	}
+	if !bytes.Equal(got[len(got)-applicationValueSize:], []byte{0}) {
+		t.Fatalf("expected trailing application value UB4(0), got % X", got[len(got)-applicationValueSize:])
+	}
+	if msg.operation != otxseStart {
+		t.Fatalf("operation = %d, want %d", msg.operation, otxseStart)
+	}
+	if !bytes.Equal(msg.xid, xid) {
+		t.Fatalf("XID = % X, want % X", msg.xid, xid)
+	}
+	if msg.formatID != k2gSessionless {
+		t.Fatalf("format ID = %#x, want %#x", msg.formatID, k2gSessionless)
+	}
+	if msg.gtridLength != 2 || msg.bqualLength != 2 {
+		t.Fatalf("XID lengths = (%d, %d), want (2, 2)", msg.gtridLength, msg.bqualLength)
+	}
+	if msg.flags != otxseTransSessionless|otxseTransNew|otxseTransReadWrite {
+		t.Fatalf("flags = %#x, want %#x", msg.flags, otxseTransSessionless|otxseTransNew|otxseTransReadWrite)
+	}
+	if msg.timeout != 30 {
+		t.Fatalf("timeout = %d, want 30", msg.timeout)
 	}
 }
 
-// TestOTxSe_MarshalTo_DetachWithTransactionContext verifies that a detach
-// request using a non-sessionless format id includes the supplied transaction
-// context bytes in the marshalled payload.
-func TestOTxSe_MarshalTo_DetachWithTransactionContext(t *testing.T) {
+// TestOTxSe_MarshalTo_Suspend verifies that a suspend request is configured
+// with the sessionless detach operation and no transaction identifier.
+func TestOTxSe_MarshalTo_Suspend(t *testing.T) {
 	t.Parallel()
 
 	msg := newOTxSe().(*tTIOtxse)
-	msg.setOperation(otxseDetach)
-	msg.setFormatID(0x1234)
-	msg.setTransactionContext(driverCommon.B1Array{0xAA, 0xBB, 0xCC})
+	msg.confugureForSuspend()
 
 	buf, engine := newOTxSeEngine(256)
 	if err := msg.MarshalTo(context.Background(), engine); err != nil {
@@ -117,15 +142,20 @@ func TestOTxSe_MarshalTo_DetachWithTransactionContext(t *testing.T) {
 	if len(got) == 0 {
 		t.Fatal("expected non-empty OTXSE detach payload")
 	}
-	foundCtx := false
-	for i := 0; i+2 < len(got); i++ {
-		if got[i] == 0xAA && got[i+1] == 0xBB && got[i+2] == 0xCC {
-			foundCtx = true
-			break
-		}
+	if msg.operation != otxseDetach {
+		t.Fatalf("operation = %d, want %d", msg.operation, otxseDetach)
 	}
-	if !foundCtx {
-		t.Fatal("detach payload did not marshal the transaction context bytes")
+	if msg.flags != otxseTransSessionless {
+		t.Fatalf("flags = %#x, want %#x", msg.flags, otxseTransSessionless)
+	}
+	if msg.formatID != k2gSessionless {
+		t.Fatalf("format ID = %#x, want %#x", msg.formatID, k2gSessionless)
+	}
+	if len(msg.xid) != 0 {
+		t.Fatalf("XID length = %d, want 0", len(msg.xid))
+	}
+	if msg.applicationValue == nil || *msg.applicationValue != 0 {
+		t.Fatalf("application value = %v, want non-null UB4(0)", msg.applicationValue)
 	}
 }
 
@@ -134,7 +164,7 @@ func TestOTxSe_MarshalTo_DetachWithTransactionContext(t *testing.T) {
 func TestGenerateSessionlessGTRID(t *testing.T) {
 	t.Parallel()
 
-	gtrid, err := generateSessionlessGTRID()
+	gtrid, err := generateGlobalTransactionId()
 	if err != nil {
 		t.Fatalf("generateSessionlessGTRID failed: %v", err)
 	}
@@ -158,13 +188,13 @@ func TestValidateSessionlessGTRID(t *testing.T) {
 	t.Parallel()
 
 	t.Run("accepts non-empty gtrid within server size limit", func(t *testing.T) {
-		if err := validateSessionlessGTRID("valid-gtrid"); err != nil {
+		if err := validateSessionlessGTRID(extensions.GlobalTransactionId("valid-gtrid")); err != nil {
 			t.Fatalf("validateSessionlessGTRID returned unexpected error: %v", err)
 		}
 	})
 
 	t.Run("rejects empty gtrid", func(t *testing.T) {
-		err := validateSessionlessGTRID("")
+		err := validateSessionlessGTRID(extensions.GlobalTransactionId(""))
 		if err == nil {
 			t.Fatal("validateSessionlessGTRID returned nil for empty gtrid")
 		}
@@ -178,7 +208,7 @@ func TestValidateSessionlessGTRID(t *testing.T) {
 	})
 
 	t.Run("rejects gtrid larger than server limit", func(t *testing.T) {
-		err := validateSessionlessGTRID(strings.Repeat("a", maxSessionlessGTRIDSize+1))
+		err := validateSessionlessGTRID(extensions.GlobalTransactionId(strings.Repeat("a", maxSessionlessGTRIDSize+1)))
 		if err == nil {
 			t.Fatal("validateSessionlessGTRID returned nil for oversized gtrid")
 		}
@@ -195,7 +225,7 @@ func TestValidateSessionlessGTRID(t *testing.T) {
 func TestNewSessionlessGTRIDSync(t *testing.T) {
 	t.Parallel()
 
-	sync, err := NewSessionlessGTRIDSync(common.B1Array{'a', 'b', sessionlessGTRIDSyncSet, 2})
+	sync, err := NewSessionlessGTRIDSync(driverCommon.B1Array{'a', 'b', sessionlessGTRIDSyncSet, 2})
 	if err != nil {
 		t.Fatalf("NewSessionlessGTRIDSync failed: %v", err)
 	}
@@ -205,7 +235,7 @@ func TestNewSessionlessGTRIDSync(t *testing.T) {
 	if sync.IsUnset() {
 		t.Fatal("did not expect decoded sync payload to be unset")
 	}
-	if sync.GlobalTransactionID() != "ab" {
+	if !slices.Equal(sync.GlobalTransactionID(), extensions.GlobalTransactionId("ab")) {
 		t.Fatalf("GlobalTransactionID = %q, want %q", sync.GlobalTransactionID(), "ab")
 	}
 	if sync.Version() != 2 {

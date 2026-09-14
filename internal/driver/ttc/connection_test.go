@@ -444,3 +444,4 @@ func (m *connInvalidationMsg) UnMarshalFrom(_ context.Context, _ driverCommon.Ma
 func (m *connInvalidationMsg) isBeingDrainned() bool {
 	return m.connectionShouldBeDropped
 }
+func (m *connInvalidationMsg) isInTransaction() bool { return false }

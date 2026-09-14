@@ -121,7 +121,7 @@ func Test_ttiSTA_UnMarshalFrom_WithSupport(t *testing.T) {
 	if sta.eocStatus.elapsedTime != 100 {
 		t.Errorf("expected elapsedTime 100, got %v", sta.eocStatus.elapsedTime)
 	}
-	if sta.eocStatus.connectionShouldBeDropped {
+	if sta.eocStatus.connectionShouldBeDropped() {
 		t.Error("expected drop false")
 	}
 	if sta.endToEndECIDSequenceNumber != 42 {
@@ -151,7 +151,7 @@ func Test_ttiSTA_UnMarshalFrom_WithSupport_DropFlag(t *testing.T) {
 	if sta.eocStatus.elapsedTime != 0 {
 		t.Errorf("expected elapsedTime 0, got %v", sta.eocStatus.elapsedTime)
 	}
-	if !sta.eocStatus.connectionShouldBeDropped {
+	if !sta.eocStatus.connectionShouldBeDropped() {
 		t.Error("expected drop true")
 	}
 	if sta.endToEndECIDSequenceNumber != 42 {
@@ -227,8 +227,8 @@ func Test_ttiSTA_getConnectionShouldBeDropped(t *testing.T) {
 	msg = &ttiSTA{
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
-			elapsedTime:               0,
-			connectionShouldBeDropped: false,
+			elapsedTime:          0,
+			endOfCallStatusFlags: 0,
 		},
 	}
 	if msg.isBeingDrainned() {
@@ -237,11 +237,21 @@ func Test_ttiSTA_getConnectionShouldBeDropped(t *testing.T) {
 	msg = &ttiSTA{
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
-			elapsedTime:               0,
-			connectionShouldBeDropped: true,
+			elapsedTime:          0,
+			endOfCallStatusFlags: ttiEocfDropWhenReturned,
 		},
 	}
 	if !msg.isBeingDrainned() {
 		t.Fatalf("Wrong value returned by connectionStatus.getConnectionShouldBeDropped()")
+	}
+
+	msg = &ttiSTA{
+		_supportsEndOfCallStatus: true,
+		eocStatus: &endOfCallStatus{
+			endOfCallStatusFlags: ttiEocFRo | ttiEocDon | ttiEocCur | ttiEocTTi,
+		},
+	}
+	if !msg.isInTransaction() {
+		t.Fatal("inTransaction() returned false")
 	}
 }

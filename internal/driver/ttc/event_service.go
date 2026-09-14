@@ -45,9 +45,11 @@ type eventType int
 const (
 	connectionInvalidatedEvent eventType = iota
 	connectionClosedEvent
-	streamerOverFlowEvent        // too many incoming messages
-	streamerStaleEvent           // messages left unread
-	sessionPropertiesUpdateEvent // session properties have been updated
+	streamerOverFlowEvent             // too many incoming messages
+	streamerStaleEvent                // messages left unread
+	sessionPropertiesUpdateEvent      // session properties have been updated
+	sessionlessTranzactionStartClient // sessionless transaction started on client
+	sessionlessTranzactionEndClient   // sessionless transaction ended on client
 )
 
 type eventService struct {

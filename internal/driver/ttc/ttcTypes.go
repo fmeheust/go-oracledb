@@ -48,6 +48,7 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
+	extensions "github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 // keyValueList Key-Value pair list. a list.List of *common.KeyValue
@@ -71,23 +72,24 @@ func (kvl keyValueList) String() string {
 	return res.String()
 }
 
-func (kvl keyValueList) Equals(okvl *keyValueList) bool {
-	if okvl == nil {
-		return false
-	}
-	if kvl.Len() != okvl.Len() {
-		return false
-	}
-	okv := okvl.Front()
-	for e := kvl.Front(); e != nil; e = e.Next() {
-		if !e.Value.(*driverCommon.KeyValue).Equals(okv.Value.(*driverCommon.KeyValue)) {
+/*
+	func (kvl keyValueList) Equals(okvl *keyValueList) bool {
+		if okvl == nil {
 			return false
 		}
-		okv = okv.Next()
+		if kvl.Len() != okvl.Len() {
+			return false
+		}
+		okv := okvl.Front()
+		for e := kvl.Front(); e != nil; e = e.Next() {
+			if !e.Value.(*driverCommon.KeyValue).Equals(okv.Value.(*driverCommon.KeyValue)) {
+				return false
+			}
+			okv = okv.Next()
+		}
+		return true
 	}
-	return true
-}
-
+*/
 func newKeyValueList() *keyValueList {
 	return &keyValueList{List: list.New()}
 }
@@ -452,18 +454,23 @@ const (
 	sessionlessGTRIDProperty = "SESSIONLESS_GTRID"
 )
 
+type SessionlessTxSyncReason byte
+
 const (
 	sessionlessGTRIDSyncMode   byte = 0xC0
 	sessionlessGTRIDSyncSet    byte = 1 << 6
 	sessionlessGTRIDSyncUnset  byte = 2 << 6
 	sessionlessGTRIDSyncReason byte = 0x3F
+
+	sessionlessGTRIDSyncServer SessionlessTxSyncReason = 1
+	sessionlessGTRIDSyncClient SessionlessTxSyncReason = 2
 )
 
 // SessionlessGTRIDSync is an immutable decoded view of the SESSIONLESS_GTRID
 // session property returned by the server.
 type SessionlessGTRIDSync struct {
 	raw     driverCommon.B1Array
-	gtrid   string
+	gtrid   extensions.GlobalTransactionId
 	flags   byte
 	version byte
 }
@@ -478,7 +485,7 @@ func NewSessionlessGTRIDSync(raw driverCommon.B1Array) (SessionlessGTRIDSync, er
 	rawCopy := append(driverCommon.B1Array(nil), raw...)
 	return SessionlessGTRIDSync{
 		raw:     rawCopy,
-		gtrid:   string(rawCopy[:len(rawCopy)-2]),
+		gtrid:   extensions.GlobalTransactionId(rawCopy[:len(rawCopy)-2]),
 		flags:   rawCopy[len(rawCopy)-2],
 		version: rawCopy[len(rawCopy)-1],
 	}, nil
@@ -490,7 +497,7 @@ func (s SessionlessGTRIDSync) Raw() driverCommon.B1Array {
 }
 
 // GlobalTransactionID returns the decoded GTRID carried by the session property.
-func (s SessionlessGTRIDSync) GlobalTransactionID() string {
+func (s SessionlessGTRIDSync) GlobalTransactionID() extensions.GlobalTransactionId {
 	return s.gtrid
 }
 
@@ -505,8 +512,8 @@ func (s SessionlessGTRIDSync) Mode() byte {
 }
 
 // Reason returns the low-bit reason portion of the sessionless sync flags.
-func (s SessionlessGTRIDSync) Reason() byte {
-	return s.flags & sessionlessGTRIDSyncReason
+func (s SessionlessGTRIDSync) Reason() SessionlessTxSyncReason {
+	return SessionlessTxSyncReason(s.flags & sessionlessGTRIDSyncReason)
 }
 
 // IsSet reports whether the server indicates a sessionless transaction is active.
@@ -517,4 +524,14 @@ func (s SessionlessGTRIDSync) IsSet() bool {
 // IsUnset reports whether the server indicates no sessionless transaction is active.
 func (s SessionlessGTRIDSync) IsUnset() bool {
 	return s.Mode() == sessionlessGTRIDSyncUnset
+}
+
+// IsSyncServer indicates that the sessionless transaction start/suspend happened on the server.
+func (s SessionlessGTRIDSync) IsSyncServer() bool {
+	return s.Reason() == sessionlessGTRIDSyncServer
+}
+
+// IsSyncClient indicates that the sessionless transaction start/suspend happened on the client.
+func (s SessionlessGTRIDSync) IsSyncClient() bool {
+	return s.Reason() == sessionlessGTRIDSyncClient
 }

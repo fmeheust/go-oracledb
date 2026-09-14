@@ -44,16 +44,9 @@ import (
 	"database/sql/driver"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	"github.com/oracle/go-oracledb/v26/oracle/errors"
-)
-
-const (
-	// Used as part of the ALTER SESSION to set isolation level to READ COMMITTED
-	_isolationLevelReadCommitted = "ALTER SESSION SET ISOLATION_LEVEL = READ COMMITTED"
-	// Used as part of the ALTER SESSION to set isolation level to SERIALIZABLE
-	_isolationLevelSerializable = "ALTER SESSION SET ISOLATION_LEVEL = SERIALIZABLE"
-	// Used as part of the SET TRANSACTION to set transaction READ ONLY
-	_transactionReadOnly = "SET TRANSACTION READ ONLY"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // Begin starts and returns a new transaction with isolation level read
@@ -69,55 +62,148 @@ func (c *connection) Begin() (driver.Tx, error) {
 
 // BeginTx starts and returns a new transaction.
 func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return c.beginTx(ctx, opts)
-}
-
-func (c *connection) beginTx(ctx context.Context, opts driver.TxOptions) (*transaction, error) {
 	common.Odl.Debug("Starting transaction")
 
 	if c.shelf.isInTransaction() {
 		return nil, c.shelf.LocalizeError(common.NewOracleError(errors.AlreadyInTransaction, nil, nil))
 	}
 
-	isolationLevelStmt, err := getIsolationLevelStatement(opts)
-	if err != nil {
-		return nil, c.shelf.LocalizeError(err)
+	if !isSupportedIsolationLevel(opts) {
+		return nil, common.NewOracleError(errors.IsolationLevelNotSupported, nil, nil)
 	}
 
 	tx := newTransaction(c, ctx)
 	c.shelf.registerTransaction(tx)
 
-	// Set transaction isolation level
-	if isolationLevelStmt != "" {
-		_, err := c.ExecContext(ctx, isolationLevelStmt, nil)
-		if err != nil {
-			c.shelf.unregisterTransaction()
-			return nil, common.NewOracleError(errors.ConfigureTransactionError, err, nil)
-		}
-	}
-
-	// set read only
-	if opts.ReadOnly {
-		_, err := c.ExecContext(ctx, _transactionReadOnly, nil)
-		if err != nil {
-			c.shelf.unregisterTransaction()
-			return nil, c.shelf.LocalizeError(common.NewOracleError(errors.ConfigureTransactionError, err, nil))
-		}
+	err := c.beginTransaction(ctx, tx, opts)
+	if err != nil {
+		return nil, err
 	}
 
 	return tx, nil
 }
 
-func getIsolationLevelStatement(opts driver.TxOptions) (string, error) {
-	var isolationLevelStmt string
-	// set isolation level
+func isSupportedIsolationLevel(opts driver.TxOptions) bool {
 	switch sql.IsolationLevel(opts.Isolation) {
-	case sql.LevelDefault, sql.LevelReadCommitted:
-		isolationLevelStmt = _isolationLevelReadCommitted
-	case sql.LevelSerializable:
-		isolationLevelStmt = _isolationLevelSerializable
+	case sql.LevelDefault, sql.LevelReadCommitted, sql.LevelSerializable:
+		return true
 	default:
-		return "", common.NewOracleError(errors.IsolationLevelNotSupported, nil, nil)
+		return false
 	}
-	return isolationLevelStmt, nil
+}
+
+func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx, opts driver.TxOptions) error {
+	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
+	if !ok {
+		common.Odl.Warn("Sessionless transactions require a message streamer with callback support")
+		return common.NewOracleError(oracleErrors.InternalError, nil)
+	}
+
+	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIPFN, oTxSe)
+	if err != nil {
+		common.Odl.Warn("Error creating OTXSE message", "error", err)
+		return common.NewOracleError(oracleErrors.InternalError, err)
+	}
+
+	otxse, ok := msg.(*tTIOtxse)
+	if !ok {
+		common.Odl.Warn("Unexpected message type for OTXSE", "message", msg)
+		return common.NewOracleError(oracleErrors.InternalError, nil)
+	}
+
+	otxse.confugureForStart(transaction, opts)
+
+	err = stmr.Push(ctx, msg)
+	if err != nil {
+		common.Odl.Warn("Error pushing OTXSE message", "error", err)
+		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
+	}
+
+	return nil
+
+}
+
+// runOTxEn sends a transaction end operation and waits for its return state and
+// terminal status. OTXEN returns the transaction state in TTIRPA and completes
+// with TTIOER or TTISTA.
+func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperation, transaction oracleTx) error {
+	common.Odl.Debug("Running OTXEN", "operation", operation)
+
+	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
+	if !ok {
+		common.Odl.Warn("OTXEN requires a message streamer with callback support")
+		return common.NewOracleError(oracleErrors.InternalError, nil)
+	}
+
+	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIFUN, oTxEn)
+	if err != nil {
+		common.Odl.Warn("Error creating OTXEN message", "error", err)
+		return common.NewOracleError(oracleErrors.InternalError, err)
+	}
+	otxen, ok := msg.(*tTIOtxen)
+	if !ok {
+		common.Odl.Warn("Unexpected message type for OTXEN", "message", msg)
+		return common.NewOracleError(oracleErrors.InternalError, nil)
+	}
+
+	switch operation {
+	case otxenCommit:
+		otxen.confugureForCommit(transaction)
+	case otxenAbort:
+		otxen.confugureForAbort(transaction)
+	default:
+		common.Odl.Warn("Unsupported OTXEN operation", "operation", operation)
+		return common.NewOracleError(oracleErrors.InternalError, nil)
+	}
+
+	if err := stmr.Push(ctx, msg); err != nil {
+		common.Odl.Warn("Error pushing OTXEN message", "error", err)
+		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
+	}
+	if err := stmr.Flush(ctx); err != nil {
+		common.Odl.Warn("Error flushing OTXEN message", "error", err)
+		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
+	}
+
+	stmr.RegisterPreUnmarshallCallback(TTIRPA, func(*messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
+		return c.shelf.GetMessageFactory().GetMessageForFunction(TTIRPA, oTxEn)
+	})
+	defer stmr.UnRegisterPreUnmarshallCallback(TTIRPA)
+
+	for {
+		retMsg, err := stmr.Pull(ctx, TTIRPA, TTIOER, TTISTA)
+		if err != nil {
+			common.Odl.Warn("Error pulling OTXEN response", "error", err)
+			return common.NewOracleError(oracleErrors.StreamerReadError, err)
+		}
+
+		switch retMsg.GetMsgCode() {
+		case TTIRPA:
+			if rpa, ok := retMsg.(*ttiOTxEnRPA); ok {
+				common.Odl.Debug("OTXEN returned transaction state", "outState", rpa.GetOutState())
+			}
+		case TTIOER:
+			if err := retMsg.(tTIOerIface).getError(); err != nil {
+				return err
+			}
+			return nil
+		case TTISTA:
+			return nil
+		}
+	}
+}
+
+func convertTxOptionsToFlags(opts driver.TxOptions) driverCommon.UB4 {
+	flags := otxseTransNew
+	if opts.ReadOnly {
+		flags |= otxseTransReadOnly
+		return flags
+	}
+	switch sql.IsolationLevel(opts.Isolation) {
+	case sql.LevelSerializable:
+		flags |= otxseTransSerializable
+	case sql.LevelReadCommitted, sql.LevelDefault:
+		flags |= otxseTransReadWrite
+	}
+	return flags
 }

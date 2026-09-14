@@ -119,13 +119,21 @@ type endOfCallStatus struct {
 	elapsedTime driverCommon.UB8
 	// connectionShouldBeDropped indicates this connection is affected by a
 	// planned-down
-	connectionShouldBeDropped bool
+	endOfCallStatusFlags driverCommon.UB4
 }
 
 func (e *endOfCallStatus) String() string {
 	return fmt.Sprintf("endOfCallStatus {elapsedTime: [%v], connectionShouldBeDropped: [%v]}",
 		e.elapsedTime,
-		e.connectionShouldBeDropped)
+		e.connectionShouldBeDropped())
+}
+
+func (e *endOfCallStatus) connectionShouldBeDropped() bool {
+	return e.endOfCallStatusFlags&ttiEocfDropWhenReturned != 0
+}
+
+func (e *endOfCallStatus) inTransaction() bool {
+	return e.endOfCallStatusFlags&ttiEocCur != 0
 }
 
 // newTTIoer creates a new instance of tTIoer.
@@ -480,17 +488,16 @@ func (o *tTIoer) _unmarshalWarning(ctx context.Context, mar driverCommon.Marshal
 }
 
 func unmarshalEndOfCallStatus(ctx context.Context, mar driverCommon.Marshaller) (*endOfCallStatus, error) {
-	var ucaeocs driverCommon.UB4
 	var err error
-	retVal := &endOfCallStatus{connectionShouldBeDropped: false, elapsedTime: 0}
-	if ucaeocs, err = mar.UnmarshalUB4(ctx); err != nil {
+	retVal := &endOfCallStatus{elapsedTime: 0}
+	if retVal.endOfCallStatusFlags, err = mar.UnmarshalUB4(ctx); err != nil {
 		common.Odl.Error("unmarshalEndOfCallStatus: ucaeocs unmarshal failed",
 			"error", err,
 		)
 		return nil, common.NewOracleError(oracleErrors.FailUnmarshal, err, "EndOfCallStatus")
 	}
 
-	if (ucaeocs & TtiEocEct) != 0 {
+	if (retVal.endOfCallStatusFlags & ttiEocEct) != 0 {
 		var elapsedTime driverCommon.UB8
 		if elapsedTime, err = mar.UnmarshalUB8(ctx); err != nil {
 			common.Odl.Error("unmarshalEndOfCallStatus: elapsedTime unmarshal failed",
@@ -502,12 +509,6 @@ func unmarshalEndOfCallStatus(ctx context.Context, mar driverCommon.Marshaller) 
 		common.Odl.Debug("tTIoer.UnMarshalFrom: EOCS ", "Elapsed time", elapsedTime)
 	}
 
-	// server sends this bit to indicate that connection is affected by planned down
-	if (ucaeocs & TtiEocfDropWhenReturned) != 0 {
-		common.Odl.Debug("TTIoer.UnMarshalFrom: EOCS got in-band planned down bit, mark connection for close")
-		retVal.connectionShouldBeDropped = true
-		// TODO: set connection to be closed when returned to pool
-	}
 	return retVal, nil
 }
 
@@ -519,7 +520,13 @@ func (o *tTIoer) setSupportsEndOfCallStatus(supportsEndOfCallStatus bool) {
 // isBeingDrainned returns true if the connection should be dropped
 // due to a planned-down, otherwise false
 func (o *tTIoer) isBeingDrainned() bool {
-	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.connectionShouldBeDropped
+	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.connectionShouldBeDropped()
+}
+
+// isInTransaction returns true if the connection is currently in a transaction,
+// otherwise false.
+func (o *tTIoer) isInTransaction() bool {
+	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.inTransaction()
 }
 
 // getError return nil if the tTIoer does not represent an error, otherwise and

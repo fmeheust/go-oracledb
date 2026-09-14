@@ -455,8 +455,8 @@ func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 	msg = &tTIoer{
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
-			elapsedTime:               0,
-			connectionShouldBeDropped: false,
+			elapsedTime:          0,
+			endOfCallStatusFlags: 0,
 		},
 	}
 	if msg.isBeingDrainned() {
@@ -465,11 +465,21 @@ func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 	msg = &tTIoer{
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
-			elapsedTime:               0,
-			connectionShouldBeDropped: true,
+			elapsedTime:          0,
+			endOfCallStatusFlags: ttiEocfDropWhenReturned,
 		},
 	}
 	if !msg.isBeingDrainned() {
 		t.Fatalf("Wrong value returned by connectionStatus.getConnectionShouldBeDropped()")
+	}
+
+	msg = &tTIoer{
+		_supportsEndOfCallStatus: true,
+		eocStatus: &endOfCallStatus{
+			endOfCallStatusFlags: ttiEocFRo | ttiEocDon | ttiEocCur | ttiEocTTi,
+		},
+	}
+	if !msg.isInTransaction() {
+		t.Fatal("inTransaction() returned false")
 	}
 }

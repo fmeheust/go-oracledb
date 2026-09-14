@@ -87,6 +87,7 @@ func (sessionUpdater serverToClientPiggybackUpdater) updateSessionProperties(msg
 	ttiSPFOCSSync, _ := msg.(*ttiSPFOCSSync)
 
 	sessionUpdater.sessionCtx.UpdateSessionProperties(ttiSPFOCSSync.getKeyValueArr())
+	sessionUpdater.shelf.getEventService().post(sessionPropertiesUpdateEvent)
 
 	return false, nil
 }

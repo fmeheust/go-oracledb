@@ -40,11 +40,14 @@ package ttc
 
 import (
 	"context"
+	"database/sql/driver"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
+
+type txOperation uint8
 
 const (
 	// OTXSE transaction switching opcodes.
@@ -70,17 +73,14 @@ type tTIOtxse struct {
 	headerMarshaller driverCommon.Marshallable
 	msgCode          driverCommon.MessageType
 
-	operation          driverCommon.SB4
-	transactionContext driverCommon.B1Array
-	xid                driverCommon.B1Array
-	formatID           driverCommon.UB4
-	gtridLength        driverCommon.UB4
-	bqualLength        driverCommon.UB4
-	flags              driverCommon.UB4
-	timeout            driverCommon.UB2
-	applicationValue   *driverCommon.UB4
-	internalName       driverCommon.B1Array
-	externalName       driverCommon.B1Array
+	operation        driverCommon.SB4
+	xid              driverCommon.B1Array
+	formatID         driverCommon.UB4
+	gtridLength      driverCommon.UB4
+	bqualLength      driverCommon.UB4
+	flags            driverCommon.UB4
+	timeout          driverCommon.UB2
+	applicationValue *driverCommon.UB4
 }
 
 // newOTxSe creates an OTXSE function message using the standard TTIFUN header.
@@ -129,38 +129,40 @@ func (m *tTIOtxse) GetMsgCode() driverCommon.MessageType { return m.msgCode }
 // GetFuncCode returns the TTC function code for transaction switching operations.
 func (m *tTIOtxse) GetFuncCode() driverCommon.FunctionType { return oTxSe }
 
-// setOperation selects the OTXSE opcode, such as start, detach, or post-call detach.
-func (m *tTIOtxse) setOperation(op driverCommon.SB4) { m.operation = op }
-
-// setTransactionContext stores the transaction context returned by prior transaction calls.
-func (m *tTIOtxse) setTransactionContext(ctxBytes driverCommon.B1Array) {
-	m.transactionContext = ctxBytes
+func (m *tTIOtxse) confugureForStart(tx oracleTx, opts driver.TxOptions) {
+	m.operation = otxseStart
+	applicationValue := driverCommon.UB4(0)
+	m.applicationValue = &applicationValue
+	m.flags = convertTxOptionsToFlags(opts)
+	if sessionlessTx, ok := tx.(*sessionlessTransaction); ok {
+		m._confugureSessionless(sessionlessTx)
+	}
 }
 
-// setXID sets the serialized XID bytes together with the logical GTRID and BQUAL lengths.
-func (m *tTIOtxse) setXID(xid driverCommon.B1Array, gtridLength, bqualLength driverCommon.UB4) {
-	m.xid = xid
-	m.gtridLength = gtridLength
-	m.bqualLength = bqualLength
+func (m *tTIOtxse) confugureForResume(sessionlessTx *sessionlessTransaction) {
+	m.operation = otxseStart
+	m.flags = otxseTransResume
+	applicationValue := driverCommon.UB4(0)
+	m.applicationValue = &applicationValue
+	m._confugureSessionless(sessionlessTx)
 }
 
-// setTimeout sets the server-side sessionless transaction timeout in seconds.
-func (m *tTIOtxse) setTimeout(timeout driverCommon.UB2) { m.timeout = timeout }
+func (m *tTIOtxse) confugureForSuspend() {
+	m.operation = otxseDetach
+	m.flags = otxseTransSessionless
+	m.formatID = k2gSessionless
+	applicationValue := driverCommon.UB4(0)
+	m.applicationValue = &applicationValue
+}
 
-// setFlags sets the OCI transaction flags marshalled in the OTXSE payload.
-func (m *tTIOtxse) setFlags(flags driverCommon.UB4) { m.flags = flags }
-
-// setFormatID sets the XID format identifier sent with the OTXSE request.
-func (m *tTIOtxse) setFormatID(formatID driverCommon.UB4) { m.formatID = formatID }
-
-// setApplicationValue sets the optional application value field sent with the request.
-func (m *tTIOtxse) setApplicationValue(value driverCommon.UB4) { m.applicationValue = &value }
-
-// setInternalName sets the optional client internal database name field.
-func (m *tTIOtxse) setInternalName(name driverCommon.B1Array) { m.internalName = name }
-
-// setExternalName sets the optional client external database name field.
-func (m *tTIOtxse) setExternalName(name driverCommon.B1Array) { m.externalName = name }
+func (m *tTIOtxse) _confugureSessionless(sessionlessTx *sessionlessTransaction) {
+	m.formatID = k2gSessionless
+	m.xid = sessionlessTx.xid
+	m.gtridLength = sessionlessTx.gtridLength
+	m.bqualLength = sessionlessTx.bqualLength
+	m.timeout = driverCommon.UB2(sessionlessTx.timeout)
+	m.flags |= otxseTransSessionless
+}
 
 // MarshalTo serializes the OTXSE request using the TTC wire layout for transaction switching.
 func (m *tTIOtxse) MarshalTo(ctx context.Context, engine driverCommon.Marshaller) error {
@@ -174,18 +176,14 @@ func (m *tTIOtxse) MarshalTo(ctx context.Context, engine driverCommon.Marshaller
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	sendTxnContext := len(m.transactionContext) > 0 && m.operation == otxseDetach && m.formatID != k2gSessionless
-	if sendTxnContext {
-		if err := engine.MarshalPTR(ctx); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE transaction context ptr", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-	} else if err := engine.MarshalNullPTR(ctx); err != nil {
+	// transaction context not used for sessionless transactions
+	if err := engine.MarshalNullPTR(ctx); err != nil {
 		common.Odl.Warn("Error marshalling OTXSE null transaction context ptr", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	if err := engine.MarshalUB4(ctx, driverCommon.UB4(len(m.transactionContext))); err != nil {
+	// transaction context length is always 0
+	if err := engine.MarshalUB4(ctx, 0); err != nil {
 		common.Odl.Warn("Error marshalling OTXSE transaction context length", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
@@ -234,62 +232,36 @@ func (m *tTIOtxse) MarshalTo(ctx context.Context, engine driverCommon.Marshaller
 		common.Odl.Warn("Error marshalling OTXSE null application value ptr", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-
 	if err := engine.MarshalPTR(ctx); err != nil {
 		common.Odl.Warn("Error marshalling OTXSE return application value ptr", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
+
 	if err := engine.MarshalPTR(ctx); err != nil {
 		common.Odl.Warn("Error marshalling OTXSE return context ptr", "error", err)
 		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	if len(m.internalName) > 0 {
-		if err := engine.MarshalPTR(ctx); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE internal name ptr", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-		if err := engine.MarshalUB4(ctx, driverCommon.UB4(len(m.internalName))); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE internal name length", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-	} else {
-		if err := engine.MarshalNullPTR(ctx); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE null internal name ptr", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-		if err := engine.MarshalUB4(ctx, 0); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE zero internal name length", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
+	// internal name is always NULL PTR
+	if err := engine.MarshalNullPTR(ctx); err != nil {
+		common.Odl.Warn("Error marshalling OTXSE null internal name ptr", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
+	}
+	if err := engine.MarshalUB4(ctx, 0); err != nil {
+		common.Odl.Warn("Error marshalling OTXSE zero internal name length", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	if len(m.externalName) > 0 {
-		if err := engine.MarshalPTR(ctx); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE external name ptr", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-		if err := engine.MarshalUB4(ctx, driverCommon.UB4(len(m.externalName))); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE external name length", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-	} else {
-		if err := engine.MarshalNullPTR(ctx); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE null external name ptr", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-		if err := engine.MarshalUB4(ctx, 0); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE zero external name length", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
+	// external name is always NULL PTR
+	if err := engine.MarshalNullPTR(ctx); err != nil {
+		common.Odl.Warn("Error marshalling OTXSE null external name ptr", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
+	}
+	if err := engine.MarshalUB4(ctx, 0); err != nil {
+		common.Odl.Warn("Error marshalling OTXSE zero external name length", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	if sendTxnContext {
-		if err := engine.MarshalB1Array(ctx, m.transactionContext); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE transaction context", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-	}
 	if len(m.xid) > 0 {
 		if err := engine.MarshalB1Array(ctx, m.xid); err != nil {
 			common.Odl.Warn("Error marshalling OTXSE xid", "error", err)
@@ -299,18 +271,6 @@ func (m *tTIOtxse) MarshalTo(ctx context.Context, engine driverCommon.Marshaller
 	if m.applicationValue != nil {
 		if err := engine.MarshalUB4(ctx, *m.applicationValue); err != nil {
 			common.Odl.Warn("Error marshalling OTXSE application value", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-	}
-	if len(m.internalName) > 0 {
-		if err := engine.MarshalChar(ctx, m.internalName); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE internal name", "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
-		}
-	}
-	if len(m.externalName) > 0 {
-		if err := engine.MarshalChar(ctx, m.externalName); err != nil {
-			common.Odl.Warn("Error marshalling OTXSE external name", "error", err)
 			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 		}
 	}

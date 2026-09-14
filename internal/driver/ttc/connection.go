@@ -69,6 +69,10 @@ type connection struct {
 	// failure) or when then connectionShouldBeDropped flag is received on an STA
 	// or OER message (TODO).
 	_isValid bool
+	// _isInTransaction keeps the server state of the transaction. When a connection
+	// is returned to the pool, if there is still a transaction started in that
+	// connection it will be rolledback
+	_isInTransaction bool
 }
 
 // newConnection constructs a new Oracle connection wrapping negotiated state.
@@ -87,7 +91,7 @@ func newConnection(
 		_isValid:  true,
 	}
 	conn.registerEventListeners(conn.shelf.getEventService())
-	_registerHandleConnectionShouldBeDropped(shelf, conn)
+	_registerHandleEndOfCallStatus(shelf, conn)
 	shelf.registerCancelExecution(conn.cancelCurrentExecution)
 	if err := conn._registerServerTimezoneOffset(ctx); err != nil {
 		return nil, err
@@ -187,11 +191,14 @@ type connectionStatusProvider interface {
 	// isBeingDrainned returns true if the connection should be dropped due to a
 	// planned-down, otherwise false
 	isBeingDrainned() bool
+	// isInTransaction returns true if the connection is currently in a transaction,
+	// otherwise false.
+	isInTransaction() bool
 }
 
-// _registerHandleConnectionShouldBeDropped registers post unmarshal callbacks
+// _registerHandleEndOfCallStatus registers post unmarshal callbacks
 // that invalidates connections that should be dropped due to a planned-down
-func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[driverCommon.MessageType], connection *connection) {
+func _registerHandleEndOfCallStatus(shelf *ttiShelf[driverCommon.MessageType], connection *connection) {
 	messageStreamer := shelf.GetMessageStreamer().(MessageStreamerInterface)
 	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, connection._handleConnectionShouldBeDropped)
 	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, connection._handleConnectionShouldBeDropped)
@@ -206,6 +213,10 @@ func (c *connection) _handleConnectionShouldBeDropped(msg driverCommon.Message[d
 	// released to the connection pool
 	c._isValid = !msg.(connectionStatusProvider).isBeingDrainned()
 	// return always true, the incoming message should be kept
+	c._isInTransaction = msg.(connectionStatusProvider).isInTransaction()
+	if c._isInTransaction {
+		common.Odl.Debug("Active transaction on server")
+	}
 	return true, nil
 }
 
@@ -217,6 +228,7 @@ func (c *connection) String() string {
 func (c *connection) registerEventListeners(service *eventService) {
 	service.register(c, streamerStaleEvent)
 	service.register(c, streamerOverFlowEvent)
+	service.register(c, sessionPropertiesUpdateEvent)
 }
 
 // notify implements eventListener.
@@ -281,23 +293,25 @@ func checkNamedValue(nv *driver.NamedValue) error {
 func (c *connection) _registerServerTimezoneOffset(ctx context.Context) error {
 	// DBTIMEZONE can return either a region name or an offset; TZ_OFFSET normalizes
 	// both forms to the +/-HH:MM format expected by parseTimeZone.
-	rows, err := c.QueryContext(ctx, "SELECT TZ_OFFSET(DBTIMEZONE) FROM SYS.DUAL", nil)
-	if err != nil {
-		return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "query"))
-	}
-	defer rows.Close()
-	values := make([]driver.Value, 1)
-	var serverTimeZone string
-	values[0] = &serverTimeZone
-	if err := rows.Next(values); err != nil {
-		return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "retrieve"))
-	}
-	serverTimeZoneValue := values[0].(string)
-	TZH, TZM, err := parseTimeZone(serverTimeZoneValue)
-	if err != nil {
-		return err
-	}
-	c.shelf.registerServerTimeZoneOffset(int16(TZH*3600 + TZM*60))
+	/*
+		rows, err := c.QueryContext(ctx, "SELECT TZ_OFFSET(DBTIMEZONE) FROM SYS.DUAL", nil)
+		if err != nil {
+			return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "query"))
+		}
+		defer rows.Close()
+		values := make([]driver.Value, 1)
+		var serverTimeZone string
+		values[0] = &serverTimeZone
+		if err := rows.Next(values); err != nil {
+			return c.shelf.LocalizeError(common.NewOracleError(oracleErrors.ServerTimeZoneError, err, "retrieve"))
+		}
+		serverTimeZoneValue := values[0].(string)
+		TZH, TZM, err := parseTimeZone(serverTimeZoneValue)
+		if err != nil {
+			return err
+		}
+		c.shelf.registerServerTimeZoneOffset(int16(TZH*3600 + TZM*60))
+	*/
 	return nil
 }
 
@@ -344,16 +358,31 @@ func (c *connection) handleSessionPropertyChange() {
 		return
 	}
 
-	currentTx := c.shelf.getTransaction()
 	switch {
-	case sync.IsUnset():
-		if currentTx != nil {
-			currentTx.GTRID = ""
+	case sync.IsSet() && sync.IsSyncClient():
+		common.Odl.Debug("Client transaction started", "GTRID", sync.gtrid)
+		c.shelf.getEventService().post(sessionlessTranzactionStartClient)
+	case sync.IsUnset() && sync.IsSyncClient():
+		common.Odl.Debug("Client transaction ended", "GTRID", sync.gtrid)
+		c.shelf.getEventService().post(sessionlessTranzactionEndClient)
+	case sync.IsSet() && sync.IsSyncServer():
+		// start un implicit sessionless transaction
+		common.Odl.Debug("Server transaction started, starting implicit trasnaction", "GTRID", sync.gtrid)
+		currentTx := c.shelf.getTransaction()
+		var sessionlessTransaction *sessionlessTransaction
+		if currentTx == nil {
+			sessionlessTransaction = newSessionlesTransaction(c, context.Background(), sync.gtrid, 0)
+		} else {
+			if tx, ok := currentTx.(*transaction); ok {
+				sessionlessTransaction = upgradeFromTransaction(tx, sync.gtrid, 0)
+			} else {
+				panic("Already in sessionless transaction")
+			}
 		}
+		c.shelf.registerTransaction(sessionlessTransaction)
+	case sync.IsUnset() && sync.IsSyncServer():
+		common.Odl.Debug("Server transaction ended, ending implicit trasnaction", "GTRID", sync.gtrid)
+		// end implicit sessionless transaction
 		c.shelf.unregisterTransaction()
-	case sync.IsSet():
-		if currentTx != nil {
-			currentTx.GTRID = sync.GlobalTransactionID()
-		}
 	}
 }

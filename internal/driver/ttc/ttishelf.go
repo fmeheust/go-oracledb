@@ -69,7 +69,7 @@ type ttiShelf[T any] struct {
 	codecFactory             codecFactory
 	_providerRegistry        internalCommon.Registry[providers.Provider]
 	_statements              map[*Statement]weak.Pointer[Statement]
-	_currentTransaction      *transaction
+	_currentTransaction      oracleTx
 	_cancelExecutionFunction StmtCancellationFunction
 	_serverTimeZoneOffset    int16 // server time zone in seconds
 	_eventService            *eventService
@@ -163,17 +163,18 @@ func (s *ttiShelf[T]) isInTransaction() bool {
 //
 // Parameters:
 //   - t: the transaction
-func (s *ttiShelf[T]) registerTransaction(t *transaction) {
+func (s *ttiShelf[T]) registerTransaction(t oracleTx) {
 	s._currentTransaction = t
 }
 
 // unregisterTransaction unregisters the current transaction
 func (s *ttiShelf[T]) unregisterTransaction() {
+	internalCommon.Odl.Debug("Transaction unregistered")
 	s._currentTransaction = nil
 }
 
 // getTransaction returns the current transaction
-func (s *ttiShelf[T]) getTransaction() *transaction {
+func (s *ttiShelf[T]) getTransaction() oracleTx {
 	return s._currentTransaction
 }
 

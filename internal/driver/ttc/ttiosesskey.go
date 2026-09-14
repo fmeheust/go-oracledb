@@ -42,7 +42,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
+
+	//"strings"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
@@ -82,6 +83,7 @@ type oSessionKey struct {
 	logonMode uint8
 }
 
+/*
 // Equals implements Comparable interface
 func (o *oSessionKey) Equals(c *oSessionKey) bool {
 	if c == nil {
@@ -105,7 +107,7 @@ func (o *oSessionKey) Equals(c *oSessionKey) bool {
 	}
 	return o.keyValList.Equals(c.keyValList)
 }
-
+*/
 // NewOSesskey creates a new Oracle Session Key (OSESSKEY) TTC message.
 // It initializes the oSesskey struct with default session information and returns it as a Message interface.
 // The returned oSesskey message is ready to be configured for session establishment.
