@@ -41,10 +41,7 @@ type sessionlessTransaction struct {
 // Returns:
 //   - *sessionlessTransaction: Initialized sessionless transaction.
 func newSessionlessTransaction(ctx context.Context, conn *connection, globalTransactionID extensions.GlobalTransactionID, timeout uint16) *sessionlessTransaction {
-	tx := &transaction{
-		_underlyingConnection: conn,
-		_transactionContext:   ctx,
-	}
+	tx := newTransaction(conn, ctx)
 	return upgradeFromTransaction(tx, globalTransactionID, timeout)
 }
 
@@ -64,6 +61,7 @@ func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.Glob
 		timeout:             timeout,
 		globalTransactionID: append(extensions.GlobalTransactionID(nil), globalTransactionID...),
 	}
+	sessionlessTx._transactionIdentity = tx.transactionIdentity()
 	sessionlessTx.buildSessionlessXID()
 	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionStartClient)
 	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionEndClient)

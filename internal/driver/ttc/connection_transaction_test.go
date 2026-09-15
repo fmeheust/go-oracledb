@@ -404,3 +404,29 @@ func TestTransactionOperationsRejectStaleTransactions(t *testing.T) {
 		})
 	}
 }
+
+// TestPromotedTransactionPreservesIdentity verifies that a regular transaction
+// handle remains current after it is promoted to a sessionless transaction.
+func TestPromotedTransactionPreservesIdentity(t *testing.T) {
+	t.Parallel()
+
+	conn := newTransactionTestConnection(&mockStreamer{})
+	regularTransaction := newTransaction(conn, context.Background())
+	promotedTransaction := upgradeFromTransaction(regularTransaction, nil, 0)
+	conn.shelf.registerTransaction(promotedTransaction)
+
+	if !regularTransaction.isCurrentTransaction() {
+		t.Fatal("regular transaction handle is not current after promotion")
+	}
+	if !promotedTransaction.isCurrentTransaction() {
+		t.Fatal("promoted transaction handle is not current")
+	}
+	if regularTransaction.transactionIdentity() != promotedTransaction.transactionIdentity() {
+		t.Fatal("regular and promoted transaction handles do not share identity")
+	}
+
+	staleTransaction := newTransaction(conn, context.Background())
+	if staleTransaction.isCurrentTransaction() {
+		t.Fatal("unrelated transaction handle should not be current after promotion")
+	}
+}

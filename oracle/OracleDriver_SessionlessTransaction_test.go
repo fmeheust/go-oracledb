@@ -54,6 +54,9 @@ import (
 func countRows(ctx context.Context, db *sql.DB, table string) (int, error) {
 	var count int
 	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count)
+	if err != nil {
+		return count, fmt.Errorf("query row count for table %q: %w", table, err)
+	}
 	return count, err
 }
 
@@ -65,23 +68,23 @@ func openSessionlessTestDB(t *testing.T) (context.Context, *sql.DB) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	db.SetMaxOpenConns(6)
 	return context.Background(), db
 }
 
-func requireSessionlessSQLError(t *testing.T, err error, want oracleErrors.ErrorCode) {
+func requireSessionlessSQLError(t *testing.T, operation string, err error, want oracleErrors.ErrorCode) {
 	t.Helper()
 	if err == nil {
-		t.Fatalf("expected %s, got nil", want)
+		t.Fatalf("%s: expected Oracle error %s, got nil", operation, want)
 	}
 	sqlError, ok := err.(oracleErrors.SQLError)
 	if !ok {
-		t.Fatalf("expected SQLError %s, got %T: %v", want, err, err)
+		t.Fatalf("%s: expected Oracle SQLError %s, got %T: %v", operation, want, err, err)
 	}
 	if sqlError.ErrorCode() != string(want) {
-		t.Fatalf("expected error %s, got %s", want, sqlError.ErrorCode())
+		t.Fatalf("%s: expected Oracle error %s, got %s", operation, want, sqlError.ErrorCode())
 	}
 }
 
@@ -96,7 +99,7 @@ func TestSessionlessTransactionCommit(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -104,13 +107,13 @@ func TestSessionlessTransactionCommit(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -118,88 +121,88 @@ func TestSessionlessTransactionCommit(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("begin sessionless transaction on initial connection: %v", err)
 	}
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("begin sessionless transaction returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-start')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert initial row on initial connection into table %q: %v", table, err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("suspend sessionless transaction on initial connection: %v", err)
 	}
 
 	var count int
 	err = conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count)
 	if err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after suspend on initial connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after suspend = %d, want 0", count)
+		t.Fatalf("count rows after suspend on initial connection for table %q = %d, want 0", table, count)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count before resume/commit failed: %v", err)
+		t.Fatalf("count rows before resume/commit on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count before resume/commit = %d, want 0", count)
+		t.Fatalf("count rows before resume/commit on another connection for table %q = %d, want 0", table, count)
 	}
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire resume dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
 	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
-		t.Fatalf("resume failed: %v", err)
+		t.Fatalf("resume sessionless transaction on resume connection: %v", err)
 	}
 	if err := resumeConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count after resume failed: %v", err)
+		t.Fatalf("count rows after resume on resume connection for table %q: %v", table, err)
 	}
 	if count != 1 {
-		t.Fatalf("count after commit = %d, want 1", count)
+		t.Fatalf("count rows after resume on resume connection for table %q = %d, want 1", table, count)
 	}
 	if _, err := resumeConn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-resume')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert resumed row on resume connection into table %q: %v", table, err)
 	}
 
 	// before commit in other connection, count should still be 0
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows before commit on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after commit = %d, want 0", count)
+		t.Fatalf("count rows before commit on another connection for table %q = %d, want 0", table, count)
 	}
 
 	err = tx2.Commit()
 	if err != nil {
-		t.Fatalf("resume/commit failed: %v", err)
+		t.Fatalf("commit resumed sessionless transaction on resume connection: %v", err)
 	}
 
 	if err := resumeConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows after commit on resume connection for table %q: %v", table, err)
 	}
 	if count != 2 {
-		t.Fatalf("count after commit = %d, want 2", count)
+		t.Fatalf("count rows after commit on resume connection for table %q = %d, want 2", table, count)
 	}
 
 	// after commit, count should now be 2
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows after commit on another connection for table %q: %v", table, err)
 	}
 	if count != 2 {
-		t.Fatalf("count after commit = %d, want 2", count)
+		t.Fatalf("count rows after commit on another connection for table %q = %d, want 2", table, count)
 	}
 }
 
@@ -214,7 +217,7 @@ func TestSessionlessTransactionRollback(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -222,13 +225,13 @@ func TestSessionlessTransactionRollback(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_rollback")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -237,88 +240,88 @@ func TestSessionlessTransactionRollback(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("failed to get start sessionless transaction: %v", err)
+		t.Fatalf("begin sessionless transaction on initial connection: %v", err)
 	}
 
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("global transaction ID is empty")
+		t.Fatal("begin sessionless transaction returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-rollback')"); err != nil {
-		t.Fatalf("an unexpected error occurred while inserting: %v", err)
+		t.Fatalf("insert initial row on initial connection into table %q: %v", table, err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("suspend failed: %v", err)
+		t.Fatalf("suspend sessionless transaction on initial connection: %v", err)
 	}
 
 	var count int
 	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after suspend on initial connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after suspend = %d, want 0", count)
+		t.Fatalf("count rows after suspend on initial connection for table %q = %d, want 0", table, count)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count before resume/rollback failed: %v", err)
+		t.Fatalf("count rows before resume/rollback on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count before resume/rollback = %d, want 0", count)
+		t.Fatalf("count rows before resume/rollback on another connection for table %q = %d, want 0", table, count)
 	}
 
 	conn2, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire resume dedicated connection: %v", err)
 	}
 	defer conn2.Close()
 
 	tx2, err := ResumeSessionlessTx(ctx, conn2, globalTransactionID)
 	if err != nil {
-		t.Fatalf("failed to resume sessionless transaction with global transaction ID %s: %v", globalTransactionID, err)
+		t.Fatalf("resume sessionless transaction with global transaction ID %s on resume connection: %v", globalTransactionID, err)
 	}
 
 	if err := conn2.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after resume on resume connection for table %q: %v", table, err)
 	}
 	if count != 1 {
-		t.Fatalf("count after resume = %d, want 1", count)
+		t.Fatalf("count rows after resume on resume connection for table %q = %d, want 1", table, count)
 	}
 	if _, err := conn2.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-rollback-resume')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert resumed row on resume connection into table %q: %v", table, err)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count before rollback failed: %v", err)
+		t.Fatalf("count rows before rollback on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count before rollback = %d, want 0", count)
+		t.Fatalf("count rows before rollback on another connection for table %q = %d, want 0", table, count)
 	}
 
 	err = tx2.Rollback()
 	if err != nil {
-		t.Fatalf("rollback failed: %v", err)
+		t.Fatalf("rollback resumed sessionless transaction on resume connection: %v", err)
 	}
 
 	if err := conn2.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count after rollback failed: %v", err)
+		t.Fatalf("count rows after rollback on resume connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after rollback = %d, want 0", count)
+		t.Fatalf("count rows after rollback on resume connection for table %q = %d, want 0", table, count)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after rollback failed: %v", err)
+		t.Fatalf("count rows after rollback on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after rollback = %d, want 0", count)
+		t.Fatalf("count rows after rollback on another connection for table %q = %d, want 0", table, count)
 	}
 }
 
@@ -333,7 +336,7 @@ func TestSessionlessTransactionStartTwice(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -341,13 +344,13 @@ func TestSessionlessTransactionStartTwice(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -355,25 +358,25 @@ func TestSessionlessTransactionStartTwice(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("begin first sessionless transaction: %v", err)
 	}
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("first sessionless transaction returned an empty global transaction ID")
 	}
 
 	_, err = BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err == nil {
 		tx.Rollback()
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatal("second BeginSessionlessTx succeeded; expected AlreadyInTransaction")
 	}
 	if sqlError, ok := err.(oracleErrors.SQLError); ok {
 		if sqlError.ErrorCode() != string(oracleErrors.AlreadyInTransaction) {
-			t.Fatalf("Expected error to be %s, but was %s", oracleErrors.AlreadyInTransaction, sqlError.ErrorCode())
+			t.Fatalf("second BeginSessionlessTx error code = %s, want %s", sqlError.ErrorCode(), oracleErrors.AlreadyInTransaction)
 		}
 	} else {
-		t.Fatalf("Expected SQLError but got %v", err)
+		t.Fatalf("second BeginSessionlessTx returned %T, want Oracle SQLError: %v", err, err)
 	}
 	tx.Rollback()
 
@@ -390,7 +393,7 @@ func TestSessionlessTransactionSuspendTwice(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -398,13 +401,13 @@ func TestSessionlessTransactionSuspendTwice(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -412,41 +415,41 @@ func TestSessionlessTransactionSuspendTwice(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("begin sessionless transaction on initial connection: %v", err)
 	}
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("begin sessionless transaction returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-start')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert initial row on initial connection into table %q: %v", table, err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("first suspend on initial connection: %v", err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("second suspend should be a no-op, no error should be returned: %v", err)
+		t.Fatalf("second suspend on initial connection should be a no-op: %v", err)
 	}
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire resume dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
 	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
-		t.Fatalf("resume failed: %v", err)
+		t.Fatalf("resume sessionless transaction on resume connection: %v", err)
 	}
 
 	err = tx2.Rollback()
 	if err != nil {
-		t.Fatalf("resume/commit failed: %v", err)
+		t.Fatalf("rollback resumed sessionless transaction: %v", err)
 	}
 }
 
@@ -460,7 +463,7 @@ func TestSessionlessTransactionResumeTwice(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -468,13 +471,13 @@ func TestSessionlessTransactionResumeTwice(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -482,44 +485,44 @@ func TestSessionlessTransactionResumeTwice(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("begin sessionless transaction on initial connection: %v", err)
 	}
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("begin sessionless transaction returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-start')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert initial row on initial connection into table %q: %v", table, err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("suspend sessionless transaction on initial connection: %v", err)
 	}
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire resume dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
 	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
-		t.Fatalf("resume failed: %v", err)
+		t.Fatalf("first resume on resume connection: %v", err)
 	}
 
 	_, err = ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err == nil {
 		tx2.Rollback()
-		t.Fatalf("resume failed: %v", err)
+		t.Fatal("second resume on the same connection succeeded; expected AlreadyInTransaction")
 	}
 	if sqlError, ok := err.(oracleErrors.SQLError); ok {
 		if sqlError.ErrorCode() != string(oracleErrors.AlreadyInTransaction) {
-			t.Fatalf("Expected error to be %s, but was %s", oracleErrors.AlreadyInTransaction, sqlError.ErrorCode())
+			t.Fatalf("second resume error code = %s, want %s", sqlError.ErrorCode(), oracleErrors.AlreadyInTransaction)
 		}
 	} else {
-		t.Fatalf("Expected SQLError but got %v", err)
+		t.Fatalf("second resume returned %T, want Oracle SQLError: %v", err, err)
 	}
 	tx2.Rollback()
 
@@ -536,7 +539,7 @@ func TestSessionlessTransactionResumeTwiceDifferentConnection(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -544,13 +547,13 @@ func TestSessionlessTransactionResumeTwiceDifferentConnection(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -558,49 +561,49 @@ func TestSessionlessTransactionResumeTwiceDifferentConnection(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("begin sessionless transaction on initial connection: %v", err)
 	}
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("begin sessionless transaction returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-start')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert initial row on initial connection into table %q: %v", table, err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("suspend sessionless transaction on initial connection: %v", err)
 	}
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire first resume connection: %v", err)
 	}
 	defer resumeConn.Close()
 	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
-		t.Fatalf("resume failed: %v", err)
+		t.Fatalf("resume sessionless transaction on first resume connection: %v", err)
 	}
 	err = resumeConn.PingContext(ctx)
 	if err != nil {
-		t.Fatalf("resume failed: %v", err)
+		t.Fatalf("ping first resume connection after resume: %v", err)
 	}
 
 	resumeConn2, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire second resume connection: %v", err)
 	}
 	defer resumeConn2.Close()
 	_, err = ResumeSessionlessTx(ctx, resumeConn2, globalTransactionID)
 	if err != nil {
 		tx2.Rollback()
-		t.Fatalf("resume request failed before round trip: %v", err)
+		t.Fatalf("queue resume on second connection before round trip: %v", err)
 	}
 	err = resumeConn2.PingContext(ctx)
-	requireSessionlessSQLError(t, err, "ORA-25351")
+	requireSessionlessSQLError(t, "ping second resume connection after concurrent resume", err, "ORA-25351")
 	if err := tx2.Rollback(); err != nil {
 		t.Fatalf("rollback after failed concurrent resume: %v", err)
 	}
@@ -617,7 +620,7 @@ func TestSessionlessTransactionCommitTwice(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
@@ -625,13 +628,13 @@ func TestSessionlessTransactionCommitTwice(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -639,85 +642,85 @@ func TestSessionlessTransactionCommitTwice(t *testing.T) {
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("begin sessionless transaction on initial connection: %v", err)
 	}
 	globalTransactionID = tx.GlobalTransactionID()
 	if globalTransactionID == nil {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("begin sessionless transaction returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-start')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert initial row on initial connection into table %q: %v", table, err)
 	}
 
 	err = tx.Suspend()
 	if err != nil {
-		t.Fatalf("begin/insert/suspend failed: %v", err)
+		t.Fatalf("suspend sessionless transaction on initial connection: %v", err)
 	}
 
 	var count int
 	err = conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count)
 	if err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after suspend on initial connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after suspend = %d, want 0", count)
+		t.Fatalf("count rows after suspend on initial connection for table %q = %d, want 0", table, count)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count before resume/commit failed: %v", err)
+		t.Fatalf("count rows before resume/commit on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count before resume/commit = %d, want 0", count)
+		t.Fatalf("count rows before resume/commit on another connection for table %q = %d, want 0", table, count)
 	}
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire resume dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
 	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
-		t.Fatalf("resume failed: %v", err)
+		t.Fatalf("resume sessionless transaction on resume connection: %v", err)
 	}
 	if err := resumeConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count after resume failed: %v", err)
+		t.Fatalf("count rows after resume on resume connection for table %q: %v", table, err)
 	}
 	if count != 1 {
-		t.Fatalf("count after commit = %d, want 1", count)
+		t.Fatalf("count rows after resume on resume connection for table %q = %d, want 1", table, count)
 	}
 	if _, err := resumeConn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-resume')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert resumed row on resume connection into table %q: %v", table, err)
 	}
 
 	// before commit in other connection, count should still be 0
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows before first commit on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after commit = %d, want 0", count)
+		t.Fatalf("count rows before first commit on another connection for table %q = %d, want 0", table, count)
 	}
 
 	err = tx2.Commit()
 	if err != nil {
-		t.Fatalf("resume/commit failed: %v", err)
+		t.Fatalf("first commit on resumed sessionless transaction: %v", err)
 	}
 
 	err = tx2.Commit()
 	if err == nil {
 		tx2.Rollback()
-		t.Fatalf("resume failed: %v", err)
+		t.Fatal("second commit on resumed sessionless transaction succeeded; expected NotInTransaction")
 	}
 	if sqlError, ok := err.(oracleErrors.SQLError); ok {
 		if sqlError.ErrorCode() != string(oracleErrors.NotInTransaction) {
-			t.Fatalf("Expected error to be %s, but was %s", oracleErrors.NotInTransaction, sqlError.ErrorCode())
+			t.Fatalf("second commit error code = %s, want %s", sqlError.ErrorCode(), oracleErrors.NotInTransaction)
 		}
 	} else {
-		t.Fatalf("Expected SQLError but got %v", err)
+		t.Fatalf("second commit returned %T, want Oracle SQLError: %v", err, err)
 	}
 
 }
@@ -733,7 +736,7 @@ func TestSessionlessTransactionCommitPLSQL(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(3)
@@ -741,19 +744,19 @@ func TestSessionlessTransactionCommitPLSQL(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_plsql_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire initial dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
 	tx, err := conn.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelDefault, ReadOnly: false})
 	if err != nil {
-		t.Fatalf("begin transaction failed: %v", err)
+		t.Fatalf("begin regular transaction on initial connection: %v", err)
 	}
 	defer tx.Rollback()
 
@@ -766,50 +769,46 @@ func TestSessionlessTransactionCommitPLSQL(t *testing.T) {
 				timeout          => 300,
 				flag             => DBMS_TRANSACTION.TRANSACTION_NEW);
 		END;`, sql.Named("global_transaction_id", sql.Out{Dest: &globalTransactionID})); err != nil {
-		t.Fatalf("start and suspend sessionless transaction through PL/SQL failed: %v", err)
+		t.Fatalf("start sessionless transaction through PL/SQL on initial connection: %v", err)
 	}
 	if globalTransactionID == "" {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("PL/SQL sessionless start returned an empty global transaction ID")
 	}
 
 	_, err = tx.ExecContext(context.Background(), "INSERT INTO "+table+" (str_value) VALUES ('sessionless-plsql-commit')")
 	if err != nil {
-		t.Fatalf("unexpected error while inserting, %v", err)
+		t.Fatalf("insert row after PL/SQL sessionless start into table %q: %v", table, err)
 	}
 	_, err = tx.ExecContext(context.Background(), "BEGIN DBMS_TRANSACTION.SUSPEND_TRANSACTION; END;")
 	if err != nil {
-		t.Fatalf("unexpected error while suspending, %v", err)
-	}
-	_ = tx.Rollback()
-	if err := conn.PingContext(context.Background()); err != nil {
-		t.Fatalf("ping after suspend failed: %v", err)
+		t.Fatalf("suspend sessionless transaction through PL/SQL on initial connection: %v", err)
 	}
 
 	var count int
 	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after PL/SQL suspend on initial connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after suspend = %d, want 0", count)
+		t.Fatalf("count rows after PL/SQL suspend on initial connection for table %q = %d, want 0", table, count)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count before resume/commit failed: %v", err)
+		t.Fatalf("count rows before PL/SQL resume/commit on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count before resume/commit = %d, want 0", count)
+		t.Fatalf("count rows before PL/SQL resume/commit on another connection for table %q = %d, want 0", table, count)
 	}
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get resume connection: %v", err)
+		t.Fatalf("acquire resume dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
 
 	resumeTx, err := resumeConn.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelDefault, ReadOnly: false})
 	if err != nil {
-		t.Fatalf("begin resume transaction failed: %v", err)
+		t.Fatalf("begin regular transaction on resume connection: %v", err)
 	}
 	defer resumeTx.Rollback()
 	var resumedGlobalTransactionID string
@@ -824,48 +823,48 @@ func TestSessionlessTransactionCommitPLSQL(t *testing.T) {
 		sql.Named("global_transaction_id", globalTransactionID),
 		sql.Named("resumed_global_transaction_id", sql.Out{Dest: &resumedGlobalTransactionID}),
 	); err != nil {
-		t.Fatalf("resume sessionless transaction through PL/SQL failed: %v", err)
+		t.Fatalf("resume sessionless transaction through PL/SQL on resume connection: %v", err)
 	}
 	if resumedGlobalTransactionID != globalTransactionID {
-		t.Fatalf("resumed global transaction ID = %q, want %q", resumedGlobalTransactionID, globalTransactionID)
+		t.Fatalf("PL/SQL resume returned global transaction ID %q, want %q", resumedGlobalTransactionID, globalTransactionID)
 	}
 
 	if err := resumeConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after PL/SQL resume on resume connection for table %q: %v", table, err)
 	}
 	if count != 1 {
-		t.Fatalf("count after resume = %d, want 1", count)
+		t.Fatalf("count rows after PL/SQL resume on resume connection for table %q = %d, want 1", table, count)
 	}
 	if _, err := resumeConn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) values ('sessionless-plsql-resume')"); err != nil {
-		t.Fatalf("an unexpected error occurred while executing statement: %v", err)
+		t.Fatalf("insert row after PL/SQL resume on resume connection into table %q: %v", table, err)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows before PL/SQL transaction commit on another connection for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after commit = %d, want 0", count)
+		t.Fatalf("count rows before PL/SQL transaction commit on another connection for table %q = %d, want 0", table, count)
 	}
 
 	if err := resumeTx.Commit(); err != nil {
-		t.Fatalf("resume/commit failed: %v", err)
+		t.Fatalf("commit PL/SQL-resumed transaction through resume transaction handle: %v", err)
 	}
 
 	if err := resumeConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows after PL/SQL transaction commit on resume connection for table %q: %v", table, err)
 	}
 	if count != 2 {
-		t.Fatalf("count after commit = %d, want 2", count)
+		t.Fatalf("count rows after PL/SQL transaction commit on resume connection for table %q = %d, want 2", table, count)
 	}
 
 	count, err = countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after commit failed: %v", err)
+		t.Fatalf("count rows after PL/SQL transaction commit on another connection for table %q: %v", table, err)
 	}
 	if count != 2 {
-		t.Fatalf("count after commit = %d, want 2", count)
+		t.Fatalf("count rows after PL/SQL transaction commit on another connection for table %q = %d, want 2", table, count)
 	}
 }
 
@@ -880,7 +879,7 @@ func TestSessionlessTransactionCommitPLSQLRunQueryBeforeSessionless(t *testing.T
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(3)
@@ -888,25 +887,25 @@ func TestSessionlessTransactionCommitPLSQLRunQueryBeforeSessionless(t *testing.T
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_plsql_run_query_commit")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
 	tx, err := conn.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelDefault, ReadOnly: false})
 	if err != nil {
-		t.Fatalf("begin transaction failed: %v", err)
+		t.Fatalf("begin regular transaction: %v", err)
 	}
 	defer tx.Rollback()
 
 	_, err = tx.ExecContext(context.Background(), "INSERT INTO "+table+" (str_value) VALUES ('sessionless-plsql-commit')")
 	if err != nil {
-		t.Fatalf("unexpected error while inserting, %v", err)
+		t.Fatalf("insert before PL/SQL sessionless start into table %q: %v", table, err)
 	}
 
 	var globalTransactionID string
@@ -918,16 +917,16 @@ func TestSessionlessTransactionCommitPLSQLRunQueryBeforeSessionless(t *testing.T
 				timeout          => 300,
 				flag             => DBMS_TRANSACTION.TRANSACTION_NEW);
 		END;`, sql.Named("global_transaction_id", sql.Out{Dest: &globalTransactionID})); err == nil {
-		t.Fatalf("Expected exception")
+		t.Fatal("PL/SQL sessionless start succeeded after prior DML; expected ORA-24776")
 	}
 
 	if sqlError, ok := err.(oracleErrors.SQLError); ok {
 		if sqlError.ErrorCode() != "ORA-24776" {
-			t.Fatalf("Expected error code to be %s but was %s", "ORA-24776", sqlError.ErrorCode())
+			t.Fatalf("PL/SQL sessionless start error code = %s, want ORA-24776", sqlError.ErrorCode())
 		}
 		t.Logf("Got expected sqlError %v", err)
 	} else {
-		t.Fatalf("Error should be a sql error")
+		t.Fatalf("PL/SQL sessionless start returned %T, want Oracle SQLError: %v", err, err)
 	}
 
 }
@@ -943,7 +942,7 @@ func TestSessionlessTransactionCommitPLSQLConn(t *testing.T) {
 
 	db, err := openTestDBWithConfig(TestingConfig)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(3)
@@ -951,13 +950,13 @@ func TestSessionlessTransactionCommitPLSQLConn(t *testing.T) {
 	ctx := context.Background()
 	table := createObjectName("sessionless_tx_plsql_conn")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("failed to get dedicated connection: %v", err)
+		t.Fatalf("acquire dedicated connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -970,18 +969,18 @@ func TestSessionlessTransactionCommitPLSQLConn(t *testing.T) {
 				timeout          => 300,
 				flag             => DBMS_TRANSACTION.TRANSACTION_NEW);
 		END;`, sql.Named("global_transaction_id", sql.Out{Dest: &globalTransactionID})); err != nil {
-		t.Fatalf("start sessionless transaction through PL/SQL failed: %v", err)
+		t.Fatalf("start sessionless transaction through PL/SQL on dedicated connection: %v", err)
 	}
 	if globalTransactionID == "" {
-		t.Fatal("empty global transaction ID")
+		t.Fatal("PL/SQL sessionless start returned an empty global transaction ID")
 	}
 
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) VALUES ('sessionless-plsql-conn')"); err != nil {
-		t.Fatalf("unexpected error while inserting: %v", err)
+		t.Fatalf("insert row after PL/SQL sessionless start into table %q: %v", table, err)
 	}
 	if _, err := conn.ExecContext(ctx, "BEGIN DBMS_TRANSACTION.SUSPEND_TRANSACTION; END;"); err != nil {
-		t.Fatalf("unexpected error while suspending: %v", err)
+		t.Fatalf("suspend PL/SQL sessionless transaction on dedicated connection: %v", err)
 	}
 
 	// since a connection is always on auto-commit mode, the count should be 1, the
@@ -989,10 +988,10 @@ func TestSessionlessTransactionCommitPLSQLConn(t *testing.T) {
 	// suspend was a noop
 	var count int
 	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
-		t.Fatalf("count failed: %v", err)
+		t.Fatalf("count rows after PL/SQL suspend on dedicated connection for table %q: %v", table, err)
 	}
 	if count != 1 {
-		t.Fatalf("count after suspend = %d, want 1", count)
+		t.Fatalf("count rows after PL/SQL suspend on dedicated connection for table %q = %d, want 1", table, count)
 	}
 }
 
@@ -1020,45 +1019,47 @@ func TestSessionlessTransactionBeginOptions(t *testing.T) {
 
 			conn, err := db.Conn(ctx)
 			if err != nil {
-				t.Fatalf("get connection: %v", err)
+				t.Fatalf("acquire connection for options %q: %v", test.name, err)
 			}
 			defer conn.Close()
 
 			table := createObjectName("sessionless_tx_commit")
 			if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-				t.Fatalf("create table failed: %v", err)
+				t.Fatalf("create table %q for options %q: %v", table, test.name, err)
 			}
 			defer dropTable(ctx, db, table)
 
 			tx, err := BeginSessionlessTx(ctx, conn, test.opts, 300)
 			if err != nil {
-				t.Fatalf("begin sessionless transaction: %v", err)
+				t.Fatalf("begin sessionless transaction with options %q: %v", test.name, err)
 			}
 			if tx.GlobalTransactionID() == nil {
-				t.Fatal("begin returned an empty global transaction ID")
+				t.Fatalf("begin sessionless transaction with options %q returned an empty global transaction ID", test.name)
 			}
 
 			_, err = conn.ExecContext(ctx, "INSERT INTO "+table+" (str_value) values ('sessionless-start')")
 			if test.opts.ReadOnly && err == nil {
-				t.Fatalf("Should not be able to insert on read-only TXN")
+				t.Fatalf("insert into table %q succeeded for read-only options %q; expected an error", table, test.name)
 			}
 			if !test.opts.ReadOnly && err != nil {
-				t.Fatalf("insert failed: %v", err)
+				t.Fatalf("insert into table %q with options %q: %v", table, test.name, err)
 			}
 
 			var flag int
-			conn.QueryRowContext(ctx, "select bitand(flag, power(2, 28)) from v$transaction").Scan(&flag)
+			if err := conn.QueryRowContext(ctx, "select bitand(flag, power(2, 28)) from v$transaction").Scan(&flag); err != nil && err != sql.ErrNoRows {
+				t.Fatalf("query serializable flag with options %q: %v", test.name, err)
+			}
 			if test.opts.Isolation == sql.LevelSerializable && !test.opts.ReadOnly {
 				if flag == 0 {
-					t.Fatalf("Should be serializable")
+					t.Fatalf("serializable flag with options %q = %d, want non-zero", test.name, flag)
 				}
 			} else {
 				if flag != 0 {
-					t.Fatalf("Should not be serializable")
+					t.Fatalf("serializable flag with options %q = %d, want 0", test.name, flag)
 				}
 			}
 			if err := tx.Rollback(); err != nil {
-				t.Fatalf("rollback sessionless transaction: %v", err)
+				t.Fatalf("rollback sessionless transaction with options %q: %v", test.name, err)
 			}
 
 		})
@@ -1075,7 +1076,7 @@ func TestSessionlessTransactionResumeValidation(t *testing.T) {
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get connection: %v", err)
+		t.Fatalf("acquire connection for global transaction ID validation: %v", err)
 	}
 	defer conn.Close()
 
@@ -1088,7 +1089,7 @@ func TestSessionlessTransactionResumeValidation(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := ResumeSessionlessTx(ctx, conn, test.globalTransactionID)
-			requireSessionlessSQLError(t, err, oracleErrors.InvalidGlobalTransactionIDValue)
+			requireSessionlessSQLError(t, "resume with "+test.name+" global transaction ID", err, oracleErrors.InvalidGlobalTransactionIDValue)
 		})
 	}
 
@@ -1096,9 +1097,9 @@ func TestSessionlessTransactionResumeValidation(t *testing.T) {
 	err = conn.PingContext(ctx)
 	if err == nil {
 		_ = tx.Rollback()
-		t.Fatal("resume with an unknown global transaction ID unexpectedly succeeded")
+		t.Fatal("resume with unknown global transaction ID succeeded after ping; expected ORA-26218")
 	}
-	requireSessionlessSQLError(t, err, "ORA-26218")
+	requireSessionlessSQLError(t, "ping after resuming unknown global transaction ID", err, "ORA-26218")
 }
 
 // TestSessionlessTransactionSQLCommitOrRollbackThenSuspend verifies that a
@@ -1122,40 +1123,40 @@ func TestSessionlessTransactionSQLCommitOrRollbackThenSuspend(t *testing.T) {
 
 			table := createObjectName("sessionless_tx_sql_end")
 			if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-				t.Fatalf("create table failed: %v", err)
+				t.Fatalf("create table %q for SQL %s scenario: %v", table, test.endStatement, err)
 			}
 			defer dropTable(ctx, db, table)
 
 			conn, err := db.Conn(ctx)
 			if err != nil {
-				t.Fatalf("get connection: %v", err)
+				t.Fatalf("acquire connection for SQL %s scenario: %v", test.endStatement, err)
 			}
 			defer conn.Close()
 
 			tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
 			if err != nil {
-				t.Fatalf("begin sessionless transaction: %v", err)
+				t.Fatalf("begin sessionless transaction before SQL %s: %v", test.endStatement, err)
 			}
 			for _, value := range []string{"sql-end-one", "sql-end-two"} {
 				if _, err := conn.ExecContext(ctx,
 					"INSERT INTO "+table+" (str_value) VALUES ('"+value+"')"); err != nil {
-					t.Fatalf("insert %q: %v", value, err)
+					t.Fatalf("insert %q into table %q before SQL %s: %v", value, table, test.endStatement, err)
 				}
 			}
 
 			if _, err := conn.ExecContext(ctx, test.endStatement); err != nil {
-				t.Fatalf("execute %s: %v", test.endStatement, err)
+				t.Fatalf("execute SQL %s on sessionless transaction: %v", test.endStatement, err)
 			}
 			if err := tx.Suspend(); err != nil {
-				t.Fatalf("suspend after SQL %s: %v", test.endStatement, err)
+				t.Fatalf("suspend after SQL %s on sessionless transaction: %v", test.endStatement, err)
 			}
 
 			count, err := countRows(ctx, db, table)
 			if err != nil {
-				t.Fatalf("count after SQL %s: %v", test.endStatement, err)
+				t.Fatalf("count rows after SQL %s for table %q: %v", test.endStatement, table, err)
 			}
 			if count != test.wantRows {
-				t.Fatalf("count after SQL %s = %d, want %d", test.endStatement, count, test.wantRows)
+				t.Fatalf("count rows after SQL %s for table %q = %d, want %d", test.endStatement, table, count, test.wantRows)
 			}
 		})
 	}
@@ -1182,23 +1183,23 @@ func TestSessionlessTransactionAPIOperationThenSuspend(t *testing.T) {
 
 			table := createObjectName("sessionless_tx_api_end")
 			if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-				t.Fatalf("create table failed: %v", err)
+				t.Fatalf("create table %q for API %s scenario: %v", table, test.name, err)
 			}
 			defer dropTable(ctx, db, table)
 
 			conn, err := db.Conn(ctx)
 			if err != nil {
-				t.Fatalf("get connection: %v", err)
+				t.Fatalf("acquire connection for API %s scenario: %v", test.name, err)
 			}
 			defer conn.Close()
 
 			tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
 			if err != nil {
-				t.Fatalf("begin sessionless transaction: %v", err)
+				t.Fatalf("begin sessionless transaction for API %s: %v", test.name, err)
 			}
 			if _, err := conn.ExecContext(ctx,
 				"INSERT INTO "+table+" (str_value) VALUES ('api-end')"); err != nil {
-				t.Fatalf("insert: %v", err)
+				t.Fatalf("insert API %s row into table %q: %v", test.name, table, err)
 			}
 
 			if test.commit {
@@ -1207,18 +1208,18 @@ func TestSessionlessTransactionAPIOperationThenSuspend(t *testing.T) {
 				err = tx.Rollback()
 			}
 			if err != nil {
-				t.Fatalf("end sessionless transaction: %v", err)
+				t.Fatalf("%s sessionless transaction: %v", test.name, err)
 			}
 			if err := tx.Suspend(); err != nil {
-				t.Fatalf("suspend after API end: %v", err)
+				t.Fatalf("suspend after API %s: %v", test.name, err)
 			}
 
 			count, err := countRows(ctx, db, table)
 			if err != nil {
-				t.Fatalf("count after API end: %v", err)
+				t.Fatalf("count rows after API %s for table %q: %v", test.name, table, err)
 			}
 			if count != test.wantRows {
-				t.Fatalf("count after API end = %d, want %d", count, test.wantRows)
+				t.Fatalf("count rows after API %s for table %q = %d, want %d", test.name, table, count, test.wantRows)
 			}
 		})
 	}
@@ -1247,23 +1248,23 @@ func TestSessionlessTransactionEndTwice(t *testing.T) {
 
 			table := createObjectName("sessionless_tx_end_twice")
 			if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-				t.Fatalf("create table failed: %v", err)
+				t.Fatalf("create table %q for %s scenario: %v", table, test.name, err)
 			}
 			defer dropTable(ctx, db, table)
 
 			conn, err := db.Conn(ctx)
 			if err != nil {
-				t.Fatalf("get connection: %v", err)
+				t.Fatalf("acquire connection for %s scenario: %v", test.name, err)
 			}
 			defer conn.Close()
 
 			tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
 			if err != nil {
-				t.Fatalf("begin sessionless transaction: %v", err)
+				t.Fatalf("begin sessionless transaction for %s: %v", test.name, err)
 			}
 			if _, err := conn.ExecContext(ctx,
 				"INSERT INTO "+table+" (str_value) VALUES ('end-twice')"); err != nil {
-				t.Fatalf("insert: %v", err)
+				t.Fatalf("insert row into table %q before %s: %v", table, test.name, err)
 			}
 
 			end := func(commit bool) error {
@@ -1273,11 +1274,11 @@ func TestSessionlessTransactionEndTwice(t *testing.T) {
 				return tx.Rollback()
 			}
 			if err := end(test.firstCommit); err != nil {
-				t.Fatalf("first end operation: %v", err)
+				t.Fatalf("first %s operation: %v", test.name, err)
 			}
-			requireSessionlessSQLError(t, end(test.secondCommit), oracleErrors.NotInTransaction)
+			requireSessionlessSQLError(t, "second "+test.name+" operation", end(test.secondCommit), oracleErrors.NotInTransaction)
 			if err := tx.Suspend(); err != nil {
-				t.Fatalf("suspend after repeated end operation: %v", err)
+				t.Fatalf("suspend after repeated %s operation: %v", test.name, err)
 			}
 		})
 	}
@@ -1293,50 +1294,50 @@ func TestSessionlessTransactionResumeSameConnection(t *testing.T) {
 
 	table := createObjectName("sessionless_tx_same_conn")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get connection: %v", err)
+		t.Fatalf("acquire dedicated connection for same-connection resume: %v", err)
 	}
 	defer conn.Close()
 
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
 	if err != nil {
-		t.Fatalf("begin sessionless transaction: %v", err)
+		t.Fatalf("begin sessionless transaction before same-connection resume: %v", err)
 	}
 	globalTransactionID := tx.GlobalTransactionID()
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) VALUES ('same-connection-before')"); err != nil {
-		t.Fatalf("insert before suspend: %v", err)
+		t.Fatalf("insert row before same-connection suspend into table %q: %v", table, err)
 	}
 	if err := tx.Suspend(); err != nil {
-		t.Fatalf("suspend: %v", err)
+		t.Fatalf("suspend before same-connection resume: %v", err)
 	}
 
 	resumedTx, err := ResumeSessionlessTx(ctx, conn, globalTransactionID)
 	if err != nil {
-		t.Fatalf("resume on same connection: %v", err)
+		t.Fatalf("resume on same dedicated connection: %v", err)
 	}
 	if !slices.Equal(resumedTx.GlobalTransactionID(), globalTransactionID) {
-		t.Fatalf("resumed global transaction ID = %q, want %q", resumedTx.GlobalTransactionID(), globalTransactionID)
+		t.Fatalf("same-connection resume returned global transaction ID %q, want %q", resumedTx.GlobalTransactionID(), globalTransactionID)
 	}
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) VALUES ('same-connection-after')"); err != nil {
-		t.Fatalf("insert after resume: %v", err)
+		t.Fatalf("insert row after same-connection resume into table %q: %v", table, err)
 	}
 	if err := resumedTx.Commit(); err != nil {
-		t.Fatalf("commit after same-connection resume: %v", err)
+		t.Fatalf("commit after same-connection resume on dedicated connection: %v", err)
 	}
 
 	count, err := countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after commit: %v", err)
+		t.Fatalf("count rows after same-connection commit for table %q: %v", table, err)
 	}
 	if count != 2 {
-		t.Fatalf("count after same-connection resume = %d, want 2", count)
+		t.Fatalf("count rows after same-connection commit for table %q = %d, want 2", table, count)
 	}
 }
 
@@ -1350,28 +1351,28 @@ func TestSessionlessTransactionResumeAfterConnectionClose(t *testing.T) {
 
 	table := createObjectName("sessionless_tx_closed_conn")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get connection: %v", err)
+		t.Fatalf("acquire original dedicated connection: %v", err)
 	}
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
 	if err != nil {
 		conn.Close()
-		t.Fatalf("begin sessionless transaction: %v", err)
+		t.Fatalf("begin sessionless transaction before closing original connection: %v", err)
 	}
 	globalTransactionID := tx.GlobalTransactionID()
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) VALUES ('closed-connection')"); err != nil {
 		conn.Close()
-		t.Fatalf("insert: %v", err)
+		t.Fatalf("insert row before closing original connection into table %q: %v", table, err)
 	}
 	if err := tx.Suspend(); err != nil {
 		conn.Close()
-		t.Fatalf("suspend: %v", err)
+		t.Fatalf("suspend before closing original connection: %v", err)
 	}
 	if err := conn.Close(); err != nil {
 		t.Fatalf("close original connection: %v", err)
@@ -1379,7 +1380,7 @@ func TestSessionlessTransactionResumeAfterConnectionClose(t *testing.T) {
 
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get resume connection: %v", err)
+		t.Fatalf("acquire resume connection after closing original connection: %v", err)
 	}
 	defer resumeConn.Close()
 	resumedTx, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
@@ -1387,15 +1388,15 @@ func TestSessionlessTransactionResumeAfterConnectionClose(t *testing.T) {
 		t.Fatalf("resume after closing original connection: %v", err)
 	}
 	if err := resumedTx.Rollback(); err != nil {
-		t.Fatalf("rollback after resume: %v", err)
+		t.Fatalf("rollback transaction resumed after closing original connection: %v", err)
 	}
 
 	count, err := countRows(ctx, db, table)
 	if err != nil {
-		t.Fatalf("count after rollback: %v", err)
+		t.Fatalf("count rows after rollback following connection close for table %q: %v", table, err)
 	}
 	if count != 0 {
-		t.Fatalf("count after rollback = %d, want 0", count)
+		t.Fatalf("count rows after rollback following connection close for table %q = %d, want 0", table, count)
 	}
 }
 
@@ -1409,18 +1410,18 @@ func TestSessionlessTransactionRegularTransactionConflict(t *testing.T) {
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get connection: %v", err)
+		t.Fatalf("acquire connection for regular-transaction conflict: %v", err)
 	}
 	defer conn.Close()
 
 	regularTx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
-		t.Fatalf("begin regular transaction: %v", err)
+		t.Fatalf("begin regular transaction before sessionless start: %v", err)
 	}
 	defer regularTx.Rollback()
 
 	_, err = BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
-	requireSessionlessSQLError(t, err, oracleErrors.AlreadyInTransaction)
+	requireSessionlessSQLError(t, "begin sessionless transaction while regular transaction is active", err, oracleErrors.AlreadyInTransaction)
 }
 
 // TestSessionlessTransactionGlobalTransactionIDUniqueness verifies that independent API
@@ -1432,37 +1433,37 @@ func TestSessionlessTransactionGlobalTransactionIDUniqueness(t *testing.T) {
 
 	conn1, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get first connection: %v", err)
+		t.Fatalf("acquire first connection for global transaction ID uniqueness: %v", err)
 	}
 	defer conn1.Close()
 	conn2, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get second connection: %v", err)
+		t.Fatalf("acquire second connection for global transaction ID uniqueness: %v", err)
 	}
 	defer conn2.Close()
 
 	tx1, err := BeginSessionlessTx(ctx, conn1, sql.TxOptions{}, 300)
 	if err != nil {
-		t.Fatalf("begin first sessionless transaction: %v", err)
+		t.Fatalf("begin first sessionless transaction on connection 1: %v", err)
 	}
 	tx2, err := BeginSessionlessTx(ctx, conn2, sql.TxOptions{}, 300)
 	if err != nil {
 		_ = tx1.Rollback()
-		t.Fatalf("begin second sessionless transaction: %v", err)
+		t.Fatalf("begin second sessionless transaction on connection 2: %v", err)
 	}
 	globalTransactionID1 := tx1.GlobalTransactionID()
 	globalTransactionID2 := tx2.GlobalTransactionID()
 	if globalTransactionID1 == nil || globalTransactionID2 == nil {
-		t.Fatalf("global transaction IDs must be non-empty: %q, %q", globalTransactionID1, globalTransactionID2)
+		t.Fatalf("global transaction IDs from connections 1 and 2 must be non-empty: %q, %q", globalTransactionID1, globalTransactionID2)
 	}
 	if slices.Equal(globalTransactionID1, globalTransactionID2) {
-		t.Fatalf("independent transactions reused global transaction ID %q", globalTransactionID1)
+		t.Fatalf("independent transactions on connections 1 and 2 reused global transaction ID %q", globalTransactionID1)
 	}
 	if err := tx1.Rollback(); err != nil {
-		t.Fatalf("rollback first transaction: %v", err)
+		t.Fatalf("rollback first sessionless transaction on connection 1: %v", err)
 	}
 	if err := tx2.Rollback(); err != nil {
-		t.Fatalf("rollback second transaction: %v", err)
+		t.Fatalf("rollback second sessionless transaction on connection 2: %v", err)
 	}
 }
 
@@ -1475,42 +1476,42 @@ func TestSessionlessTransactionTimeout(t *testing.T) {
 
 	table := createObjectName("sessionless_tx_timeout")
 	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
-		t.Fatalf("create table failed: %v", err)
+		t.Fatalf("create table %q: %v", table, err)
 	}
 	defer dropTable(ctx, db, table)
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get connection: %v", err)
+		t.Fatalf("acquire initial connection for timeout test: %v", err)
 	}
 	defer conn.Close()
 
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 1)
 	if err != nil {
-		t.Fatalf("begin sessionless transaction: %v", err)
+		t.Fatalf("begin one-second sessionless transaction: %v", err)
 	}
 	if _, err := conn.ExecContext(ctx,
 		"INSERT INTO "+table+" (str_value) VALUES ('timeout')"); err != nil {
-		t.Fatalf("insert: %v", err)
+		t.Fatalf("insert timeout-test row into table %q: %v", table, err)
 	}
 	globalTransactionID := tx.GlobalTransactionID()
 	if err := tx.Suspend(); err != nil {
-		t.Fatalf("suspend: %v", err)
+		t.Fatalf("suspend one-second sessionless transaction before timeout: %v", err)
 	}
 
 	time.Sleep(5 * time.Second)
 	resumeConn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get resume connection: %v", err)
+		t.Fatalf("acquire resume connection after timeout: %v", err)
 	}
 	defer resumeConn.Close()
 	resumedTx, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	err = resumeConn.PingContext(ctx)
 	if err == nil {
 		_ = resumedTx.Rollback()
-		t.Fatal("resume after timeout unexpectedly succeeded")
+		t.Fatal("resume after one-second timeout succeeded after ping; expected ORA-26218")
 	}
-	requireSessionlessSQLError(t, err, "ORA-26218")
+	requireSessionlessSQLError(t, "ping after resuming timed-out transaction", err, "ORA-26218")
 }
 
 // TestSessionlessTransactionUnsupportedConnection verifies that the public API
@@ -1528,19 +1529,19 @@ func TestSessionlessTransactionUnsupportedConnection(t *testing.T) {
 	ctx := context.Background()
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		t.Fatalf("get connection: %v", err)
+		t.Fatalf("acquire connection for unsupported-driver test: %v", err)
 	}
 	defer conn.Close()
 
 	if _, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{}, 300); err == nil {
-		t.Fatal("begin unexpectedly succeeded on an unsupported connection")
+		t.Fatal("BeginSessionlessTx unexpectedly succeeded on unsupported connection")
 	} else if err.Error() != "the connection does not support sessionless transactions" {
-		t.Fatalf("unexpected begin error: %v", err)
+		t.Fatalf("BeginSessionlessTx on unsupported connection returned unexpected error: %v", err)
 	}
 	if _, err := ResumeSessionlessTx(ctx, conn, extensions.GlobalTransactionID("global-transaction-id")); err == nil {
-		t.Fatal("resume unexpectedly succeeded on an unsupported connection")
+		t.Fatal("ResumeSessionlessTx unexpectedly succeeded on unsupported connection")
 	} else if err.Error() != "the connection does not support sessionless transactions" {
-		t.Fatalf("unexpected resume error: %v", err)
+		t.Fatalf("ResumeSessionlessTx on unsupported connection returned unexpected error: %v", err)
 	}
 }
 

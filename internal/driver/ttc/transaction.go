@@ -50,7 +50,8 @@ type oracleTx interface {
 	transactionContext() context.Context
 	// underlyingConnection returns the connection associated with the transaction.
 	underlyingConnection() *connection
-	// transactionIdentity returns the transaction object identity.
+	// transactionIdentity returns the stable identity shared by handles for the
+	// same server transaction.
 	transactionIdentity() *transaction
 }
 
@@ -58,6 +59,9 @@ type transaction struct {
 	_underlyingConnection *connection
 	// the current transaction context
 	_transactionContext context.Context
+	// _transactionIdentity is shared by transaction handles that represent the
+	// same server transaction after a regular transaction is promoted.
+	_transactionIdentity *transaction
 }
 
 // newTransaction creates a new transaction with the given connection and context.
@@ -69,10 +73,12 @@ type transaction struct {
 // Returns:
 //   - *transaction: Initialized transaction.
 func newTransaction(conn *connection, ctx context.Context) *transaction {
-	return &transaction{
+	tx := &transaction{
 		_underlyingConnection: conn,
 		_transactionContext:   ctx,
 	}
+	tx._transactionIdentity = tx
+	return tx
 }
 
 // transactionContext returns the current transaction context. This function
@@ -93,12 +99,16 @@ func (t *transaction) underlyingConnection() *connection {
 	return t._underlyingConnection
 }
 
-// transactionIdentity returns the identity used to determine whether this
-// transaction is still registered on its connection.
+// transactionIdentity returns the stable identity used to determine whether
+// this transaction is still registered on its connection. Promoted transaction
+// handles retain the identity of the original transaction.
 //
 // Returns:
 //   - *transaction: Transaction identity.
 func (t *transaction) transactionIdentity() *transaction {
+	if t._transactionIdentity != nil {
+		return t._transactionIdentity
+	}
 	return t
 }
 
@@ -109,7 +119,7 @@ func (t *transaction) transactionIdentity() *transaction {
 //   - bool: True when this transaction is current; otherwise false.
 func (t *transaction) isCurrentTransaction() bool {
 	currentTransaction := t._underlyingConnection.shelf.getTransaction()
-	return currentTransaction != nil && currentTransaction.transactionIdentity() == t
+	return currentTransaction != nil && currentTransaction.transactionIdentity() == t.transactionIdentity()
 }
 
 // Commit commits the transaction.
