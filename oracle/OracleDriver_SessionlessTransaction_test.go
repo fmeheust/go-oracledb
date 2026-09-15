@@ -114,7 +114,7 @@ func TestSessionlessTransactionCommit(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
@@ -157,7 +157,7 @@ func TestSessionlessTransactionCommit(t *testing.T) {
 		t.Fatalf("failed to get dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
-	tx2, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume failed: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestSessionlessTransactionRollback(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
@@ -277,7 +277,7 @@ func TestSessionlessTransactionRollback(t *testing.T) {
 	}
 	defer conn2.Close()
 
-	tx2, err := ResumeSessionlessTransaction(ctx, conn2, globalTransactionID)
+	tx2, err := ResumeSessionlessTx(ctx, conn2, globalTransactionID)
 	if err != nil {
 		t.Fatalf("failed to resume sessionless transaction with global transaction ID %s: %v", globalTransactionID, err)
 	}
@@ -351,7 +351,7 @@ func TestSessionlessTransactionStartTwice(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
@@ -408,7 +408,7 @@ func TestSessionlessTransactionSuspendTwice(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
@@ -439,7 +439,7 @@ func TestSessionlessTransactionSuspendTwice(t *testing.T) {
 		t.Fatalf("failed to get dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
-	tx2, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume failed: %v", err)
 	}
@@ -478,7 +478,7 @@ func TestSessionlessTransactionResumeTwice(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
@@ -504,12 +504,12 @@ func TestSessionlessTransactionResumeTwice(t *testing.T) {
 		t.Fatalf("failed to get dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
-	tx2, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume failed: %v", err)
 	}
 
-	_, err = ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	_, err = ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err == nil {
 		tx2.Rollback()
 		t.Fatalf("resume failed: %v", err)
@@ -554,7 +554,7 @@ func TestSessionlessTransactionResumeTwiceDifferentConnection(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
@@ -580,7 +580,7 @@ func TestSessionlessTransactionResumeTwiceDifferentConnection(t *testing.T) {
 		t.Fatalf("failed to get dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
-	tx2, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume failed: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestSessionlessTransactionResumeTwiceDifferentConnection(t *testing.T) {
 		t.Fatalf("failed to get dedicated connection: %v", err)
 	}
 	defer resumeConn2.Close()
-	_, err = ResumeSessionlessTransaction(ctx, resumeConn2, globalTransactionID)
+	_, err = ResumeSessionlessTx(ctx, resumeConn2, globalTransactionID)
 	if err != nil {
 		tx2.Rollback()
 		t.Fatalf("resume request failed before round trip: %v", err)
@@ -635,7 +635,7 @@ func TestSessionlessTransactionCommitTwice(t *testing.T) {
 	}
 	defer conn.Close()
 
-	var globalTransactionID extensions.GlobalTransactionId
+	var globalTransactionID extensions.GlobalTransactionID
 	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{
 		Isolation: sql.LevelReadCommitted, ReadOnly: false}, 300)
 	if err != nil {
@@ -678,7 +678,7 @@ func TestSessionlessTransactionCommitTwice(t *testing.T) {
 		t.Fatalf("failed to get dedicated connection: %v", err)
 	}
 	defer resumeConn.Close()
-	tx2, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	tx2, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume failed: %v", err)
 	}
@@ -1087,12 +1087,12 @@ func TestSessionlessTransactionResumeValidation(t *testing.T) {
 		{name: "too long", globalTransactionID: slices.Repeat([]byte{70}, 65)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := ResumeSessionlessTransaction(ctx, conn, test.globalTransactionID)
+			_, err := ResumeSessionlessTx(ctx, conn, test.globalTransactionID)
 			requireSessionlessSQLError(t, err, oracleErrors.InvalidGlobalTransactionIDValue)
 		})
 	}
 
-	tx, err := ResumeSessionlessTransaction(ctx, conn, extensions.GlobalTransactionId("sessionless-global-transaction-id-that-does-not-exist"))
+	tx, err := ResumeSessionlessTx(ctx, conn, extensions.GlobalTransactionID("sessionless-global-transaction-id-that-does-not-exist"))
 	err = conn.PingContext(ctx)
 	if err == nil {
 		_ = tx.Rollback()
@@ -1316,7 +1316,7 @@ func TestSessionlessTransactionResumeSameConnection(t *testing.T) {
 		t.Fatalf("suspend: %v", err)
 	}
 
-	resumedTx, err := ResumeSessionlessTransaction(ctx, conn, globalTransactionID)
+	resumedTx, err := ResumeSessionlessTx(ctx, conn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume on same connection: %v", err)
 	}
@@ -1382,7 +1382,7 @@ func TestSessionlessTransactionResumeAfterConnectionClose(t *testing.T) {
 		t.Fatalf("get resume connection: %v", err)
 	}
 	defer resumeConn.Close()
-	resumedTx, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	resumedTx, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	if err != nil {
 		t.Fatalf("resume after closing original connection: %v", err)
 	}
@@ -1504,7 +1504,7 @@ func TestSessionlessTransactionTimeout(t *testing.T) {
 		t.Fatalf("get resume connection: %v", err)
 	}
 	defer resumeConn.Close()
-	resumedTx, err := ResumeSessionlessTransaction(ctx, resumeConn, globalTransactionID)
+	resumedTx, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
 	err = resumeConn.PingContext(ctx)
 	if err == nil {
 		_ = resumedTx.Rollback()
@@ -1537,7 +1537,7 @@ func TestSessionlessTransactionUnsupportedConnection(t *testing.T) {
 	} else if err.Error() != "the connection does not support sessionless transactions" {
 		t.Fatalf("unexpected begin error: %v", err)
 	}
-	if _, err := ResumeSessionlessTransaction(ctx, conn, extensions.GlobalTransactionId("global-transaction-id")); err == nil {
+	if _, err := ResumeSessionlessTx(ctx, conn, extensions.GlobalTransactionID("global-transaction-id")); err == nil {
 		t.Fatal("resume unexpectedly succeeded on an unsupported connection")
 	} else if err.Error() != "the connection does not support sessionless transactions" {
 		t.Fatalf("unexpected resume error: %v", err)

@@ -37,7 +37,7 @@ func BeginSessionlessTx(ctx context.Context, connection *sql.Conn, opts sql.TxOp
 	return publicSessionlessTransaction, err
 }
 
-// ResumeSessionlessTransaction resumes a sessionless transaction on connection.
+// ResumeSessionlessTx resumes a sessionless transaction on connection.
 //
 // Parameters:
 //   - ctx: Context used for the transaction resume operation.
@@ -48,7 +48,7 @@ func BeginSessionlessTx(ctx context.Context, connection *sql.Conn, opts sql.TxOp
 //   - extensions.SessionlessTx: Resumed sessionless transaction.
 //   - error: Error if the connection does not support sessionless transactions
 //     or the transaction cannot be resumed.
-func ResumeSessionlessTransaction(ctx context.Context, connection *sql.Conn, globalTransactionID extensions.GlobalTransactionId) (extensions.SessionlessTx, error) {
+func ResumeSessionlessTx(ctx context.Context, connection *sql.Conn, globalTransactionID extensions.GlobalTransactionID) (extensions.SessionlessTx, error) {
 	var publicSessionlessTransaction extensions.SessionlessTx
 	err := connection.Raw(func(c any) error {
 		var err error

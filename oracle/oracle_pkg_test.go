@@ -185,6 +185,11 @@ var testCases = []oracleTest.CategorizedTestCase{
 
 	{Name: "TestReadOnlyTransaction", Categories: "functional", Exclusive: false, Fn: TestReadOnlyTransaction},
 	{Name: "TestConnectionTransactionPoolIsolation", Categories: "functional", Exclusive: false, Fn: TestConnectionTransactionPoolIsolation},
+	{Name: "TestBeginSessionlessTxDelegates", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxDelegates},
+	{Name: "TestBeginSessionlessTxPropagatesError", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxPropagatesError},
+	{Name: "TestResumeSessionlessTxDelegates", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxDelegates},
+	{Name: "TestResumeSessionlessTxPropagatesError", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxPropagatesError},
+	{Name: "TestSessionlessTransactionWrappersRejectUnsupportedConnection", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionWrappersRejectUnsupportedConnection},
 
 	{Name: "TestSessionlessTransactionCommit", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionCommit},
 	{Name: "TestSessionlessTransactionRollback", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionRollback},

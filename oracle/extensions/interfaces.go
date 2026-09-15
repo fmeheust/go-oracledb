@@ -35,17 +35,17 @@ type ConnSessionlessTx interface {
 	// Returns:
 	//   - SessionlessTx: Resumed sessionless transaction.
 	//   - error: Error if the transaction cannot be resumed.
-	ResumeSessionlessTx(ctx context.Context, globalTransactionID GlobalTransactionId) (SessionlessTx, error)
+	ResumeSessionlessTx(ctx context.Context, globalTransactionID GlobalTransactionID) (SessionlessTx, error)
 }
 
-// GlobalTransactionId identifies a sessionless transaction.
-type GlobalTransactionId []byte
+// GlobalTransactionID identifies a sessionless transaction.
+type GlobalTransactionID []byte
 
 // String returns the base64 encoding of the global transaction identifier.
 //
 // Returns:
 //   - string: Base64-encoded transaction identifier.
-func (value GlobalTransactionId) String() string {
+func (value GlobalTransactionID) String() string {
 	return base64.StdEncoding.EncodeToString([]byte(value))
 }
 
@@ -61,6 +61,6 @@ type SessionlessTx interface {
 	// GlobalTransactionID returns the identifier associated with the transaction.
 	//
 	// Returns:
-	//   - GlobalTransactionId: Transaction identifier, or nil when unavailable.
-	GlobalTransactionID() GlobalTransactionId
+	//   - GlobalTransactionID: Transaction identifier, or nil when unavailable.
+	GlobalTransactionID() GlobalTransactionID
 }

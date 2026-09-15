@@ -472,7 +472,7 @@ const (
 // SESSIONLESS_GTRID session property returned by the server.
 type SessionlessGlobalTransactionIDSync struct {
 	raw                 driverCommon.B1Array
-	globalTransactionID extensions.GlobalTransactionId
+	globalTransactionID extensions.GlobalTransactionID
 	flags               byte
 	version             byte
 }
@@ -495,7 +495,7 @@ func NewSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (Sessionles
 	rawCopy := append(driverCommon.B1Array(nil), raw...)
 	return SessionlessGlobalTransactionIDSync{
 		raw:                 rawCopy,
-		globalTransactionID: append(extensions.GlobalTransactionId(nil), rawCopy[:len(rawCopy)-2]...),
+		globalTransactionID: append(extensions.GlobalTransactionID(nil), rawCopy[:len(rawCopy)-2]...),
 		flags:               rawCopy[len(rawCopy)-2],
 		version:             rawCopy[len(rawCopy)-1],
 	}, nil
@@ -513,9 +513,9 @@ func (s SessionlessGlobalTransactionIDSync) Raw() driverCommon.B1Array {
 // session property.
 //
 // Returns:
-//   - extensions.GlobalTransactionId: Copy of the decoded global transaction ID.
-func (s SessionlessGlobalTransactionIDSync) GlobalTransactionID() extensions.GlobalTransactionId {
-	return append(extensions.GlobalTransactionId(nil), s.globalTransactionID...)
+//   - extensions.GlobalTransactionID: Copy of the decoded global transaction ID.
+func (s SessionlessGlobalTransactionIDSync) GlobalTransactionID() extensions.GlobalTransactionID {
+	return append(extensions.GlobalTransactionID(nil), s.globalTransactionID...)
 }
 
 // Version returns the serialization version byte carried by the session property.

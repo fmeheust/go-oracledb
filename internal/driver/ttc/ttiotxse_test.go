@@ -76,7 +76,7 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	msg := newOTxSe18().(*tTIOtxse)
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID:       extensions.GlobalTransactionId("g1"),
+		globalTransactionID:       extensions.GlobalTransactionID("g1"),
 		xid:                       xid,
 		timeout:                   30,
 		bqualLength:               2,
@@ -161,6 +161,69 @@ func TestOTxSe_MarshalTo_Suspend(t *testing.T) {
 	}
 }
 
+// TestOTxSeMarshalToErrors verifies that OTXSE returns FailMarshal for every
+// field-level write failure, including null and non-null optional pointers.
+func TestOTxSeMarshalToErrors(t *testing.T) {
+	t.Parallel()
+
+	newStartMessage := func() *tTIOtxse {
+		msg := newOTxSe18().(*tTIOtxse)
+		msg.configureForStart(&sessionlessTransaction{
+			xid:                       driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
+			globalTransactionIDLength: 2,
+			bqualLength:               2,
+			timeout:                   30,
+		}, driver.TxOptions{Isolation: driver.IsolationLevel(sql.LevelReadCommitted)})
+		return msg
+	}
+	newSuspendMessage := func() *tTIOtxse {
+		msg := newOTxSe18().(*tTIOtxse)
+		msg.configureForSuspend()
+		return msg
+	}
+	newMessageWithoutApplicationValue := func() *tTIOtxse {
+		return newOTxSe18().(*tTIOtxse)
+	}
+
+	tests := []struct {
+		name      string
+		failOn    FailOn
+		failCount int
+		message   func() *tTIOtxse
+	}{
+		{name: "header", failOn: failOnWriteByte, failCount: 1, message: newStartMessage},
+		{name: "operation", failOn: failOnWriteBytes, failCount: 2, message: newStartMessage},
+		{name: "null transaction context pointer", failOn: failOnWriteByte, failCount: 3, message: newStartMessage},
+		{name: "transaction context length", failOn: failOnWriteBytes, failCount: 3, message: newStartMessage},
+		{name: "format ID", failOn: failOnWriteBytes, failCount: 4, message: newStartMessage},
+		{name: "global transaction ID length", failOn: failOnWriteBytes, failCount: 5, message: newStartMessage},
+		{name: "BQUAL length", failOn: failOnWriteBytes, failCount: 6, message: newStartMessage},
+		{name: "XID pointer", failOn: failOnWriteByte, failCount: 4, message: newStartMessage},
+		{name: "null XID pointer", failOn: failOnWriteByte, failCount: 4, message: newSuspendMessage},
+		{name: "XID length", failOn: failOnWriteBytes, failCount: 7, message: newStartMessage},
+		{name: "flags", failOn: failOnWriteBytes, failCount: 8, message: newStartMessage},
+		{name: "timeout", failOn: failOnWriteBytes, failCount: 9, message: newStartMessage},
+		{name: "application value pointer", failOn: failOnWriteByte, failCount: 5, message: newStartMessage},
+		{name: "null application value pointer", failOn: failOnWriteByte, failCount: 5, message: newMessageWithoutApplicationValue},
+		{name: "return application value pointer", failOn: failOnWriteByte, failCount: 6, message: newStartMessage},
+		{name: "return context pointer", failOn: failOnWriteByte, failCount: 7, message: newStartMessage},
+		{name: "null internal name pointer", failOn: failOnWriteByte, failCount: 8, message: newStartMessage},
+		{name: "internal name length", failOn: failOnWriteBytes, failCount: 10, message: newStartMessage},
+		{name: "null external name pointer", failOn: failOnWriteByte, failCount: 9, message: newStartMessage},
+		{name: "external name length", failOn: failOnWriteBytes, failCount: 11, message: newStartMessage},
+		{name: "XID", failOn: failOnWriteBytes, failCount: 12, message: newStartMessage},
+		{name: "application value", failOn: failOnWriteBytes, failCount: 13, message: newStartMessage},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			msg := test.message()
+			err := msg.MarshalTo(context.Background(), createMarshaller(make([]byte, 256), test.failOn, test.failCount))
+			assertFailMarshalError(t, err)
+		})
+	}
+}
+
 // TestGenerateSessionlessGlobalTransactionID verifies that the default generated
 // global transaction ID uses
 // the same 16-byte UUID-shaped layout.
@@ -191,13 +254,13 @@ func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 	t.Parallel()
 
 	t.Run("accepts non-empty global transaction ID within server size limit", func(t *testing.T) {
-		if err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionId("valid-global-transaction-id")); err != nil {
+		if err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionID("valid-global-transaction-id")); err != nil {
 			t.Fatalf("validateSessionlessGlobalTransactionID returned unexpected error: %v", err)
 		}
 	})
 
 	t.Run("rejects empty global transaction ID", func(t *testing.T) {
-		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionId(""))
+		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionID(""))
 		if err == nil {
 			t.Fatal("validateSessionlessGlobalTransactionID returned nil for empty global transaction ID")
 		}
@@ -211,7 +274,7 @@ func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 	})
 
 	t.Run("rejects global transaction ID larger than server limit", func(t *testing.T) {
-		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionId(strings.Repeat("a", maxSessionlessGlobalTransactionIDSize+1)))
+		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionID(strings.Repeat("a", maxSessionlessGlobalTransactionIDSize+1)))
 		if err == nil {
 			t.Fatal("validateSessionlessGlobalTransactionID returned nil for oversized global transaction ID")
 		}
@@ -241,11 +304,11 @@ func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 		t.Fatal("did not expect decoded sync payload to be unset")
 	}
 	globalTransactionID := sync.GlobalTransactionID()
-	if !slices.Equal(globalTransactionID, extensions.GlobalTransactionId("ab")) {
+	if !slices.Equal(globalTransactionID, extensions.GlobalTransactionID("ab")) {
 		t.Fatalf("GlobalTransactionID = %q, want %q", sync.GlobalTransactionID(), "ab")
 	}
 	globalTransactionID[0] = 'z'
-	if !slices.Equal(sync.GlobalTransactionID(), extensions.GlobalTransactionId("ab")) {
+	if !slices.Equal(sync.GlobalTransactionID(), extensions.GlobalTransactionID("ab")) {
 		t.Fatalf("GlobalTransactionID changed through returned slice: %q", sync.GlobalTransactionID())
 	}
 	if sync.Version() != 2 {
@@ -333,6 +396,41 @@ func TestOTxSeRPA_UnMarshalFrom_Failure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "simulated read error") {
 		t.Fatalf("expected simulated read error, got %v", err)
+	}
+}
+
+// TestOTxSeRPA_UnMarshalFrom_FieldFailures verifies errors reading each field
+// of an OTXSE return-parameter message.
+func TestOTxSeRPA_UnMarshalFrom_FieldFailures(t *testing.T) {
+	t.Parallel()
+
+	buf, engine := newOTxSeEngine(128)
+	if err := engine.MarshalUB4(context.Background(), 42); err != nil {
+		t.Fatalf("MarshalUB4 failed: %v", err)
+	}
+	if err := engine.MarshalUB2(context.Background(), 4); err != nil {
+		t.Fatalf("MarshalUB2 failed: %v", err)
+	}
+	if err := engine.MarshalB1Array(context.Background(), driverCommon.B1Array{0xDE, 0xAD, 0xBE, 0xEF}); err != nil {
+		t.Fatalf("MarshalB1Array failed: %v", err)
+	}
+	payload := append([]byte(nil), buf.bytes[:buf.currentWritePosition]...)
+
+	tests := []struct {
+		name      string
+		failOn    FailOn
+		failCount int
+	}{
+		{name: "application value", failOn: failOnReadByte, failCount: 1},
+		{name: "context length", failOn: failOnReadByte, failCount: 2},
+		{name: "context bytes", failOn: failOnReadBytes, failCount: 3},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			msg := newOTxSeRPA().(*ttiOTxSeRPA)
+			err := msg.UnMarshalFrom(context.Background(), createMarshaller(payload, test.failOn, test.failCount))
+			assertOracleErrorCode(t, err, oracleErrors.FailUnmarshal)
+		})
 	}
 }
 

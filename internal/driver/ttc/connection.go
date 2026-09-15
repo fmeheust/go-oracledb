@@ -71,7 +71,7 @@ type connection struct {
 	_isValid bool
 	// _isInTransaction keeps the server state of the transaction. When a connection
 	// is returned to the pool, if there is still a transaction started in that
-	// connection it will be rolledback
+	// connection it will be rolled back
 	_isInTransaction bool
 }
 
@@ -231,7 +231,7 @@ func _registerHandleEndOfCallStatus(shelf *ttiShelf[driverCommon.MessageType], c
 
 // _handleEndOfCallStatus is a post-unmarshal callback that handles end-of-call
 // messages. It can invalidate connections that should be dropped, or update the
-// connections active trasaction status. Messages are kept in the queue to be
+// connection's active transaction status. Messages are kept in the queue to be
 // handled by the caller.
 //
 // Parameters:

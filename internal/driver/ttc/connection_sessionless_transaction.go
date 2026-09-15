@@ -20,13 +20,13 @@ const maxSessionlessBQUALSize = 64
 type sessionlessTransaction struct {
 	transaction
 
-	globalTransactionID       extensions.GlobalTransactionId // globalTransactionID is the identifier of the sessionless transaction
+	globalTransactionID       extensions.GlobalTransactionID // globalTransactionID is the identifier of the sessionless transaction
 	timeout                   uint16                         // transaction timeout in seconds
 	startedOnServer           bool                           // startedOnServer indicates that the transaction has been started on the server
 	endedOnServer             bool                           // endedOnServer indicates that the transaction has ended on the server
 	xid                       driverCommon.B1Array           // calculate XID using globalTransactionID and instance name
-	bqualLength               driverCommon.UB4
-	globalTransactionIDLength driverCommon.UB4
+	bqualLength               driverCommon.UB4               // calculated field needed for TTC messages
+	globalTransactionIDLength driverCommon.UB4               // calculated field needed for TTC messages
 }
 
 // newSessionlessTransaction creates a sessionless transaction associated with
@@ -40,7 +40,7 @@ type sessionlessTransaction struct {
 //
 // Returns:
 //   - *sessionlessTransaction: Initialized sessionless transaction.
-func newSessionlessTransaction(ctx context.Context, conn *connection, globalTransactionID extensions.GlobalTransactionId, timeout uint16) *sessionlessTransaction {
+func newSessionlessTransaction(ctx context.Context, conn *connection, globalTransactionID extensions.GlobalTransactionID, timeout uint16) *sessionlessTransaction {
 	tx := &transaction{
 		_underlyingConnection: conn,
 		_transactionContext:   ctx,
@@ -58,11 +58,11 @@ func newSessionlessTransaction(ctx context.Context, conn *connection, globalTran
 //
 // Returns:
 //   - *sessionlessTransaction: Upgraded sessionless transaction.
-func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.GlobalTransactionId, timeout uint16) *sessionlessTransaction {
+func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.GlobalTransactionID, timeout uint16) *sessionlessTransaction {
 	sessionlessTx := &sessionlessTransaction{
 		transaction:         *tx,
 		timeout:             timeout,
-		globalTransactionID: globalTransactionID,
+		globalTransactionID: append(extensions.GlobalTransactionID(nil), globalTransactionID...),
 	}
 	sessionlessTx.buildSessionlessXID()
 	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionStartClient)
@@ -74,7 +74,7 @@ func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.Glob
 // random bytes encoded with UUID version and variant bits. The returned
 // identifier stores the raw bytes directly so it can be passed unchanged to TTC
 // payloads.
-func generateGlobalTransactionID() (extensions.GlobalTransactionId, error) {
+func generateGlobalTransactionID() (extensions.GlobalTransactionID, error) {
 	var globalTransactionID [16]byte
 	if _, err := io.ReadFull(rand.Reader, globalTransactionID[:]); err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func generateGlobalTransactionID() (extensions.GlobalTransactionId, error) {
 // Returns:
 //   - error: InvalidGlobalTransactionIDValue when globalTransactionID is empty
 //     or exceeds the server limit; otherwise nil.
-func validateSessionlessGlobalTransactionID(globalTransactionID extensions.GlobalTransactionId) error {
+func validateSessionlessGlobalTransactionID(globalTransactionID extensions.GlobalTransactionID) error {
 	size := len(globalTransactionID)
 	if size == 0 {
 		return common.NewOracleError(oracleErrors.InvalidGlobalTransactionIDValue, nil)
@@ -201,7 +201,7 @@ func (c *connection) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions,
 // Returns:
 //   - extensions.SessionlessTx: Resumed sessionless transaction.
 //   - error: Error if validation, message construction, or message queuing fails.
-func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionID extensions.GlobalTransactionId) (extensions.SessionlessTx, error) {
+func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionID extensions.GlobalTransactionID) (extensions.SessionlessTx, error) {
 
 	// check that the global transaction ID is valid
 	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
@@ -242,6 +242,9 @@ func (t *sessionlessTransaction) Suspend() error {
 	// check that there is no active transaction in the connection
 	if !t.underlyingConnection().shelf.isInTransaction() {
 		return nil
+	}
+	if !t.transaction.isCurrentTransaction() {
+		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
 	}
 
 	if err := t._underlyingConnection.detachTransaction(t._transactionContext); err != nil {
@@ -367,14 +370,13 @@ func (c *connection) detachTransaction(ctx context.Context) error {
 // transaction.
 //
 // Returns:
-//   - extensions.GlobalTransactionId: Transaction identifier while the
+//   - extensions.GlobalTransactionID: Transaction identifier while the
 //     transaction is registered on the connection; otherwise nil.
-func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransactionId {
-	// check that there is no active transaction in the connection
-	if !t.underlyingConnection().shelf.isInTransaction() {
+func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransactionID {
+	if !t.transaction.isCurrentTransaction() {
 		return nil
 	}
-	return t.globalTransactionID
+	return append(extensions.GlobalTransactionID(nil), t.globalTransactionID...)
 }
 
 // notify updates the sessionless transaction state after a session property
@@ -396,14 +398,14 @@ func (t *sessionlessTransaction) notify(event eventType) {
 	case sessionlessTransactionStartClient:
 		if !bytes.Equal(sync.globalTransactionID, t.globalTransactionID) {
 			common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", sync.globalTransactionID, "client global transaction ID", t.globalTransactionID)
-			t.globalTransactionID = sync.globalTransactionID
+			t.globalTransactionID = append(extensions.GlobalTransactionID(nil), sync.globalTransactionID...)
 		}
 		common.Odl.Debug("Transaction has started by client received by server")
 		t.startedOnServer = true
 	case sessionlessTransactionEndClient:
 		if !bytes.Equal(sync.globalTransactionID, t.globalTransactionID) {
 			common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", sync.globalTransactionID, "client global transaction ID", t.globalTransactionID)
-			t.globalTransactionID = sync.globalTransactionID
+			t.globalTransactionID = append(extensions.GlobalTransactionID(nil), sync.globalTransactionID...)
 		}
 		common.Odl.Debug("Transaction has ended by client received by server")
 		t.endedOnServer = true

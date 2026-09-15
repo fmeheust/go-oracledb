@@ -174,79 +174,83 @@ func (m *tTIOtxen) _configureForOperation(transaction oracleTx, operation txStat
 // Returns:
 //   - error: Error if any part of the message cannot be serialized.
 func (m *tTIOtxen) MarshalTo(ctx context.Context, engine driverCommon.Marshaller) error {
-	marshal := func(name string, f func() error) error {
-		if err := f(); err != nil {
-			common.Odl.Warn("Error marshalling OTXEN "+name, "error", err)
-			return common.NewOracleError(oracleErrors.FailMarshal, err, TTCMsgTypeDescription[m.GetMsgCode()])
-		}
-		return nil
+	if err := m.headerMarshaller.MarshalTo(ctx, engine); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN header", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	if err := marshal("header", func() error { return m.headerMarshaller.MarshalTo(ctx, engine) }); err != nil {
-		return err
-	}
-	if err := marshal("operation", func() error { return engine.MarshalSB4(ctx, m.operation) }); err != nil {
-		return err
+	if err := engine.MarshalSB4(ctx, m.operation); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN operation", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
 	if len(m.transactionContext) > 0 {
-		if err := marshal("transaction context pointer", func() error { return engine.MarshalPTR(ctx) }); err != nil {
-			return err
+		if err := engine.MarshalPTR(ctx); err != nil {
+			common.Odl.Warn("Error marshalling OTXEN transaction context ptr", "error", err)
+			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 		}
-	} else if err := marshal("null transaction context pointer", func() error { return engine.MarshalNullPTR(ctx) }); err != nil {
-		return err
+	} else if err := engine.MarshalNullPTR(ctx); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN null transaction context ptr", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("transaction context length", func() error {
-		return engine.MarshalUB4(ctx, driverCommon.UB4(len(m.transactionContext)))
-	}); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, driverCommon.UB4(len(m.transactionContext))); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN transaction context length", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
-	if err := marshal("format id", func() error { return engine.MarshalUB4(ctx, m.formatID) }); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, m.formatID); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN format id", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("global transaction ID length", func() error { return engine.MarshalUB4(ctx, m.globalTransactionIDLength) }); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, m.globalTransactionIDLength); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN global transaction ID length", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("BQUAL length", func() error { return engine.MarshalUB4(ctx, m.bqualLength) }); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, m.bqualLength); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN BQUAL length", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
 	if len(m.xid) > 0 {
-		if err := marshal("XID pointer", func() error { return engine.MarshalPTR(ctx) }); err != nil {
-			return err
+		if err := engine.MarshalPTR(ctx); err != nil {
+			common.Odl.Warn("Error marshalling OTXEN xid ptr", "error", err)
+			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 		}
-	} else if err := marshal("null XID pointer", func() error { return engine.MarshalNullPTR(ctx) }); err != nil {
-		return err
+	} else if err := engine.MarshalNullPTR(ctx); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN null xid ptr", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("XID length", func() error {
-		return engine.MarshalUB4(ctx, driverCommon.UB4(len(m.xid)))
-	}); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, driverCommon.UB4(len(m.xid))); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN xid length", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("timeout", func() error { return engine.MarshalUB2(ctx, m.timeout) }); err != nil {
-		return err
+	if err := engine.MarshalUB2(ctx, m.timeout); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN timeout", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("in state", func() error { return engine.MarshalUB4(ctx, m.inState) }); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, m.inState); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN in state", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("out-state pointer", func() error { return engine.MarshalPTR(ctx) }); err != nil {
-		return err
+	if err := engine.MarshalPTR(ctx); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN out-state ptr", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
-	if err := marshal("transaction state change flags", func() error { return engine.MarshalUB4(ctx, m.flags) }); err != nil {
-		return err
+	if err := engine.MarshalUB4(ctx, m.flags); err != nil {
+		common.Odl.Warn("Error marshalling OTXEN transaction state change flags", "error", err)
+		return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 	}
 
 	if len(m.transactionContext) > 0 {
-		if err := marshal("transaction context", func() error {
-			return engine.MarshalB1Array(ctx, m.transactionContext)
-		}); err != nil {
-			return err
+		if err := engine.MarshalB1Array(ctx, m.transactionContext); err != nil {
+			common.Odl.Warn("Error marshalling OTXEN transaction context", "error", err)
+			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 		}
 	}
 	if len(m.xid) > 0 {
-		if err := marshal("XID", func() error { return engine.MarshalB1Array(ctx, m.xid) }); err != nil {
-			return err
+		if err := engine.MarshalB1Array(ctx, m.xid); err != nil {
+			common.Odl.Warn("Error marshalling OTXEN xid", "error", err)
+			return common.NewOracleError(oracleErrors.FailMarshal, err, nil)
 		}
 	}
 

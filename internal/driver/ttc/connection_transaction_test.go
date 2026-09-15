@@ -371,3 +371,36 @@ func TestTransactionOperationRejectsStaleMessages(t *testing.T) {
 		})
 	}
 }
+
+// TestTransactionOperationsRejectStaleTransactions verifies that transaction
+// operations do not act on a different transaction registered on the connection.
+func TestTransactionOperationsRejectStaleTransactions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		operation func(*transaction) error
+	}{
+		{name: "commit", operation: (*transaction).Commit},
+		{name: "rollback", operation: (*transaction).Rollback},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			streamer := &mockStreamer{pullMsg: &mockOer{}}
+			conn := newTransactionTestConnection(streamer)
+			staleTransaction := newTransaction(conn, context.Background())
+			currentTransaction := newTransaction(conn, context.Background())
+			conn.shelf.registerTransaction(currentTransaction)
+
+			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotInTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotInTransaction)
+			}
+			if streamer.pushCalled {
+				t.Fatalf("stale %s should not send a transaction message", tt.name)
+			}
+			if conn.shelf.getTransaction() != currentTransaction {
+				t.Fatalf("stale %s changed the current transaction", tt.name)
+			}
+		})
+	}
+}

@@ -50,6 +50,8 @@ type oracleTx interface {
 	transactionContext() context.Context
 	// underlyingConnection returns the connection associated with the transaction.
 	underlyingConnection() *connection
+	// transactionIdentity returns the transaction object identity.
+	transactionIdentity() *transaction
 }
 
 type transaction struct {
@@ -91,13 +93,32 @@ func (t *transaction) underlyingConnection() *connection {
 	return t._underlyingConnection
 }
 
+// transactionIdentity returns the identity used to determine whether this
+// transaction is still registered on its connection.
+//
+// Returns:
+//   - *transaction: Transaction identity.
+func (t *transaction) transactionIdentity() *transaction {
+	return t
+}
+
+// isCurrentTransaction reports whether this transaction is the transaction
+// currently registered on its connection.
+//
+// Returns:
+//   - bool: True when this transaction is current; otherwise false.
+func (t *transaction) isCurrentTransaction() bool {
+	currentTransaction := t._underlyingConnection.shelf.getTransaction()
+	return currentTransaction != nil && currentTransaction.transactionIdentity() == t
+}
+
 // Commit commits the transaction.
 //
 // Returns:
 //   - error: Error if no transaction is active or the commit fails.
 func (t *transaction) Commit() error {
 	common.Odl.Debug("Transaction commit")
-	if !t._underlyingConnection.shelf.isInTransaction() {
+	if !t.isCurrentTransaction() {
 		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
 	}
 
@@ -123,7 +144,7 @@ func (t *transaction) Commit() error {
 //   - error: Error if no transaction is active or the rollback fails.
 func (t *transaction) Rollback() error {
 	common.Odl.Debug("Transaction rollback")
-	if !t._underlyingConnection.shelf.isInTransaction() {
+	if !t.isCurrentTransaction() {
 		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
 	}
 

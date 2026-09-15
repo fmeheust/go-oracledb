@@ -40,6 +40,8 @@ package ttc
 
 import (
 	"context"
+	"database/sql/driver"
+	"errors"
 	"testing"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
@@ -86,4 +88,44 @@ func TestConnectionResetter_Reset(t *testing.T) {
 		t.Errorf("session porperties should have been resetted")
 	}
 
+}
+
+// TestConnectionResetter_RollsBackActiveTransaction verifies that ResetSession
+// rolls back a transaction reported as active by the server before flushing.
+func TestConnectionResetter_RollsBackActiveTransaction(t *testing.T) {
+	t.Parallel()
+
+	streamer := &mockStreamer{pullMsg: &mockOer{}}
+	connection := newTransactionTestConnection(streamer)
+	connection.sessCtx = common.NewSessionContext()
+	connection._isInTransaction = true
+
+	if err := connection.ResetSession(context.Background()); err != nil {
+		t.Fatalf("ResetSession returned error: %v", err)
+	}
+	assertTransactionFunction(t, streamer, common.SB4(otxenAbort), k2cmdAbort)
+	if connection._isInTransaction {
+		t.Fatal("ResetSession should clear the active transaction state")
+	}
+	if connection.shelf.isInTransaction() {
+		t.Fatal("ResetSession should unregister the rolled back transaction")
+	}
+}
+
+// TestConnectionResetter_RollbackFailureInvalidatesConnection verifies that a
+// failed rollback prevents a connection from being returned to the pool.
+func TestConnectionResetter_RollbackFailureInvalidatesConnection(t *testing.T) {
+	t.Parallel()
+
+	streamer := &mockStreamer{pullMsg: &mockOer{err: errors.New("rollback failed")}}
+	connection := newTransactionTestConnection(streamer)
+	connection.sessCtx = common.NewSessionContext()
+	connection._isInTransaction = true
+
+	if err := connection.ResetSession(context.Background()); err != driver.ErrBadConn {
+		t.Fatalf("ResetSession error = %v, want %v", err, driver.ErrBadConn)
+	}
+	if connection._isValid {
+		t.Fatal("ResetSession rollback failure should invalidate the connection")
+	}
 }

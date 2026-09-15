@@ -198,7 +198,7 @@ func TestBeginSessionlessTx(t *testing.T) {
 	if len(otxse.xid) != maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize {
 		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize)
 	}
-	if got := extensions.GlobalTransactionId(otxse.xid[:len(sessionlessTx.GlobalTransactionID())]); !slices.Equal(got, sessionlessTx.GlobalTransactionID()) {
+	if got := extensions.GlobalTransactionID(otxse.xid[:len(sessionlessTx.GlobalTransactionID())]); !slices.Equal(got, sessionlessTx.GlobalTransactionID()) {
 		t.Fatalf("OTXSE xid global transaction ID prefix = %q, want %q", got, sessionlessTx.GlobalTransactionID())
 	}
 	if got := string(otxse.xid[len(sessionlessTx.GlobalTransactionID()) : len(sessionlessTx.GlobalTransactionID())+len("test-instance")]); got != "test-instance" {
@@ -219,7 +219,8 @@ func TestResumeSessionlessTx(t *testing.T) {
 	t.Parallel()
 
 	conn, mockStr := newSessionlessTransactionTestConnection()
-	globalTransactionID := extensions.GlobalTransactionId("resume-global-transaction-id")
+	globalTransactionID := extensions.GlobalTransactionID("resume-global-transaction-id")
+	wantGlobalTransactionID := append(extensions.GlobalTransactionID(nil), globalTransactionID...)
 
 	tx, err := conn.ResumeSessionlessTx(context.Background(), globalTransactionID)
 	if err != nil {
@@ -253,7 +254,7 @@ func TestResumeSessionlessTx(t *testing.T) {
 	if len(otxse.xid) != maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize {
 		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize)
 	}
-	if got := extensions.GlobalTransactionId(otxse.xid[:len(globalTransactionID)]); !slices.Equal(got, globalTransactionID) {
+	if got := extensions.GlobalTransactionID(otxse.xid[:len(globalTransactionID)]); !slices.Equal(got, globalTransactionID) {
 		t.Fatalf("OTXSE xid global transaction ID prefix = %q, want %q", got, globalTransactionID)
 	}
 	if otxse.globalTransactionIDLength != driverCommon.UB4(len(globalTransactionID)) {
@@ -261,6 +262,26 @@ func TestResumeSessionlessTx(t *testing.T) {
 	}
 	if otxse.bqualLength != driverCommon.UB4(len("test-instance")) {
 		t.Fatalf("OTXSE bqualLength = %d, want %d", otxse.bqualLength, len("test-instance"))
+	}
+
+	// The transaction must retain its own copy of the caller-provided ID.
+	globalTransactionID[0] = 'X'
+	if got := tx.GlobalTransactionID(); !slices.Equal(got, wantGlobalTransactionID) {
+		t.Fatalf("GlobalTransactionID changed when the input was modified: %q", got)
+	}
+
+	// The accessor must also return a copy so callers cannot mutate transaction state.
+	returnedGlobalTransactionID := tx.GlobalTransactionID()
+	returnedGlobalTransactionID[0] = 'Y'
+	if got := tx.GlobalTransactionID(); !slices.Equal(got, wantGlobalTransactionID) {
+		t.Fatalf("GlobalTransactionID changed through the returned slice: %q", got)
+	}
+
+	// An old transaction handle must not expose an ID after the shelf points to
+	// another transaction, even when operations are performed sequentially.
+	conn.shelf.registerTransaction(newTransaction(conn, context.Background()))
+	if got := tx.GlobalTransactionID(); got != nil {
+		t.Fatalf("GlobalTransactionID from a non-current transaction = %q, want empty", got)
 	}
 }
 
@@ -388,7 +409,7 @@ func TestResumeSessionlessTxPushFailure(t *testing.T) {
 	conn, mockStr := newSessionlessTransactionTestConnection()
 	mockStr.pushErr = errors.New("push failed")
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
+	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionID("resume-global-transaction-id"))
 	if err == nil {
 		t.Fatal("ResumeSessionlessTx returned nil error on push failure")
 	}
@@ -417,7 +438,7 @@ func TestResumeSessionlessTxDefersFlush(t *testing.T) {
 	baseConn.shelf.RegisterMessageStreamer(streamer)
 	streamer.flushErr = errors.New("flush failed")
 
-	tx, err := baseConn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
+	tx, err := baseConn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionID("resume-global-transaction-id"))
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed despite deferred flush: %v", err)
 	}
@@ -434,7 +455,7 @@ func TestResumeSessionlessTxDefersPull(t *testing.T) {
 	conn, mockStr := newSessionlessTransactionTestConnection()
 	mockStr.pullErr = errors.New("pull failed")
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
+	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionID("resume-global-transaction-id"))
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed despite deferred pull: %v", err)
 	}
@@ -451,7 +472,7 @@ func TestResumeSessionlessTxDefersOER(t *testing.T) {
 	conn, mockStr := newSessionlessTransactionTestConnection()
 	mockStr.pullMsg = &mockOer{err: common.NewOERMessageError("ORA-24776", "resume failed")}
 
-	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionId("resume-global-transaction-id"))
+	tx, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionID("resume-global-transaction-id"))
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx failed despite deferred response: %v", err)
 	}
@@ -674,5 +695,39 @@ func TestSuspendSessionlessTxOERFailure(t *testing.T) {
 	}
 	if conn.shelf.isInTransaction() {
 		t.Fatal("Suspend OER failure should have unregistered the transaction")
+	}
+}
+
+// TestSessionlessTransactionOperationsRejectStaleTransaction verifies that
+// sessionless transaction operations do not act on a different transaction
+// registered on the connection.
+func TestSessionlessTransactionOperationsRejectStaleTransaction(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		operation func(*sessionlessTransaction) error
+	}{
+		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
+		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
+		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			staleTransaction := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("stale"), 300)
+			currentTransaction := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("current"), 300)
+			conn.shelf.registerTransaction(currentTransaction)
+
+			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotInTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotInTransaction)
+			}
+			if streamer.pushCalled {
+				t.Fatalf("stale %s should not send a transaction message", tt.name)
+			}
+			if conn.shelf.getTransaction() != currentTransaction {
+				t.Fatalf("stale %s changed the current transaction", tt.name)
+			}
+		})
 	}
 }

@@ -47,6 +47,7 @@ import (
 
 // ResetSession implements driver.SessionResetter.
 // - Closes statements that have been left open
+// - Rolls back a transaction reported as active by the server
 // - Resets session properties
 // - Flushes piggyback messages
 func (c *connection) ResetSession(ctx context.Context) error {
@@ -55,6 +56,14 @@ func (c *connection) ResetSession(ctx context.Context) error {
 	if c._isClosed || !c._isValid {
 		return driver.ErrBadConn
 	}
+	if c._isInTransaction {
+		if err := c.rollbackActiveTransaction(ctx); err != nil {
+			common.Odl.Warn("Rollback of active transaction during reset has failed", "error", err)
+			c._isValid = false
+			return driver.ErrBadConn
+		}
+	}
+
 	statements := c.shelf.GetStatements(true)
 	for _, statement := range statements {
 		if err := statement.Close(); err != nil {
@@ -71,5 +80,28 @@ func (c *connection) ResetSession(ctx context.Context) error {
 		return driver.ErrBadConn
 	}
 
+	return nil
+}
+
+// rollbackActiveTransaction rolls back the transaction reported as active by
+// the server before the connection is returned to the pool.
+//
+// Parameters:
+//   - ctx: Context used for the rollback operation.
+//
+// Returns:
+//   - error: Error if the rollback message cannot be sent or completed.
+func (c *connection) rollbackActiveTransaction(ctx context.Context) error {
+	transaction := c.shelf.getTransaction()
+	if transaction == nil {
+		transaction = newTransaction(c, ctx)
+	}
+
+	if err := c.runOTxEn(ctx, otxenAbort, transaction); err != nil {
+		return err
+	}
+
+	c._isInTransaction = false
+	c.shelf.unregisterTransaction()
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	extensions "github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
@@ -60,7 +61,7 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	ctx := context.Background()
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID:       extensions.GlobalTransactionId("g1"),
+		globalTransactionID:       extensions.GlobalTransactionID("g1"),
 		xid:                       xid,
 		globalTransactionIDLength: 2,
 		bqualLength:               2,
@@ -165,13 +166,88 @@ func TestOTxEnMarshalToEmptyVariableData(t *testing.T) {
 	idx += universalSizeAt(t, got, idx, "transaction state change flags")
 }
 
+// TestOTxEnMarshalToErrors verifies that OTXEN returns FailMarshal for every
+// field-level write failure, including both null and non-null variable pointers.
+func TestOTxEnMarshalToErrors(t *testing.T) {
+	t.Parallel()
+
+	newMessage := func(withContext, withXID bool) *tTIOtxen {
+		msg := newOTxEn18().(*tTIOtxen)
+		msg.operation = driverCommon.SB4(otxenCommit)
+		msg.formatID = k2gSessionless
+		msg.globalTransactionIDLength = 2
+		msg.bqualLength = 2
+		msg.timeout = 30
+		msg.inState = k2cmdCommit
+		if withContext {
+			msg.transactionContext = driverCommon.B1Array{0xAA, 0xBB}
+		}
+		if withXID {
+			msg.xid = driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
+		}
+		return msg
+	}
+
+	tests := []struct {
+		name      string
+		failOn    FailOn
+		failCount int
+		message   func() *tTIOtxen
+	}{
+		{name: "header", failOn: failOnWriteByte, failCount: 1, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "operation", failOn: failOnWriteBytes, failCount: 2, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "transaction context pointer", failOn: failOnWriteByte, failCount: 3, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "null transaction context pointer", failOn: failOnWriteByte, failCount: 3, message: func() *tTIOtxen { return newMessage(false, true) }},
+		{name: "transaction context length", failOn: failOnWriteBytes, failCount: 3, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "format ID", failOn: failOnWriteBytes, failCount: 4, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "global transaction ID length", failOn: failOnWriteBytes, failCount: 5, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "BQUAL length", failOn: failOnWriteBytes, failCount: 6, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "XID pointer", failOn: failOnWriteByte, failCount: 4, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "null XID pointer", failOn: failOnWriteByte, failCount: 4, message: func() *tTIOtxen { return newMessage(true, false) }},
+		{name: "XID length", failOn: failOnWriteBytes, failCount: 7, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "timeout", failOn: failOnWriteBytes, failCount: 8, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "in state", failOn: failOnWriteBytes, failCount: 9, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "out-state pointer", failOn: failOnWriteByte, failCount: 5, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "transaction state change flags", failOn: failOnWriteBytes, failCount: 10, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "transaction context", failOn: failOnWriteBytes, failCount: 11, message: func() *tTIOtxen { return newMessage(true, true) }},
+		{name: "XID", failOn: failOnWriteBytes, failCount: 12, message: func() *tTIOtxen { return newMessage(true, true) }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			msg := test.message()
+			err := msg.MarshalTo(context.Background(), createMarshaller(make([]byte, 256), test.failOn, test.failCount))
+			assertFailMarshalError(t, err)
+		})
+	}
+}
+
+func assertFailMarshalError(t *testing.T, err error) {
+	t.Helper()
+	assertOracleErrorCode(t, err, oracleErrors.FailMarshal)
+}
+
+func assertOracleErrorCode(t *testing.T, err error, want oracleErrors.ErrorCode) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected error with code %q, got nil", want)
+	}
+	sqlErr, ok := err.(oracleErrors.SQLError)
+	if !ok {
+		t.Fatalf("error type = %T, want oracle error, got %v", err, err)
+	}
+	if sqlErr.ErrorCode() != string(want) {
+		t.Fatalf("error code = %q, want %q", sqlErr.ErrorCode(), want)
+	}
+}
+
 // TestOTxEnConfigureOperations verifies that commit and rollback operations
 // populate the expected OTXEN opcode, K2 state, XID, and timeout.
 func TestOTxEnConfigureOperations(t *testing.T) {
 	t.Parallel()
 
 	tx := &sessionlessTransaction{
-		globalTransactionID:       extensions.GlobalTransactionId("g1"),
+		globalTransactionID:       extensions.GlobalTransactionID("g1"),
 		xid:                       driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
 		globalTransactionIDLength: 2,
 		bqualLength:               2,
