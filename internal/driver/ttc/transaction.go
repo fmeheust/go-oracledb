@@ -118,7 +118,7 @@ func (t *transaction) transactionIdentity() *transaction {
 // Returns:
 //   - bool: True when this transaction is current; otherwise false.
 func (t *transaction) isCurrentTransaction() bool {
-	currentTransaction := t._underlyingConnection.shelf.getTransaction()
+	currentTransaction := t.underlyingConnection().shelf.getTransaction()
 	return currentTransaction != nil && currentTransaction.transactionIdentity() == t.transactionIdentity()
 }
 
@@ -128,23 +128,29 @@ func (t *transaction) isCurrentTransaction() bool {
 //   - error: Error if no transaction is active or the commit fails.
 func (t *transaction) Commit() error {
 	common.Odl.Debug("Transaction commit")
+
+	// check that the transaction is the active transaction on the connection
 	if !t.isCurrentTransaction() {
-		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
+		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
 	}
 
-	currentTransaction := t._underlyingConnection.shelf.getTransaction()
+	// get the transaction, the context and execute commit
+	currentTransaction := t.underlyingConnection().shelf.getTransaction()
 	ctx := currentTransaction.transactionContext()
-	readFuncError := t._underlyingConnection.runOTxEn(ctx, otxenCommit, currentTransaction)
+	readFuncError := t.underlyingConnection().runOTxEn(ctx, otxenCommit, currentTransaction)
 
-	if err := t._underlyingConnection.shelf.checkCurrentState(ctx); err != nil {
+	// validate the current connection state
+	if err := t.underlyingConnection().shelf.checkCurrentState(ctx); err != nil {
 		return err
 	}
 
+	// check for errors during the commit round-trip
 	if readFuncError != nil {
-		return t._underlyingConnection.shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, readFuncError, "Commit"))
+		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, readFuncError, "Commit"))
 	}
 
-	t._underlyingConnection.shelf.unregisterTransaction()
+	// unregister the transaction
+	t.underlyingConnection().shelf.unregisterTransaction()
 	return nil
 }
 
@@ -154,22 +160,27 @@ func (t *transaction) Commit() error {
 //   - error: Error if no transaction is active or the rollback fails.
 func (t *transaction) Rollback() error {
 	common.Odl.Debug("Transaction rollback")
+
+	// check that the transaction is the active transaction on the connection
 	if !t.isCurrentTransaction() {
-		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
+		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
 	}
 
-	currentTransaction := t._underlyingConnection.shelf.getTransaction()
-	runFuncErr := t._underlyingConnection.runOTxEn(common.BackgroundContext, otxenAbort, currentTransaction)
+	// get the transaction and execute rollback
+	currentTransaction := t.underlyingConnection().shelf.getTransaction()
+	runFuncErr := t.underlyingConnection().runOTxEn(common.BackgroundContext, otxenAbort, currentTransaction)
 
-	if err := t._underlyingConnection.shelf.checkCurrentState(common.BackgroundContext); err != nil {
+	// validate the current connection state
+	if err := t.underlyingConnection().shelf.checkCurrentState(common.BackgroundContext); err != nil {
 		return err
 	}
 
+	// check for errors during the rollback round-trip
 	if runFuncErr != nil {
-		return t._underlyingConnection.shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, runFuncErr, "Rollback"))
+		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, runFuncErr, "Rollback"))
 	}
 
-	t._underlyingConnection.shelf.unregisterTransaction()
+	t.underlyingConnection().shelf.unregisterTransaction()
 	return nil
 }
 

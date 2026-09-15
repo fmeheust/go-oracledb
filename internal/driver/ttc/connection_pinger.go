@@ -42,6 +42,8 @@ import (
 	"context"
 	"database/sql/driver"
 	"time"
+
+	"github.com/oracle/go-oracledb/v26/internal/common"
 )
 
 // Implementation of Pinger and Validator interfaces
@@ -71,10 +73,11 @@ func (c *connection) Ping(ctx context.Context) error {
 
 const (
 	// timeout duration to prevent the IsValid function from blocking indefinitely
-	_pingTimeout time.Duration = 10000000000 // 10s
+	_rollbackTimeout time.Duration = 10000000000 // 10s
 )
 
-// IsValid checks if the connection is valid
+// IsValid checks if the connection is valid. If the server has reported an ongoing
+// transaction, it will be rolled back.
 //
 // Returns: true if the connection is valid otherwise false
 func (c *connection) IsValid() bool {
@@ -82,5 +85,38 @@ func (c *connection) IsValid() bool {
 	// Check if inband notification has been received.
 	c._isValid = c._isValid && !c.ns.CheckInbandNotification()
 
+	if c._isInTransaction {
+		ctx, cancel := context.WithTimeout(common.BackgroundContext, _rollbackTimeout)
+		defer cancel()
+		if err := c.rollbackActiveTransaction(ctx); err != nil {
+			common.Odl.Warn("Rollback of active transaction during reset has failed", "error", err)
+			return false
+		}
+	}
+
 	return c._isValid
+}
+
+// rollbackActiveTransaction rolls back the transaction reported as active by
+// the server before the connection is returned to the pool.
+//
+// Parameters:
+//   - ctx: Context used for the rollback operation.
+//
+// Returns:
+//   - error: Error if the rollback message cannot be sent or completed.
+func (c *connection) rollbackActiveTransaction(ctx context.Context) error {
+	transaction := c.shelf.getTransaction()
+	if transaction == nil {
+		// if the transaction was not create using the API, create it
+		transaction = newTransaction(c, ctx)
+	}
+
+	if err := c.runOTxEn(ctx, otxenAbort, transaction); err != nil {
+		return err
+	}
+
+	c._isInTransaction = false
+	c.shelf.unregisterTransaction()
+	return nil
 }

@@ -72,24 +72,23 @@ func (kvl keyValueList) String() string {
 	return res.String()
 }
 
-/*
-	func (kvl keyValueList) Equals(okvl *keyValueList) bool {
-		if okvl == nil {
-			return false
-		}
-		if kvl.Len() != okvl.Len() {
-			return false
-		}
-		okv := okvl.Front()
-		for e := kvl.Front(); e != nil; e = e.Next() {
-			if !e.Value.(*driverCommon.KeyValue).Equals(okv.Value.(*driverCommon.KeyValue)) {
-				return false
-			}
-			okv = okv.Next()
-		}
-		return true
+func (kvl keyValueList) Equals(okvl *keyValueList) bool {
+	if okvl == nil {
+		return false
 	}
-*/
+	if kvl.Len() != okvl.Len() {
+		return false
+	}
+	okv := okvl.Front()
+	for e := kvl.Front(); e != nil; e = e.Next() {
+		if !e.Value.(*driverCommon.KeyValue).Equals(okv.Value.(*driverCommon.KeyValue)) {
+			return false
+		}
+		okv = okv.Next()
+	}
+	return true
+}
+
 func newKeyValueList() *keyValueList {
 	return &keyValueList{List: list.New()}
 }

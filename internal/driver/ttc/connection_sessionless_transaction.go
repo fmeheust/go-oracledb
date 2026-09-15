@@ -61,8 +61,12 @@ func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.Glob
 		timeout:             timeout,
 		globalTransactionID: append(extensions.GlobalTransactionID(nil), globalTransactionID...),
 	}
+	// keep the transaction identity on upgrade, this allows to identify a
+	// transaction that has been upgraded to sessionless after a sessionless
+	// transaction was started using PL/SQL.
 	sessionlessTx._transactionIdentity = tx.transactionIdentity()
 	sessionlessTx.buildSessionlessXID()
+	// keep track of server side transaction state
 	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionStartClient)
 	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionEndClient)
 	return sessionlessTx
@@ -78,7 +82,6 @@ func generateGlobalTransactionID() (extensions.GlobalTransactionID, error) {
 		return nil, err
 	}
 
-	// Match UUID.randomUUID() layout used by the JDBC thin driver.
 	globalTransactionID[6] = (globalTransactionID[6] & 0x0F) | 0x40
 	globalTransactionID[8] = (globalTransactionID[8] & 0x3F) | 0x80
 
@@ -105,7 +108,8 @@ func validateSessionlessGlobalTransactionID(globalTransactionID extensions.Globa
 }
 
 // buildSessionlessXID builds the XID from the global transaction ID and the
-// connection instance name.
+// connection instance name. Value and lengths are stored in the transaction
+// object and used on TTI messages.
 func (t *sessionlessTransaction) buildSessionlessXID() {
 	globalTransactionIDBytes := []byte(t.globalTransactionID)
 	globalTransactionIDLength := len(globalTransactionIDBytes)
@@ -160,6 +164,7 @@ func (c *connection) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions,
 		return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.UnsupportedFeature, nil, "Sessionless Transactions"))
 	}
 
+	// convert to driver.TxOptions since this is what is received by BeginTx
 	driverOpts := driver.TxOptions{
 		Isolation: driver.IsolationLevel(opts.Isolation),
 		ReadOnly:  opts.ReadOnly,
@@ -239,19 +244,33 @@ func (t *sessionlessTransaction) Suspend() error {
 
 	// check that there is no active transaction in the connection
 	if !t.underlyingConnection().shelf.isInTransaction() {
+		// no-op
 		return nil
 	}
+
+	// check that there is an active transaction
 	if !t.transaction.isCurrentTransaction() {
-		return t._underlyingConnection.shelf.LocalizeError(newNotInTransactionError())
+		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
 	}
 
-	if err := t._underlyingConnection.detachTransaction(t._transactionContext); err != nil {
-		t._underlyingConnection.shelf.unregisterTransaction()
-		return t._underlyingConnection.shelf.LocalizeError(
+	// detach the transaction from the connection
+	if err := t.underlyingConnection().detachTransaction(t.transactionContext()); err != nil {
+		// in case of error, the transaction is unregistered
+		t.underlyingConnection().shelf.unregisterTransaction()
+		// invalidate the connection
+		t.underlyingConnection()._isValid = false
+		return t.underlyingConnection().shelf.LocalizeError(
 			common.NewOracleError(oracleErrors.ErrorInTransaction, err, "Suspend"),
 		)
 	}
-	t._underlyingConnection.shelf.unregisterTransaction()
+
+	// validate the current connection state
+	if err := t.underlyingConnection().shelf.checkCurrentState(common.BackgroundContext); err != nil {
+		return err
+	}
+
+	// unregister the transaction
+	t.underlyingConnection().shelf.unregisterTransaction()
 	return nil
 }
 
@@ -265,12 +284,15 @@ func (t *sessionlessTransaction) Suspend() error {
 // Returns:
 //   - error: Error if the message cannot be created or queued.
 func (c *connection) resumeSessionlessTx(ctx context.Context, tx *sessionlessTransaction, timeout uint16) error {
+	common.Odl.Debug("Running sessionless transaction resume")
+	// get the streamer
 	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 	if !ok {
 		common.Odl.Warn("Sessionless transactions require a message streamer with callback support")
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// create the message
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIPFN, oTxSe)
 	if err != nil {
 		common.Odl.Warn("Error creating OTXSE message", "error", err)
@@ -283,8 +305,11 @@ func (c *connection) resumeSessionlessTx(ctx context.Context, tx *sessionlessTra
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// configure the message
 	otxse.configureForResume(tx)
 
+	// push the message, this is a piggyback, it will be flushed on the next
+	// round trip
 	err = stmr.Push(ctx, msg)
 	if err != nil {
 		common.Odl.Warn("Error pushing OTXSE message", "error", err)
@@ -305,12 +330,14 @@ func (c *connection) resumeSessionlessTx(ctx context.Context, tx *sessionlessTra
 func (c *connection) detachTransaction(ctx context.Context) error {
 	common.Odl.Debug("Running sessionless transaction detach")
 
+	// get the streamer
 	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 	if !ok {
 		common.Odl.Warn("Sessionless transactions require a message streamer with callback support")
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// create the message
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIFUN, oTxSe)
 	if err != nil {
 		common.Odl.Warn("Error creating OTXSE message", "error", err)
@@ -323,19 +350,24 @@ func (c *connection) detachTransaction(ctx context.Context) error {
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// configure the message
 	otxse.configureForSuspend()
 
+	// push the message
 	err = c.shelf.GetMessageStreamer().Push(ctx, msg)
 	if err != nil {
 		common.Odl.Warn("Error pushing OTXSE message", "error", err)
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
 	}
+
+	// flush
 	err = stmr.Flush(ctx)
 	if err != nil {
 		common.Odl.Warn("Error flushing OTXSE message", "error", err)
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
 	}
 
+	// register OTXSE RPA
 	stmr.RegisterPreUnmarshallCallback(TTIRPA, func(*messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
 		return c.shelf.GetMessageFactory().GetMessageForFunction(TTIRPA, oTxSe)
 	})
@@ -386,7 +418,7 @@ func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransact
 // Returns:
 //   - None. The transaction state is updated in place.
 func (t *sessionlessTransaction) notify(event eventType) {
-	newValue := t._underlyingConnection.sessCtx.GetSessionProperties().GetProperty(sessionlessGlobalTransactionIDProperty)
+	newValue := t.underlyingConnection().sessCtx.GetSessionProperties().GetProperty(sessionlessGlobalTransactionIDProperty)
 	sync, ok := newValue.(SessionlessGlobalTransactionIDSync)
 	if !ok {
 		return
@@ -394,6 +426,9 @@ func (t *sessionlessTransaction) notify(event eventType) {
 
 	switch event {
 	case sessionlessTransactionStartClient:
+		// the server has notified that the transaction has started on the
+		// server. If the server GTRID does not match the one in the client
+		// update it, and mark the transaction as started on the server.
 		if !bytes.Equal(sync.globalTransactionID, t.globalTransactionID) {
 			common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", sync.globalTransactionID, "client global transaction ID", t.globalTransactionID)
 			t.globalTransactionID = append(extensions.GlobalTransactionID(nil), sync.globalTransactionID...)
@@ -401,6 +436,9 @@ func (t *sessionlessTransaction) notify(event eventType) {
 		common.Odl.Debug("Transaction has started by client received by server")
 		t.startedOnServer = true
 	case sessionlessTransactionEndClient:
+		// the server has notified that the transaction has ended on the
+		// server. If the server GTRID does not match the one in the client
+		// update it, and mark the transaction as started on the server.
 		if !bytes.Equal(sync.globalTransactionID, t.globalTransactionID) {
 			common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", sync.globalTransactionID, "client global transaction ID", t.globalTransactionID)
 			t.globalTransactionID = append(extensions.GlobalTransactionID(nil), sync.globalTransactionID...)

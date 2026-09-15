@@ -868,6 +868,85 @@ func TestSessionlessTransactionCommitPLSQL(t *testing.T) {
 	}
 }
 
+// TestSessionlessTransactionAPIBeginPLSQLSuspendThenAPISuspend verifies that a
+// sessionless transaction started through the API rejects a PL/SQL suspend
+// attempt, and that the transaction can then be suspended through the API.
+func TestSessionlessTransactionAPIBeginPLSQLSuspendThenAPISuspend(t *testing.T) {
+	t.Parallel()
+	if TestingConfig == nil {
+		t.Skip("No configuration available")
+	}
+
+	db, err := openTestDBWithConfig(TestingConfig)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(3)
+
+	ctx := context.Background()
+	table := createObjectName("sessionless_tx_api_plsql_suspend")
+	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
+		t.Fatalf("create table %q: %v", table, err)
+	}
+	defer dropTable(ctx, db, table)
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("acquire initial dedicated connection: %v", err)
+	}
+	defer conn.Close()
+
+	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
+	if err != nil {
+		t.Fatalf("begin sessionless transaction through API: %v", err)
+	}
+	globalTransactionID := tx.GlobalTransactionID()
+	if len(globalTransactionID) == 0 {
+		t.Fatal("API sessionless start returned an empty global transaction ID")
+	}
+
+	if _, err := conn.ExecContext(ctx,
+		"INSERT INTO "+table+" (str_value) VALUES ('api-plsql-suspend')"); err != nil {
+		t.Fatalf("insert row after API sessionless start into table %q: %v", table, err)
+	}
+	_, err = conn.ExecContext(ctx, "BEGIN DBMS_TRANSACTION.SUSPEND_TRANSACTION; END;")
+	requireSessionlessSQLError(t, "suspend API sessionless transaction through PL/SQL", err, "ORA-26211")
+
+	if err := tx.Suspend(); err != nil {
+		t.Fatalf("suspend sessionless transaction through API after PL/SQL suspend rejection: %v", err)
+	}
+
+	var count int
+	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
+		t.Fatalf("count rows after API suspend for table %q: %v", table, err)
+	}
+	if count != 0 {
+		t.Fatalf("count rows after API suspend for table %q = %d, want 0", table, count)
+	}
+
+	resumeConn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("acquire resume dedicated connection: %v", err)
+	}
+	defer resumeConn.Close()
+
+	resumedTx, err := ResumeSessionlessTx(ctx, resumeConn, globalTransactionID)
+	if err != nil {
+		t.Fatalf("resume sessionless transaction after repeated suspend: %v", err)
+	}
+	if err := resumeConn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
+		t.Fatalf("count rows after API resume for table %q: %v", table, err)
+	}
+	if count != 1 {
+		t.Fatalf("count rows after API resume for table %q = %d, want 1", table, count)
+	}
+
+	if err := resumedTx.Rollback(); err != nil {
+		t.Fatalf("rollback resumed sessionless transaction after repeated suspend: %v", err)
+	}
+}
+
 // TestSessionlessTransactionCommitPLSQLRunQueryBeforeSessionless verifies
 // starting a sessionless transaction through PL/SQL fails with ORA-24776 when
 // the current SQL transaction has already executed a query or DML statement.
@@ -1159,6 +1238,132 @@ func TestSessionlessTransactionSQLCommitOrRollbackThenSuspend(t *testing.T) {
 				t.Fatalf("count rows after SQL %s for table %q = %d, want %d", test.endStatement, table, count, test.wantRows)
 			}
 		})
+	}
+}
+
+// TestSessionlessTransactionPLSQLCommitThenSuspend verifies that a
+// sessionless transaction started through the API can be committed through
+// DBMS_TRANSACTION and then safely suspended through the API.
+func TestSessionlessTransactionPLSQLCommitThenSuspend(t *testing.T) {
+	t.Parallel()
+	testSessionlessTransactionPLSQLEndThenSuspend(t, "DBMS_TRANSACTION.COMMIT", 1)
+}
+
+// TestSessionlessTransactionPLSQLRollbackThenSuspend verifies that a
+// sessionless transaction started through the API can be rolled back through
+// DBMS_TRANSACTION and then safely suspended through the API.
+func TestSessionlessTransactionPLSQLRollbackThenSuspend(t *testing.T) {
+	t.Parallel()
+	testSessionlessTransactionPLSQLEndThenSuspend(t, "DBMS_TRANSACTION.ROLLBACK", 0)
+}
+
+func testSessionlessTransactionPLSQLEndThenSuspend(t *testing.T, endStatement string, wantRows int) {
+	t.Helper()
+	ctx, db := openSessionlessTestDB(t)
+	defer db.Close()
+
+	table := createObjectName("sessionless_tx_plsql_end")
+	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
+		t.Fatalf("create table %q for PL/SQL %s: %v", table, endStatement, err)
+	}
+	defer dropTable(ctx, db, table)
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("acquire connection for PL/SQL %s: %v", endStatement, err)
+	}
+	defer conn.Close()
+
+	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
+	if err != nil {
+		t.Fatalf("begin sessionless transaction before PL/SQL %s: %v", endStatement, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := conn.ExecContext(ctx,
+		"INSERT INTO "+table+" (str_value) VALUES ('plsql-end')"); err != nil {
+		t.Fatalf("insert row before PL/SQL %s into table %q: %v", endStatement, table, err)
+	}
+
+	if _, err := conn.ExecContext(ctx, "BEGIN "+endStatement+"; END;"); err != nil {
+		t.Fatalf("execute PL/SQL %s on sessionless transaction: %v", endStatement, err)
+	}
+	if err := tx.Suspend(); err != nil {
+		t.Fatalf("suspend after PL/SQL %s on sessionless transaction: %v", endStatement, err)
+	}
+
+	count, err := countRows(ctx, db, table)
+	if err != nil {
+		t.Fatalf("count rows after PL/SQL %s for table %q: %v", endStatement, table, err)
+	}
+	if count != wantRows {
+		t.Fatalf("count rows after PL/SQL %s for table %q = %d, want %d", endStatement, table, count, wantRows)
+	}
+}
+
+// TestSessionlessTransactionPLSQLCommitThenAPICommit verifies that a
+// sessionless transaction committed through PL/SQL can then be committed
+// through the API and that its changes remain visible.
+func TestSessionlessTransactionPLSQLCommitThenAPICommit(t *testing.T) {
+	t.Parallel()
+	testSessionlessTransactionPLSQLEndThenAPIEnd(t, "DBMS_TRANSACTION.COMMIT", "commit", 1)
+}
+
+// TestSessionlessTransactionPLSQLRollbackThenAPIRollback verifies that a
+// sessionless transaction rolled back through PL/SQL can then be rolled back
+// through the API and that its changes remain rolled back.
+func TestSessionlessTransactionPLSQLRollbackThenAPIRollback(t *testing.T) {
+	t.Parallel()
+	testSessionlessTransactionPLSQLEndThenAPIEnd(t, "DBMS_TRANSACTION.ROLLBACK", "rollback", 0)
+}
+
+func testSessionlessTransactionPLSQLEndThenAPIEnd(t *testing.T, plsqlStatement, apiOperation string, wantRows int) {
+	t.Helper()
+	ctx, db := openSessionlessTestDB(t)
+	defer db.Close()
+
+	table := createObjectName("sessionless_tx_plsql_api_end")
+	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
+		t.Fatalf("create table %q for PL/SQL %s and API %s: %v", table, plsqlStatement, apiOperation, err)
+	}
+	defer dropTable(ctx, db, table)
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("acquire connection for PL/SQL %s and API %s: %v", plsqlStatement, apiOperation, err)
+	}
+	defer conn.Close()
+
+	tx, err := BeginSessionlessTx(ctx, conn, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
+	if err != nil {
+		t.Fatalf("begin sessionless transaction before PL/SQL %s: %v", plsqlStatement, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := conn.ExecContext(ctx,
+		"INSERT INTO "+table+" (str_value) VALUES ('plsql-api-end')"); err != nil {
+		t.Fatalf("insert row before PL/SQL %s into table %q: %v", plsqlStatement, table, err)
+	}
+
+	if _, err := conn.ExecContext(ctx, "BEGIN "+plsqlStatement+"; END;"); err != nil {
+		t.Fatalf("execute PL/SQL %s on sessionless transaction: %v", plsqlStatement, err)
+	}
+
+	if apiOperation == "commit" {
+		err = tx.Commit()
+	} else {
+		err = tx.Rollback()
+	}
+	if err != nil {
+		t.Fatalf("API %s after PL/SQL %s: %v", apiOperation, plsqlStatement, err)
+	}
+
+	count, err := countRows(ctx, db, table)
+	if err != nil {
+		t.Fatalf("count rows after PL/SQL %s and API %s for table %q: %v", plsqlStatement, apiOperation, table, err)
+	}
+	if count != wantRows {
+		t.Fatalf("count rows after PL/SQL %s and API %s for table %q = %d, want %d", plsqlStatement, apiOperation, table, count, wantRows)
 	}
 }
 

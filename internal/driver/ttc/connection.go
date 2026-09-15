@@ -246,11 +246,12 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 	// that the connection is being drained and it should be closed and not
 	// released to the connection pool
 	c._isValid = !msg.(connectionStatusProvider).isBeingDrained()
-	// return always true, the incoming message should be kept
+	// check for active transaction
 	c._isInTransaction = msg.(connectionStatusProvider).isInTransaction()
 	if c._isInTransaction {
 		common.Odl.Debug("Active transaction on server")
 	}
+	// return always true, the incoming message should be kept
 	return true, nil
 }
 

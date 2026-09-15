@@ -55,7 +55,7 @@ import (
 //   - driver.Tx: Started transaction.
 //   - error: Error if the transaction cannot be started.
 func (c *connection) Begin() (driver.Tx, error) {
-	ctx := context.Background()
+	ctx := common.BackgroundContext
 	opts := driver.TxOptions{
 		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
 		ReadOnly:  false,
@@ -122,12 +122,14 @@ func isSupportedIsolationLevel(opts driver.TxOptions) bool {
 // Returns:
 //   - error: Error if the OTXSE message cannot be created or queued.
 func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx, opts driver.TxOptions) error {
+	// get streamer
 	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 	if !ok {
 		common.Odl.Warn("beginTransaction requires a message streamer with callback support")
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// create message
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIPFN, oTxSe)
 	if err != nil {
 		common.Odl.Warn("Error creating OTXSE message", "error", err)
@@ -140,8 +142,11 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// configure message for operation and transaction options
 	otxse.configureForStart(transaction, opts)
 
+	// push message, this is a piggyback message, it will be sent on the next
+	// round-trip
 	err = stmr.Push(ctx, msg)
 	if err != nil {
 		common.Odl.Warn("Error pushing OTXSE message", "error", err)
@@ -166,12 +171,14 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperation, transaction oracleTx) error {
 	common.Odl.Debug("Running OTXEN", "operation", operation)
 
+	// get the streamer
 	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 	if !ok {
 		common.Odl.Warn("OTXEN requires a message streamer with callback support")
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// create the transaction end message
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIFUN, oTxEn)
 	if err != nil {
 		common.Odl.Warn("Error creating OTXEN message", "error", err)
@@ -183,6 +190,7 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// configure the message for the operation
 	switch operation {
 	case otxenCommit:
 		otxen.configureForCommit(transaction)
@@ -193,6 +201,7 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
+	// puch and flush the message
 	if err := stmr.Push(ctx, msg); err != nil {
 		common.Odl.Warn("Error pushing OTXEN message", "error", err)
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
@@ -202,11 +211,13 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
 	}
 
+	// register message specific RPA
 	stmr.RegisterPreUnmarshallCallback(TTIRPA, func(*messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
 		return c.shelf.GetMessageFactory().GetMessageForFunction(TTIRPA, oTxEn)
 	})
 	defer stmr.UnRegisterPreUnmarshallCallback(TTIRPA)
 
+	// handle the message result
 	for {
 		retMsg, err := stmr.Pull(ctx, TTIRPA, TTIOER, TTISTA)
 		if err != nil {
@@ -231,6 +242,10 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 }
 
 // convertTxOptionsToFlags converts standard transaction options to OTXSE flags.
+//
+// Note that otxseTransReadOnly, otxseTransSerializable and otxseTransReadWrite
+// cannot be combined. If opts.ReadOnly is set the isolation level will be
+// ignored.
 //
 // Parameters:
 //   - opts: Transaction isolation and read-only options.
