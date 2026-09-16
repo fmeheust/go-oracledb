@@ -141,11 +141,13 @@ func (t *transaction) Commit() error {
 
 	// validate the current connection state
 	if err := t.underlyingConnection().shelf.checkCurrentState(ctx); err != nil {
+		t.underlyingConnection().unregisterTransactionOnError()
 		return err
 	}
 
 	// check for errors during the commit round-trip
 	if readFuncError != nil {
+		t.underlyingConnection().unregisterTransactionOnError()
 		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, readFuncError, "Commit"))
 	}
 
@@ -172,11 +174,13 @@ func (t *transaction) Rollback() error {
 
 	// validate the current connection state
 	if err := t.underlyingConnection().shelf.checkCurrentState(common.BackgroundContext); err != nil {
+		t.underlyingConnection().unregisterTransactionOnError()
 		return err
 	}
 
 	// check for errors during the rollback round-trip
 	if runFuncErr != nil {
+		t.underlyingConnection().unregisterTransactionOnError()
 		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, runFuncErr, "Rollback"))
 	}
 

@@ -1126,6 +1126,9 @@ func TestSessionlessTransactionBeginOptions(t *testing.T) {
 
 			var flag int
 			if err := conn.QueryRowContext(ctx, "select bitand(flag, power(2, 28)) from v$transaction").Scan(&flag); err != nil && err != sql.ErrNoRows {
+				if sqlError, ok := err.(oracleErrors.SQLError); ok && sqlError.ErrorCode() == "ORA-00942" {
+					t.Skip("User does not have privileges to read V$TRANSACTION")
+				}
 				t.Fatalf("query serializable flag with options %q: %v", test.name, err)
 			}
 			if test.opts.Isolation == sql.LevelSerializable && !test.opts.ReadOnly {

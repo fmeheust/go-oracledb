@@ -698,6 +698,114 @@ func TestSuspendSessionlessTxOERFailure(t *testing.T) {
 	}
 }
 
+// TestSessionlessTransactionOperationErrors verifies that commit and rollback
+// retain or remove the local transaction according to server-side state.
+func TestSessionlessTransactionOperationErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                 string
+		operation            func(*sessionlessTransaction) error
+		serverInTransaction  bool
+		endedOnServer        bool
+		wantLocalTransaction bool
+	}{
+		{
+			name:                 "commit with transaction active on server",
+			operation:            func(tx *sessionlessTransaction) error { return tx.Commit() },
+			serverInTransaction:  true,
+			wantLocalTransaction: true,
+		},
+		{
+			name:                 "commit with transaction ended on server",
+			operation:            func(tx *sessionlessTransaction) error { return tx.Commit() },
+			endedOnServer:        true,
+			wantLocalTransaction: false,
+		},
+		{
+			name:                 "rollback with transaction active on server",
+			operation:            func(tx *sessionlessTransaction) error { return tx.Rollback() },
+			serverInTransaction:  true,
+			wantLocalTransaction: true,
+		},
+		{
+			name:                 "rollback with transaction ended on server",
+			operation:            func(tx *sessionlessTransaction) error { return tx.Rollback() },
+			endedOnServer:        true,
+			wantLocalTransaction: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			streamer.pullMsg = &mockOer{err: errors.New("transaction operation failed")}
+			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("sessionless-id"), 300)
+			conn.shelf.registerTransaction(tx)
+			conn._isInTransaction = tt.serverInTransaction
+			tx.isStartedOnServer = true
+			tx.isEndedOnServer = tt.endedOnServer
+
+			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.ErrorInTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
+			}
+			if got := conn.shelf.isInTransaction(); got != tt.wantLocalTransaction {
+				t.Fatalf("local transaction registration = %v, want %v", got, tt.wantLocalTransaction)
+			}
+		})
+	}
+}
+
+// TestSuspendSessionlessTxErrorRegistration verifies that a detach failure
+// retains the local transaction only while it is still active on the server
+// and has not received an end notification.
+func TestSuspendSessionlessTxErrorRegistration(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                 string
+		serverInTransaction  bool
+		endedOnServer        bool
+		wantLocalTransaction bool
+	}{
+		{
+			name:                 "transaction active on server",
+			serverInTransaction:  true,
+			wantLocalTransaction: true,
+		},
+		{
+			name:                 "transaction ended on server",
+			serverInTransaction:  false,
+			wantLocalTransaction: false,
+		},
+		{
+			name:                 "sessionless end notification received",
+			serverInTransaction:  true,
+			endedOnServer:        true,
+			wantLocalTransaction: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			streamer.pushErr = errors.New("detach failed")
+			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("sessionless-id"), 300)
+			conn.shelf.registerTransaction(tx)
+			conn._isInTransaction = tt.serverInTransaction
+			tx.isStartedOnServer = true
+			tx.isEndedOnServer = tt.endedOnServer
+
+			if got := transactionErrorCode(t, tx.Suspend()); got != oracleErrors.ErrorInTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
+			}
+			if got := conn.shelf.isInTransaction(); got != tt.wantLocalTransaction {
+				t.Fatalf("local transaction registration = %v, want %v", got, tt.wantLocalTransaction)
+			}
+		})
+	}
+}
+
 // TestSessionlessTransactionOperationsRejectStaleTransaction verifies that
 // sessionless transaction operations do not act on a different transaction
 // registered on the connection.

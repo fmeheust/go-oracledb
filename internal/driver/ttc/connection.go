@@ -413,10 +413,28 @@ func (c *connection) handleSessionPropertyChange() {
 	switch {
 	case sync.IsSet() && sync.IsSyncClient():
 		common.Odl.Debug("Client transaction started", "global transaction ID", sync.globalTransactionID)
-		c.shelf.getEventService().post(sessionlessTransactionStartClient)
+		currentTx := c.shelf.getTransaction()
+		if currentTx != nil {
+			if sessionlessTx, ok := currentTx.(*sessionlessTransaction); ok {
+				sessionlessTx.setStartedOnServer(sync.globalTransactionID)
+			} else {
+				common.Odl.Debug("Got client sync message and no current sessionless transaction is registered")
+			}
+		} else {
+			common.Odl.Debug("Got client sync message and no current transaction is registered")
+		}
 	case sync.IsUnset() && sync.IsSyncClient():
 		common.Odl.Debug("Client transaction ended", "global transaction ID", sync.globalTransactionID)
-		c.shelf.getEventService().post(sessionlessTransactionEndClient)
+		currentTx := c.shelf.getTransaction()
+		if currentTx != nil {
+			if sessionlessTx, ok := currentTx.(*sessionlessTransaction); ok {
+				sessionlessTx.setEndedOnServer(sync.globalTransactionID)
+			} else {
+				common.Odl.Debug("Got client sync message and no current sessionless transaction is registered")
+			}
+		} else {
+			common.Odl.Debug("Got client sync message and no current transaction is registered")
+		}
 	case sync.IsSet() && sync.IsSyncServer():
 		// start an implicit sessionless transaction
 		common.Odl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", sync.globalTransactionID)

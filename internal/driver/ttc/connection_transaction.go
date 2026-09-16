@@ -241,6 +241,23 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 	}
 }
 
+// unregisterTransactionOnError removes the local transaction registration when
+// the server no longer reports an active transaction. A sessionless
+// transaction is also removed when its end notification has been received,
+// even if the connection status still reports an active transaction.
+func (c *connection) unregisterTransactionOnError() {
+	if !c._isInTransaction {
+		c.shelf.unregisterTransaction()
+		return
+	}
+
+	if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
+		if sessionlessTx.isEndedOnServer || !sessionlessTx.isStartedOnServer {
+			c.shelf.unregisterTransaction()
+		}
+	}
+}
+
 // convertTxOptionsToFlags converts standard transaction options to OTXSE flags.
 //
 // Note that otxseTransReadOnly, otxseTransSerializable and otxseTransReadWrite

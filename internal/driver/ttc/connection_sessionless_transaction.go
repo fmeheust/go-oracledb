@@ -22,8 +22,8 @@ type sessionlessTransaction struct {
 
 	globalTransactionID       extensions.GlobalTransactionID // globalTransactionID is the identifier of the sessionless transaction
 	timeout                   uint16                         // transaction timeout in seconds
-	startedOnServer           bool                           // startedOnServer indicates that the transaction has been started on the server
-	endedOnServer             bool                           // endedOnServer indicates that the transaction has ended on the server
+	isStartedOnServer         bool                           // isStartedOnServer indicates that the transaction has been started on the server
+	isEndedOnServer           bool                           // isEndedOnServer indicates that the transaction has ended on the server
 	xid                       driverCommon.B1Array           // calculate XID using globalTransactionID and instance name
 	bqualLength               driverCommon.UB4               // calculated field needed for TTC messages
 	globalTransactionIDLength driverCommon.UB4               // calculated field needed for TTC messages
@@ -66,9 +66,6 @@ func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.Glob
 	// transaction was started using PL/SQL.
 	sessionlessTx._transactionIdentity = tx.transactionIdentity()
 	sessionlessTx.buildSessionlessXID()
-	// keep track of server side transaction state
-	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionStartClient)
-	sessionlessTx.underlyingConnection().shelf.getEventService().register(sessionlessTx, sessionlessTransactionEndClient)
 	return sessionlessTx
 }
 
@@ -235,8 +232,9 @@ func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionI
 }
 
 // Suspend detaches the current sessionless transaction from the connection. If
-// no transaction is active, Suspend is a no-op. Any detach failure unregisters
-// the local transaction because the connection state is no longer recoverable.
+// no transaction is active, Suspend is a no-op. A detach failure unregisters
+// the local transaction when the server no longer has it or its end
+// notification has already been received.
 //
 // Returns:
 //   - error: Error if the detach operation fails.
@@ -255,8 +253,8 @@ func (t *sessionlessTransaction) Suspend() error {
 
 	// detach the transaction from the connection
 	if err := t.underlyingConnection().detachTransaction(t.transactionContext()); err != nil {
-		// in case of error, the transaction is unregistered
-		t.underlyingConnection().shelf.unregisterTransaction()
+		// Unregister only when the server no longer has the transaction.
+		t.underlyingConnection().unregisterTransactionOnError()
 		// invalidate the connection
 		t.underlyingConnection()._isValid = false
 		return t.underlyingConnection().shelf.LocalizeError(
@@ -266,6 +264,7 @@ func (t *sessionlessTransaction) Suspend() error {
 
 	// validate the current connection state
 	if err := t.underlyingConnection().shelf.checkCurrentState(common.BackgroundContext); err != nil {
+		t.underlyingConnection().unregisterTransactionOnError()
 		return err
 	}
 
@@ -409,41 +408,26 @@ func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransact
 	return append(extensions.GlobalTransactionID(nil), t.globalTransactionID...)
 }
 
-// notify updates the sessionless transaction state after a session property
-// synchronization event.
-//
-// Parameters:
-//   - event: Sessionless transaction event to process.
-//
-// Returns:
-//   - None. The transaction state is updated in place.
-func (t *sessionlessTransaction) notify(event eventType) {
-	newValue := t.underlyingConnection().sessCtx.GetSessionProperties().GetProperty(sessionlessGlobalTransactionIDProperty)
-	sync, ok := newValue.(SessionlessGlobalTransactionIDSync)
-	if !ok {
-		return
+func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID extensions.GlobalTransactionID) {
+	// the server has notified that the transaction has started on the
+	// server. If the server GTRID does not match the one in the client
+	// update it, and mark the transaction as started on the server.
+	if !bytes.Equal(globalTransactionID, t.globalTransactionID) {
+		common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
+		t.globalTransactionID = append(extensions.GlobalTransactionID(nil), globalTransactionID...)
 	}
+	common.Odl.Debug("Transaction has started by client received by server")
+	t.isStartedOnServer = true
+}
 
-	switch event {
-	case sessionlessTransactionStartClient:
-		// the server has notified that the transaction has started on the
-		// server. If the server GTRID does not match the one in the client
-		// update it, and mark the transaction as started on the server.
-		if !bytes.Equal(sync.globalTransactionID, t.globalTransactionID) {
-			common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", sync.globalTransactionID, "client global transaction ID", t.globalTransactionID)
-			t.globalTransactionID = append(extensions.GlobalTransactionID(nil), sync.globalTransactionID...)
-		}
-		common.Odl.Debug("Transaction has started by client received by server")
-		t.startedOnServer = true
-	case sessionlessTransactionEndClient:
-		// the server has notified that the transaction has ended on the
-		// server. If the server GTRID does not match the one in the client
-		// update it, and mark the transaction as started on the server.
-		if !bytes.Equal(sync.globalTransactionID, t.globalTransactionID) {
-			common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", sync.globalTransactionID, "client global transaction ID", t.globalTransactionID)
-			t.globalTransactionID = append(extensions.GlobalTransactionID(nil), sync.globalTransactionID...)
-		}
-		common.Odl.Debug("Transaction has ended by client received by server")
-		t.endedOnServer = true
+func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID extensions.GlobalTransactionID) {
+	// the server has notified that the transaction has ended on the
+	// server. If the server GTRID does not match the one in the client
+	// update it, and mark the transaction as started on the server.
+	if !bytes.Equal(globalTransactionID, t.globalTransactionID) {
+		common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
+		t.globalTransactionID = append(extensions.GlobalTransactionID(nil), globalTransactionID...)
 	}
+	common.Odl.Debug("Transaction has ended by client received by server")
+	t.isEndedOnServer = true
 }

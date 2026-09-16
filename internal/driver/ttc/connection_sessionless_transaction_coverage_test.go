@@ -167,54 +167,49 @@ func TestBuildSessionlessXIDPaths(t *testing.T) {
 	}
 }
 
-// TestSessionlessTransactionNotifyPaths verifies client synchronization events
-// with matching and mismatched global transaction IDs.
-func TestSessionlessTransactionNotifyPaths(t *testing.T) {
+// TestSessionlessTransactionServerStatePaths verifies client synchronization
+// updates with matching and mismatched global transaction IDs.
+func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name        string
-		event       eventType
+		setState    func(*sessionlessTransaction, extensions.GlobalTransactionID)
 		initialID   string
 		syncID      string
-		flags       byte
 		wantID      string
 		wantStarted bool
 		wantEnded   bool
 	}{
 		{
 			name:        "matching start",
-			event:       sessionlessTransactionStartClient,
+			setState:    (*sessionlessTransaction).setStartedOnServer,
 			initialID:   "same-id",
 			syncID:      "same-id",
-			flags:       sessionlessGlobalTransactionIDSyncSet | byte(sessionlessGlobalTransactionIDSyncClient),
 			wantID:      "same-id",
 			wantStarted: true,
 		},
 		{
 			name:        "mismatched start",
-			event:       sessionlessTransactionStartClient,
+			setState:    (*sessionlessTransaction).setStartedOnServer,
 			initialID:   "client-id",
 			syncID:      "server-id",
-			flags:       sessionlessGlobalTransactionIDSyncSet | byte(sessionlessGlobalTransactionIDSyncClient),
 			wantID:      "server-id",
 			wantStarted: true,
 		},
 		{
 			name:      "matching end",
-			event:     sessionlessTransactionEndClient,
+			setState:  (*sessionlessTransaction).setEndedOnServer,
 			initialID: "same-id",
 			syncID:    "same-id",
-			flags:     sessionlessGlobalTransactionIDSyncUnset | byte(sessionlessGlobalTransactionIDSyncClient),
 			wantID:    "same-id",
 			wantEnded: true,
 		},
 		{
 			name:      "mismatched end",
-			event:     sessionlessTransactionEndClient,
+			setState:  (*sessionlessTransaction).setEndedOnServer,
 			initialID: "client-id",
 			syncID:    "server-id",
-			flags:     sessionlessGlobalTransactionIDSyncUnset | byte(sessionlessGlobalTransactionIDSyncClient),
 			wantID:    "server-id",
 			wantEnded: true,
 		},
@@ -224,36 +219,19 @@ func TestSessionlessTransactionNotifyPaths(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			conn, _ := newSessionlessTransactionTestConnection()
 			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID(tt.initialID), 300)
-			raw := append(driverCommon.B1Array(tt.syncID), tt.flags, 1)
-			syncValue, err := NewSessionlessGlobalTransactionIDSync(raw)
-			if err != nil {
-				t.Fatalf("NewSessionlessGlobalTransactionIDSync failed: %v", err)
-			}
-			conn.sessCtx.GetSessionProperties().SetProperty(sessionlessGlobalTransactionIDProperty, syncValue)
 
-			tx.notify(tt.event)
+			tt.setState(tx, extensions.GlobalTransactionID(tt.syncID))
 			if got := string(tx.globalTransactionID); got != tt.wantID {
 				t.Fatalf("global transaction ID = %q, want %q", got, tt.wantID)
 			}
-			if tx.startedOnServer != tt.wantStarted {
-				t.Fatalf("startedOnServer = %v, want %v", tx.startedOnServer, tt.wantStarted)
+			if tx.isStartedOnServer != tt.wantStarted {
+				t.Fatalf("startedOnServer = %v, want %v", tx.isStartedOnServer, tt.wantStarted)
 			}
-			if tx.endedOnServer != tt.wantEnded {
-				t.Fatalf("endedOnServer = %v, want %v", tx.endedOnServer, tt.wantEnded)
+			if tx.isEndedOnServer != tt.wantEnded {
+				t.Fatalf("endedOnServer = %v, want %v", tx.isEndedOnServer, tt.wantEnded)
 			}
 		})
 	}
-
-	t.Run("invalid session property", func(t *testing.T) {
-		conn, _ := newSessionlessTransactionTestConnection()
-		tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("initial-id"), 300)
-		conn.sessCtx.GetSessionProperties().SetProperty(sessionlessGlobalTransactionIDProperty, "invalid")
-
-		tx.notify(sessionlessTransactionStartClient)
-		if tx.startedOnServer || string(tx.globalTransactionID) != "initial-id" {
-			t.Fatal("invalid session property changed transaction state")
-		}
-	})
 }
 
 // TestResumeSessionlessTxHelperSetupFailures verifies errors creating the

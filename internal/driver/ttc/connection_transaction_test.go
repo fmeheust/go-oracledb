@@ -318,29 +318,59 @@ func TestConnectionBeginTxReturnsPushError(t *testing.T) {
 }
 
 // TestTransactionOperationErrors verifies that commit and rollback errors are
-// wrapped as transaction errors and leave the transaction registered.
+// wrapped as transaction errors and that the local registration follows the
+// transaction state reported by the server.
 func TestTransactionOperationErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name      string
-		operation func(*transaction) error
-		message   string
+		name                 string
+		operation            func(*transaction) error
+		message              string
+		serverInTransaction  bool
+		wantLocalTransaction bool
 	}{
-		{name: "commit", operation: (*transaction).Commit, message: "commit failed"},
-		{name: "rollback", operation: (*transaction).Rollback, message: "rollback failed"},
+		{
+			name:                 "commit with transaction ended on server",
+			operation:            (*transaction).Commit,
+			message:              "commit failed",
+			serverInTransaction:  false,
+			wantLocalTransaction: false,
+		},
+		{
+			name:                 "commit with transaction active on server",
+			operation:            (*transaction).Commit,
+			message:              "commit failed",
+			serverInTransaction:  true,
+			wantLocalTransaction: true,
+		},
+		{
+			name:                 "rollback with transaction ended on server",
+			operation:            (*transaction).Rollback,
+			message:              "rollback failed",
+			serverInTransaction:  false,
+			wantLocalTransaction: false,
+		},
+		{
+			name:                 "rollback with transaction active on server",
+			operation:            (*transaction).Rollback,
+			message:              "rollback failed",
+			serverInTransaction:  true,
+			wantLocalTransaction: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			streamer := &mockStreamer{pullMsg: &mockOer{err: errors.New(tt.message)}}
 			conn := newTransactionTestConnection(streamer)
+			conn._isInTransaction = tt.serverInTransaction
 			tx := newTransaction(conn, context.Background())
 			conn.shelf.registerTransaction(tx)
 
 			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.ErrorInTransaction {
 				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
 			}
-			if !conn.shelf.isInTransaction() {
-				t.Fatal("transaction should remain registered after operation error")
+			if got := conn.shelf.isInTransaction(); got != tt.wantLocalTransaction {
+				t.Fatalf("local transaction registration = %v, want %v", got, tt.wantLocalTransaction)
 			}
 		})
 	}
