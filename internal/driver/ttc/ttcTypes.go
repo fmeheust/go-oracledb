@@ -438,7 +438,7 @@ func getKeyValueFromKeyword(nlsKeys [64]string, keyword keywordValuePair) (strin
 		}
 	} else if intValue == al8kwSessionlessGlobalTransactionID {
 		if binaryValue.value != nil {
-			sessionlessGlobalTransactionIDSync, err := NewSessionlessGlobalTransactionIDSync(binaryValue.value)
+			sessionlessGlobalTransactionIDSync, err := newSessionlessGlobalTransactionIDSync(binaryValue.value)
 			if err == nil {
 				return sessionlessGlobalTransactionIDProperty, sessionlessGlobalTransactionIDSync
 			}
@@ -453,9 +453,9 @@ const (
 	sessionlessGlobalTransactionIDProperty = "SESSIONLESS_GTRID"
 )
 
-// SessionlessTxSyncReason identifies which side caused a sessionless
+// sessionlessTxSyncReason identifies which side caused a sessionless
 // transaction synchronization event.
-type SessionlessTxSyncReason byte
+type sessionlessTxSyncReason byte
 
 const (
 	sessionlessGlobalTransactionIDSyncMode   byte = 0xC0
@@ -463,20 +463,20 @@ const (
 	sessionlessGlobalTransactionIDSyncUnset  byte = 2 << 6
 	sessionlessGlobalTransactionIDSyncReason byte = 0x3F
 
-	sessionlessGlobalTransactionIDSyncServer SessionlessTxSyncReason = 1
-	sessionlessGlobalTransactionIDSyncClient SessionlessTxSyncReason = 2
+	sessionlessGlobalTransactionIDSyncServer sessionlessTxSyncReason = 1
+	sessionlessGlobalTransactionIDSyncClient sessionlessTxSyncReason = 2
 )
 
-// SessionlessGlobalTransactionIDSync is an immutable decoded view of the
+// sessionlessGlobalTransactionIDSync is an immutable decoded view of the
 // SESSIONLESS_GTRID session property returned by the server.
-type SessionlessGlobalTransactionIDSync struct {
+type sessionlessGlobalTransactionIDSync struct {
 	raw                 driverCommon.B1Array
 	globalTransactionID extensions.GlobalTransactionID
 	flags               byte
 	version             byte
 }
 
-// NewSessionlessGlobalTransactionIDSync decodes the raw SESSIONLESS_GTRID
+// newSessionlessGlobalTransactionIDSync decodes the raw SESSIONLESS_GTRID
 // payload into a typed immutable value object.
 //
 // Parameters:
@@ -486,13 +486,13 @@ type SessionlessGlobalTransactionIDSync struct {
 // Returns:
 //   - SessionlessGlobalTransactionIDSync: Decoded synchronization value.
 //   - error: Error if raw does not contain the required flags and version bytes.
-func NewSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (SessionlessGlobalTransactionIDSync, error) {
+func newSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (*sessionlessGlobalTransactionIDSync, error) {
 	if len(raw) < 2 {
-		return SessionlessGlobalTransactionIDSync{}, common.NewOracleError(oracleErrors.FailUnmarshal, nil, "sessionless global transaction ID")
+		return nil, common.NewOracleError(oracleErrors.FailUnmarshal, nil, "sessionless global transaction ID")
 	}
 
 	rawCopy := append(driverCommon.B1Array(nil), raw...)
-	return SessionlessGlobalTransactionIDSync{
+	return &sessionlessGlobalTransactionIDSync{
 		raw:                 rawCopy,
 		globalTransactionID: append(extensions.GlobalTransactionID(nil), rawCopy[:len(rawCopy)-2]...),
 		flags:               rawCopy[len(rawCopy)-2],
@@ -504,7 +504,7 @@ func NewSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (Sessionles
 //
 // Returns:
 //   - driverCommon.B1Array: Copy of the original payload.
-func (s SessionlessGlobalTransactionIDSync) Raw() driverCommon.B1Array {
+func (s *sessionlessGlobalTransactionIDSync) Raw() driverCommon.B1Array {
 	return append(driverCommon.B1Array(nil), s.raw...)
 }
 
@@ -513,7 +513,7 @@ func (s SessionlessGlobalTransactionIDSync) Raw() driverCommon.B1Array {
 //
 // Returns:
 //   - extensions.GlobalTransactionID: Copy of the decoded global transaction ID.
-func (s SessionlessGlobalTransactionIDSync) GlobalTransactionID() extensions.GlobalTransactionID {
+func (s *sessionlessGlobalTransactionIDSync) GlobalTransactionID() extensions.GlobalTransactionID {
 	return append(extensions.GlobalTransactionID(nil), s.globalTransactionID...)
 }
 
@@ -521,7 +521,7 @@ func (s SessionlessGlobalTransactionIDSync) GlobalTransactionID() extensions.Glo
 //
 // Returns:
 //   - byte: Serialization version.
-func (s SessionlessGlobalTransactionIDSync) Version() byte {
+func (s *sessionlessGlobalTransactionIDSync) Version() byte {
 	return s.version
 }
 
@@ -529,7 +529,7 @@ func (s SessionlessGlobalTransactionIDSync) Version() byte {
 //
 // Returns:
 //   - byte: Synchronization mode.
-func (s SessionlessGlobalTransactionIDSync) Mode() byte {
+func (s *sessionlessGlobalTransactionIDSync) Mode() byte {
 	return s.flags & sessionlessGlobalTransactionIDSyncMode
 }
 
@@ -537,15 +537,15 @@ func (s SessionlessGlobalTransactionIDSync) Mode() byte {
 //
 // Returns:
 //   - SessionlessTxSyncReason: Synchronization reason.
-func (s SessionlessGlobalTransactionIDSync) Reason() SessionlessTxSyncReason {
-	return SessionlessTxSyncReason(s.flags & sessionlessGlobalTransactionIDSyncReason)
+func (s *sessionlessGlobalTransactionIDSync) Reason() sessionlessTxSyncReason {
+	return sessionlessTxSyncReason(s.flags & sessionlessGlobalTransactionIDSyncReason)
 }
 
 // IsSet reports whether the server indicates a sessionless transaction is active.
 //
 // Returns:
 //   - bool: True when the synchronization mode indicates an active transaction.
-func (s SessionlessGlobalTransactionIDSync) IsSet() bool {
+func (s *sessionlessGlobalTransactionIDSync) IsSet() bool {
 	return s.Mode() == sessionlessGlobalTransactionIDSyncSet
 }
 
@@ -553,7 +553,7 @@ func (s SessionlessGlobalTransactionIDSync) IsSet() bool {
 //
 // Returns:
 //   - bool: True when the synchronization mode indicates no active transaction.
-func (s SessionlessGlobalTransactionIDSync) IsUnset() bool {
+func (s *sessionlessGlobalTransactionIDSync) IsUnset() bool {
 	return s.Mode() == sessionlessGlobalTransactionIDSyncUnset
 }
 
@@ -561,7 +561,7 @@ func (s SessionlessGlobalTransactionIDSync) IsUnset() bool {
 //
 // Returns:
 //   - bool: True when the server caused the synchronization event.
-func (s SessionlessGlobalTransactionIDSync) IsSyncServer() bool {
+func (s *sessionlessGlobalTransactionIDSync) IsSyncServer() bool {
 	return s.Reason() == sessionlessGlobalTransactionIDSyncServer
 }
 
@@ -569,6 +569,6 @@ func (s SessionlessGlobalTransactionIDSync) IsSyncServer() bool {
 //
 // Returns:
 //   - bool: True when the client caused the synchronization event.
-func (s SessionlessGlobalTransactionIDSync) IsSyncClient() bool {
+func (s *sessionlessGlobalTransactionIDSync) IsSyncClient() bool {
 	return s.Reason() == sessionlessGlobalTransactionIDSyncClient
 }

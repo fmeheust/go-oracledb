@@ -90,6 +90,8 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnectionCloser_Close", Categories: "unitary", Exclusive: false, Fn: TestConnectionCloser_Close},
 	{Name: "TestConnectionCloser_CloseWithTimeout", Categories: "unitary", Exclusive: false, Fn: TestConnectionCloser_CloseWithTimeout},
 	{Name: "TestEventServiceRegisterAndPost", Categories: "unitary", Exclusive: false, Fn: TestEventServiceRegisterAndPost},
+	{Name: "TestEventServicePostPreservesData", Categories: "unitary", Exclusive: false, Fn: TestEventServicePostPreservesData},
+	{Name: "TestUpdateSessionPropertiesRejectsUnexpectedMessage", Categories: "unitary", Exclusive: false, Fn: TestUpdateSessionPropertiesRejectsUnexpectedMessage},
 	{Name: "TestAuthencationFactoryWithNilParameters", Categories: "unitary", Exclusive: false, Fn: TestAuthencationFactoryWithNilParameters},
 	{Name: "TestAuthencationFactoryBasic", Categories: "unitary", Exclusive: false, Fn: TestAuthencationFactoryBasic},
 	{Name: "TestGetAuthenticator_UsesTokenAuthenticatorForSignedToken", Categories: "unitary", Exclusive: false, Fn: TestGetAuthenticator_UsesTokenAuthenticatorForSignedToken},
@@ -544,6 +546,10 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestResumeSessionlessTxValidationPaths", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxValidationPaths},
 	{Name: "TestBuildSessionlessXIDPaths", Categories: "unitary", Exclusive: false, Fn: TestBuildSessionlessXIDPaths},
 	{Name: "TestSessionlessTransactionServerStatePaths", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionServerStatePaths},
+	{Name: "TestSessionlessSyncUsesCurrentEventDelta", Categories: "unitary", Exclusive: false, Fn: TestSessionlessSyncUsesCurrentEventDelta},
+	{Name: "TestSessionlessServerSyncDoesNotReplaceOrUnregisterUnrelatedTransaction", Categories: "unitary", Exclusive: false, Fn: TestSessionlessServerSyncDoesNotReplaceOrUnregisterUnrelatedTransaction},
+	{Name: "TestSessionlessServerSyncLifecycle", Categories: "unitary", Exclusive: false, Fn: TestSessionlessServerSyncLifecycle},
+	{Name: "TestSessionlessTransactionServerIDMismatchRebuildsXID", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionServerIDMismatchRebuildsXID},
 	{Name: "TestResumeSessionlessTxHelperSetupFailures", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxHelperSetupFailures},
 	{Name: "TestDetachSessionlessTxSetupFailures", Categories: "unitary", Exclusive: false, Fn: TestDetachSessionlessTxSetupFailures},
 	{Name: "TestDetachSessionlessTxAdditionalResponsePaths", Categories: "unitary", Exclusive: false, Fn: TestDetachSessionlessTxAdditionalResponsePaths},
@@ -564,6 +570,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestGenerateSessionlessGlobalTransactionID", Categories: "unitary", Exclusive: false, Fn: TestGenerateSessionlessGlobalTransactionID},
 	{Name: "TestValidateSessionlessGlobalTransactionID", Categories: "unitary", Exclusive: false, Fn: TestValidateSessionlessGlobalTransactionID},
 	{Name: "TestNewSessionlessGlobalTransactionIDSync", Categories: "unitary", Exclusive: false, Fn: TestNewSessionlessGlobalTransactionIDSync},
+	{Name: "TestNewSessionlessGlobalTransactionIDSyncRejectsInvalidPayloads", Categories: "unitary", Exclusive: false, Fn: TestNewSessionlessGlobalTransactionIDSyncRejectsInvalidPayloads},
 	{Name: "TestOTxSeRPA_UnMarshalFrom_Success", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_Success},
 	{Name: "TestOTxSeRPA_UnMarshalFrom_EmptyContext", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_EmptyContext},
 	{Name: "TestOTxSeRPA_UnMarshalFrom_Failure", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_Failure},
@@ -1076,7 +1083,7 @@ func (m *wrappedMockStreamer) isValid(ctx context.Context) bool {
 	if msgIn == 0 {
 		return true
 	}
-	m.streamer.shelf.getEventService().post(streamerStaleEvent)
+	m.streamer.shelf.getEventService().post(streamerStaleEvent, nil)
 	return false
 }
 

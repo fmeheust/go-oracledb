@@ -293,7 +293,7 @@ func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	t.Parallel()
 
-	sync, err := NewSessionlessGlobalTransactionIDSync(driverCommon.B1Array{'a', 'b', sessionlessGlobalTransactionIDSyncSet, 2})
+	sync, err := newSessionlessGlobalTransactionIDSync(driverCommon.B1Array{'a', 'b', sessionlessGlobalTransactionIDSyncSet, 2})
 	if err != nil {
 		t.Fatalf("NewSessionlessGlobalTransactionIDSync failed: %v", err)
 	}

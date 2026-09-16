@@ -8,10 +8,12 @@ ID.
 The example performs the following operations:
 
 1. Opens a database connection pool.
-2. Gets a dedicated `*sql.Conn` and begins a sessionless transaction.
+2. Gets a dedicated `*sql.Conn`, wraps it with `oracle.NewConnectionWrapper`,
+   and begins a sessionless transaction.
 3. Inserts a row on the first connection and verifies that it is visible there.
 4. Suspends the transaction and keeps its global transaction ID.
-5. Gets a second dedicated `*sql.Conn` and resumes the transaction using that ID.
+5. Gets a second dedicated `*sql.Conn`, wraps it, and resumes the transaction
+   using that ID.
 6. Inserts a second row on the second connection and verifies that both rows are visible.
 7. Commits the transaction and verifies that both rows are visible through the pool.
 
@@ -42,17 +44,38 @@ project [README](../../README.md) for supported DSN formats.
 
 ## Important details
 
-`BeginSessionlessTx` and `ResumeSessionlessTx` operate on a dedicated
-`*sql.Conn`, not directly on `*sql.DB`. The global transaction ID identifies the
-server-side transaction and should be retained until the transaction is
-committed or rolled back.
+`BeginSessionlessTx` and `ResumeSessionlessTx` are methods on the connection
+wrapper returned by `oracle.NewConnectionWrapper`. The wrapper is created from
+a dedicated `*sql.Conn`, not directly from `*sql.DB`, and validates that the
+underlying driver connection supports sessionless transactions. For example:
+
+```go
+connectionWrapper, err := oracle.NewConnectionWrapper(conn)
+if err != nil {
+    return err
+}
+tx, err := connectionWrapper.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
+```
+
+Use another wrapper around the connection that resumes the transaction:
+
+```go
+resumeConnectionWrapper, err := oracle.NewConnectionWrapper(resumeConn)
+if err != nil {
+    return err
+}
+resumedTx, err := resumeConnectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID)
+```
+
+The global transaction ID identifies the server-side transaction and should be
+retained until the transaction is committed or rolled back.
 
 Sessionless start and resume requests are piggyback operations. The first SQL
 operation after begin or resume sends the request to the server, so the example
 executes an insert immediately after each lifecycle operation.
 
-The example creates and drops a table for each run, so the database user must 
-be allowed to create and drop tables. The inserts are the transactional DML; 
+The example creates and drops a table for each run, so the database user must
+be allowed to create and drop tables. The inserts are the transactional DML;
 the `SELECT COUNT(*)` statements only verify which uncommitted rows are visible
-from each connection. Replace `Commit` with `Rollback` when the inserts should 
+from each connection. Replace `Commit` with `Rollback` when the inserts should
 be discarded.

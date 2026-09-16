@@ -284,7 +284,7 @@ func (c *connection) registerEventListeners(service *eventService) {
 //
 // Returns:
 //   - None. Connection state and transaction state may be updated in place.
-func (c *connection) notify(event eventType) {
+func (c *connection) notify(event eventType, e eventData) {
 	var wasValid = c._isValid == true
 	switch event {
 	case streamerStaleEvent:
@@ -295,12 +295,12 @@ func (c *connection) notify(event eventType) {
 		c._isValid = false
 	case sessionPropertiesUpdateEvent:
 		common.Odl.Debug("Connection.notify: session properties changed")
-		c.handleSessionPropertyChange()
+		c.handleSessionPropertyChange(e)
 	default:
 		common.Odl.Debug("Connection.notify: received", "evt", event)
 	}
 	if wasValid == true && c._isValid == false {
-		c.shelf.getEventService().post(connectionInvalidatedEvent)
+		c.shelf.getEventService().post(connectionInvalidatedEvent, nil)
 	}
 }
 
@@ -403,56 +403,70 @@ func parseTimeZone(timezone string) (int, int, error) {
 
 // handleSessionPropertyChange applies a sessionless transaction state change
 // reported through the SESSIONLESS_GTRID session property.
-func (c *connection) handleSessionPropertyChange() {
-	newValue := c.sessCtx.GetSessionProperties().GetProperty(sessionlessGlobalTransactionIDProperty)
-	sync, ok := newValue.(SessionlessGlobalTransactionIDSync)
-	if !ok {
+func (c *connection) handleSessionPropertyChange(eventData eventData) {
+	updateEventData, _ := eventData.(sessionPropertiesUpdateEventData)
+	newValue := updateEventData.sessionProperties().GetProperty(sessionlessGlobalTransactionIDProperty)
+	sync, ok := newValue.(*sessionlessGlobalTransactionIDSync)
+	if !ok || sync == nil {
 		return
 	}
 
 	switch {
 	case sync.IsSet() && sync.IsSyncClient():
-		common.Odl.Debug("Client transaction started", "global transaction ID", sync.globalTransactionID)
+		// the client trasnaction has started on the server
+		common.Osl.Debug("Client transaction started", "global transaction ID", sync.globalTransactionID)
 		currentTx := c.shelf.getTransaction()
 		if currentTx != nil {
 			if sessionlessTx, ok := currentTx.(*sessionlessTransaction); ok {
+				// update transaction state
 				sessionlessTx.setStartedOnServer(sync.globalTransactionID)
 			} else {
+				// this should never happen as this message indicates that the client started the transaction
 				common.Odl.Debug("Got client sync message and no current sessionless transaction is registered")
 			}
 		} else {
+			// this should never happen as this message indicates that the client started the transaction
 			common.Odl.Debug("Got client sync message and no current transaction is registered")
 		}
 	case sync.IsUnset() && sync.IsSyncClient():
-		common.Odl.Debug("Client transaction ended", "global transaction ID", sync.globalTransactionID)
+		// the client trasnaction has ended on the server
+		common.Osl.Debug("Client transaction ended", "global transaction ID", sync.globalTransactionID)
 		currentTx := c.shelf.getTransaction()
 		if currentTx != nil {
 			if sessionlessTx, ok := currentTx.(*sessionlessTransaction); ok {
+				// update transaction state
 				sessionlessTx.setEndedOnServer(sync.globalTransactionID)
 			} else {
+				// this should never happen as this message indicates that the client started the transaction
 				common.Odl.Debug("Got client sync message and no current sessionless transaction is registered")
 			}
 		} else {
+			// this should never happen as this message indicates that the client started the transaction
 			common.Odl.Debug("Got client sync message and no current transaction is registered")
 		}
 	case sync.IsSet() && sync.IsSyncServer():
-		// start an implicit sessionless transaction
-		common.Odl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", sync.globalTransactionID)
+		// a sessionless transaction started using PL/SQL, start an implicit sessionless transaction
+		common.Osl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", sync.globalTransactionID)
 		currentTx := c.shelf.getTransaction()
-		var sessionlessTransaction *sessionlessTransaction
+		var implicitTx *sessionlessTransaction
 		if currentTx == nil {
-			sessionlessTransaction = newSessionlessTransaction(context.Background(), c, sync.globalTransactionID, 0)
+			// this should never happen, if there is not transaction the connection is on auto-commit mode which would start and end the trasnaction at the same time
+			implicitTx = newSessionlessTransaction(context.Background(), c, sync.globalTransactionID, 0)
 		} else {
 			if tx, ok := currentTx.(*transaction); ok {
-				sessionlessTransaction = upgradeFromTransaction(tx, sync.globalTransactionID, 0)
+				implicitTx = upgradeFromTransaction(tx, sync.globalTransactionID, 0)
 			} else {
-				panic("Already in sessionless transaction")
+				common.Odl.Debug("Sessionless transaction started on server while there is an active sessionless on client")
+				return
 			}
 		}
-		c.shelf.registerTransaction(sessionlessTransaction)
+		implicitTx.isStartedOnServer = true
+		c.shelf.registerTransaction(implicitTx)
+
 	case sync.IsUnset() && sync.IsSyncServer():
-		common.Odl.Debug("Server transaction ended, ending implicit transaction", "global transaction ID", sync.globalTransactionID)
+		common.Osl.Debug("Server transaction ended, ending implicit transaction", "global transaction ID", sync.globalTransactionID)
 		// end implicit sessionless transaction
 		c.shelf.unregisterTransaction()
+
 	}
 }

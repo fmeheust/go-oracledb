@@ -121,6 +121,8 @@ func TestHandleServerToClientPiggyback_ValidOCSSYNC(t *testing.T) {
 		shelf:      shelf,
 		sessionCtx: sessionCtx,
 	}
+	listener := &testEventListener{}
+	shelf.getEventService().register(listener, sessionPropertiesUpdateEvent)
 
 	mockMsg := newttiSPFOCSSync()
 	mockMsg.(*ttiSPFOCSSync).keyValueArr = &keywordValueArray{
@@ -140,6 +142,34 @@ func TestHandleServerToClientPiggyback_ValidOCSSYNC(t *testing.T) {
 	val := props.GetProperty(authNlsLxcCurrency)
 	if val == nil || val != "USD" {
 		t.Errorf("Expected property %s to be USD, got %v", authNlsLxcCurrency, val)
+	}
+	if len(listener.data) != 1 {
+		t.Fatalf("session property update events = %d, want 1", len(listener.data))
+	}
+	properties, ok := listener.data[0].(sessionPropertiesUpdateEventData)
+	if !ok || properties.sessionProperties().GetProperty(authNlsLxcCurrency) != "USD" {
+		t.Fatalf("event did not contain the current session property update: %v", listener.data[0])
+	}
+}
+
+// TestUpdateSessionPropertiesRejectsUnexpectedMessage verifies that a
+// malformed OCSSYNC callback cannot panic during type assertion.
+func TestUpdateSessionPropertiesRejectsUnexpectedMessage(t *testing.T) {
+	t.Parallel()
+
+	updater := serverToClientPiggybackUpdater{}
+	msg := &mockFunction{funcCode: common.FunctionType(ocssync)}
+
+	handled, err := updater.updateSessionProperties(msg, nil)
+	if handled {
+		t.Fatal("expected malformed session sync to be removed from the queue")
+	}
+	if err == nil {
+		t.Fatal("expected malformed session sync to return an error")
+	}
+	oracleErr, ok := err.(oracleErrors.SQLError)
+	if !ok || oracleErr.ErrorCode() != string(oracleErrors.FailUnmarshal) {
+		t.Fatalf("error = %v, want FailUnmarshal Oracle error", err)
 	}
 }
 

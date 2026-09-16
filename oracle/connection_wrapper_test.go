@@ -133,7 +133,17 @@ func openSessionlessTransactionTestConnection(t *testing.T, conn driver.Conn) *s
 	return sqlConn
 }
 
-// TestBeginSessionlessTxDelegates verifies that the public begin helper
+func openSessionlessTransactionTestConnectionWrapper(t *testing.T, conn driver.Conn) *connectionWrapper {
+	t.Helper()
+	sqlConn := openSessionlessTransactionTestConnection(t, conn)
+	wrapper, err := NewConnectionWrapper(sqlConn)
+	if err != nil {
+		t.Fatalf("wrap test connection: %v", err)
+	}
+	return wrapper
+}
+
+// TestBeginSessionlessTxDelegates verifies that the public wrapper begin method
 // forwards its arguments and returns the driver-provided transaction.
 func TestBeginSessionlessTxDelegates(t *testing.T) {
 	t.Parallel()
@@ -142,9 +152,9 @@ func TestBeginSessionlessTxDelegates(t *testing.T) {
 	opts := sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
 	wantTx := &sessionlessTransactionTestTx{}
 	driverConn := &sessionlessTransactionTestConn{beginTx: wantTx}
-	sqlConn := openSessionlessTransactionTestConnection(t, driverConn)
+	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
 
-	gotTx, err := BeginSessionlessTx(ctx, sqlConn, opts, 123)
+	gotTx, err := connectionWrapper.BeginSessionlessTx(ctx, opts, 123)
 	if err != nil {
 		t.Fatalf("BeginSessionlessTx returned error: %v", err)
 	}
@@ -166,15 +176,15 @@ func TestBeginSessionlessTxDelegates(t *testing.T) {
 }
 
 // TestBeginSessionlessTxPropagatesError verifies that an error returned by the
-// driver-level begin operation is propagated to the caller.
+// driver-level begin operation is propagated through the public wrapper.
 func TestBeginSessionlessTxPropagatesError(t *testing.T) {
 	t.Parallel()
 
 	wantErr := errors.New("begin sessionless transaction failed")
 	driverConn := &sessionlessTransactionTestConn{beginErr: wantErr}
-	sqlConn := openSessionlessTransactionTestConnection(t, driverConn)
+	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
 
-	gotTx, err := BeginSessionlessTx(context.Background(), sqlConn, sql.TxOptions{}, 300)
+	gotTx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
 	if gotTx != nil {
 		t.Fatalf("BeginSessionlessTx returned transaction %p on error", gotTx)
 	}
@@ -183,8 +193,8 @@ func TestBeginSessionlessTxPropagatesError(t *testing.T) {
 	}
 }
 
-// TestResumeSessionlessTxDelegates verifies that the public resume
-// helper forwards its arguments and returns the driver-provided transaction.
+// TestResumeSessionlessTxDelegates verifies that the public wrapper resume
+// method forwards its arguments and returns the driver-provided transaction.
 func TestResumeSessionlessTxDelegates(t *testing.T) {
 	t.Parallel()
 
@@ -192,9 +202,9 @@ func TestResumeSessionlessTxDelegates(t *testing.T) {
 	globalTransactionID := extensions.GlobalTransactionID("resume-global-transaction-id")
 	wantTx := &sessionlessTransactionTestTx{}
 	driverConn := &sessionlessTransactionTestConn{resumeTx: wantTx}
-	sqlConn := openSessionlessTransactionTestConnection(t, driverConn)
+	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
 
-	gotTx, err := ResumeSessionlessTx(ctx, sqlConn, globalTransactionID)
+	gotTx, err := connectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID)
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx returned error: %v", err)
 	}
@@ -212,17 +222,17 @@ func TestResumeSessionlessTxDelegates(t *testing.T) {
 	}
 }
 
-// TestResumeSessionlessTxPropagatesError verifies that an error
-// returned by the driver-level resume operation is propagated to the caller.
+// TestResumeSessionlessTxPropagatesError verifies that an error returned by the
+// driver-level resume operation is propagated through the public wrapper.
 func TestResumeSessionlessTxPropagatesError(t *testing.T) {
 	t.Parallel()
 
 	wantErr := errors.New("resume sessionless transaction failed")
 	driverConn := &sessionlessTransactionTestConn{resumeErr: wantErr}
-	sqlConn := openSessionlessTransactionTestConnection(t, driverConn)
+	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
 
-	gotTx, err := ResumeSessionlessTx(
-		context.Background(), sqlConn, extensions.GlobalTransactionID("resume-global-transaction-id"))
+	gotTx, err := connectionWrapper.ResumeSessionlessTx(
+		context.Background(), extensions.GlobalTransactionID("resume-global-transaction-id"))
 	if gotTx != nil {
 		t.Fatalf("ResumeSessionlessTx returned transaction %p on error", gotTx)
 	}
@@ -232,22 +242,15 @@ func TestResumeSessionlessTxPropagatesError(t *testing.T) {
 }
 
 // TestSessionlessTransactionWrappersRejectUnsupportedConnection verifies that
-// both public helpers reject connections without sessionless support.
+// the public wrapper rejects connections without sessionless support.
 func TestSessionlessTransactionWrappersRejectUnsupportedConnection(t *testing.T) {
 	t.Parallel()
 
 	sqlConn := openSessionlessTransactionTestConnection(t, &sessionlessTransactionTestPlainConn{})
-	ctx := context.Background()
 
-	if _, err := BeginSessionlessTx(ctx, sqlConn, sql.TxOptions{}, 300); err == nil {
-		t.Fatal("BeginSessionlessTx unexpectedly succeeded on an unsupported connection")
-	} else if err.Error() != "the connection does not support sessionless transactions" {
-		t.Fatalf("unexpected begin error: %v", err)
-	}
-
-	if _, err := ResumeSessionlessTx(ctx, sqlConn, extensions.GlobalTransactionID("resume-id")); err == nil {
-		t.Fatal("ResumeSessionlessTx unexpectedly succeeded on an unsupported connection")
-	} else if err.Error() != "the connection does not support sessionless transactions" {
-		t.Fatalf("unexpected resume error: %v", err)
+	if _, err := NewConnectionWrapper(sqlConn); err == nil {
+		t.Fatal("NewConnectionWrapper unexpectedly accepted an unsupported connection")
+	} else if err.Error() != "unsupported connection type" {
+		t.Fatalf("unexpected wrapper error: %v", err)
 	}
 }

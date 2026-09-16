@@ -412,9 +412,14 @@ func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID extensio
 	// the server has notified that the transaction has started on the
 	// server. If the server GTRID does not match the one in the client
 	// update it, and mark the transaction as started on the server.
+	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
+		common.Osl.Debug("Ignoring invalid server global transaction ID", "error", err)
+		return
+	}
 	if !bytes.Equal(globalTransactionID, t.globalTransactionID) {
-		common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
+		common.Osl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
 		t.globalTransactionID = append(extensions.GlobalTransactionID(nil), globalTransactionID...)
+		t.buildSessionlessXID()
 	}
 	common.Odl.Debug("Transaction has started by client received by server")
 	t.isStartedOnServer = true
@@ -424,10 +429,12 @@ func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID extensions
 	// the server has notified that the transaction has ended on the
 	// server. If the server GTRID does not match the one in the client
 	// update it, and mark the transaction as started on the server.
-	if !bytes.Equal(globalTransactionID, t.globalTransactionID) {
-		common.Odl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
-		t.globalTransactionID = append(extensions.GlobalTransactionID(nil), globalTransactionID...)
+	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
+		common.Osl.Debug("Ignoring invalid server global transaction ID", "error", err)
+		return
 	}
+	// sessionless trasnaction end message contains an empty global
+	// transaction id, do not update
 	common.Odl.Debug("Transaction has ended by client received by server")
 	t.isEndedOnServer = true
 }

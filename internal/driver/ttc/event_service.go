@@ -38,7 +38,10 @@
 
 package ttc
 
-import "github.com/oracle/go-oracledb/v26/internal/common"
+import (
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+)
 
 type eventType int
 
@@ -49,6 +52,21 @@ const (
 	streamerStaleEvent           // messages left unread
 	sessionPropertiesUpdateEvent // session properties have been updated
 )
+
+type eventData interface{}
+
+type sessionPropertiesUpdateEventData interface {
+	eventData
+	sessionProperties() *driverCommon.Properties[string]
+}
+
+type propertiesEventData struct {
+	properties *driverCommon.Properties[string]
+}
+
+func (p propertiesEventData) sessionProperties() *driverCommon.Properties[string] {
+	return p.properties
+}
 
 type eventService struct {
 	listeners map[eventType][]eventListener
@@ -62,7 +80,7 @@ type eventListener interface {
 	//   - event: the event type that was posted.
 	//
 	// Returns: none.
-	notify(event eventType)
+	notify(event eventType, data eventData)
 }
 
 // newEventService creates an event dispatcher with no registered listeners.
@@ -99,8 +117,8 @@ func (s *eventService) register(listener eventListener, event eventType) {
 //   - event: the event type to dispatch.
 //
 // Returns: none.
-func (s *eventService) post(event eventType) {
+func (s *eventService) post(event eventType, data eventData) {
 	for _, listener := range s.listeners[event] {
-		listener.notify(event)
+		listener.notify(event, data)
 	}
 }
