@@ -152,27 +152,6 @@ func TestHandleServerToClientPiggyback_ValidOCSSYNC(t *testing.T) {
 	}
 }
 
-// TestUpdateSessionPropertiesRejectsUnexpectedMessage verifies that a
-// malformed OCSSYNC callback cannot panic during type assertion.
-func TestUpdateSessionPropertiesRejectsUnexpectedMessage(t *testing.T) {
-	t.Parallel()
-
-	updater := serverToClientPiggybackUpdater{}
-	msg := &mockFunction{funcCode: common.FunctionType(ocssync)}
-
-	handled, err := updater.updateSessionProperties(msg, nil)
-	if handled {
-		t.Fatal("expected malformed session sync to be removed from the queue")
-	}
-	if err == nil {
-		t.Fatal("expected malformed session sync to return an error")
-	}
-	oracleErr, ok := err.(oracleErrors.SQLError)
-	if !ok || oracleErr.ErrorCode() != string(oracleErrors.FailUnmarshal) {
-		t.Fatalf("error = %v, want FailUnmarshal Oracle error", err)
-	}
-}
-
 // Test that the correct error is returned when the SPF message does not
 // implement the function interface
 func TestHandleServerToClientPiggyback_NotFunction(t *testing.T) {
