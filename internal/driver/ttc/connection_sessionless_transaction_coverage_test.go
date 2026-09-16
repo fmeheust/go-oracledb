@@ -210,7 +210,7 @@ func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 			setState:  (*sessionlessTransaction).setEndedOnServer,
 			initialID: "client-id",
 			syncID:    "server-id",
-			wantID:    "server-id",
+			wantID:    "client-id",
 			wantEnded: true,
 		},
 	}

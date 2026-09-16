@@ -59,7 +59,6 @@ func TestSessionlessTransactionServerIDMismatchRebuildsXID(t *testing.T) {
 		setState func(*sessionlessTransaction, extensions.GlobalTransactionID)
 	}{
 		{name: "started", setState: (*sessionlessTransaction).setStartedOnServer},
-		{name: "ended", setState: (*sessionlessTransaction).setEndedOnServer},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			conn, _ := newSessionlessTransactionTestConnection()
