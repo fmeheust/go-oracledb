@@ -201,7 +201,7 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 		return common.NewOracleError(oracleErrors.InternalError, nil)
 	}
 
-	// puch and flush the message
+	// push and flush the message
 	if err := stmr.Push(ctx, msg); err != nil {
 		common.Odl.Warn("Error pushing OTXEN message", "error", err)
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)

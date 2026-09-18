@@ -269,7 +269,7 @@ func TestResumeSessionlessTxHelperSetupFailures(t *testing.T) {
 			tt.setup(conn)
 			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("resume-id"), 300)
 
-			if got := transactionErrorCode(t, conn.resumeSessionlessTx(context.Background(), tx, 0)); got != oracleErrors.InternalError {
+			if got := transactionErrorCode(t, conn.resumeSessionlessTx(context.Background(), tx)); got != oracleErrors.InternalError {
 				t.Fatalf("resumeSessionlessTx error code = %s, want %s", got, oracleErrors.InternalError)
 			}
 		})

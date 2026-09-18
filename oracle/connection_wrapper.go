@@ -3,16 +3,31 @@ package oracle
 import (
 	"context"
 	"database/sql"
-	"errors"
 
+	"github.com/oracle/go-oracledb/v26/internal/common"
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
+// connectionWrapper provides Oracle specific operations for a dedicated
+// database/sql connection.
+//
+// The wrapped connection must be a connection returned by this driver.
 type connectionWrapper struct {
 	connection *sql.Conn
 }
 
+// NewConnectionWrapper validates and wraps a dedicated database/sql connection
+// for Oracle specific operations.
+//
+// Parameters:
+//   - connection: Dedicated database/sql connection to wrap.
+//
+// Returns:
+//   - *connectionWrapper: Wrapper for the supplied connection.
+//   - error: Error if the underlying driver connection type is not supported.
 func NewConnectionWrapper(connection *sql.Conn) (*connectionWrapper, error) {
+	var wrapper *connectionWrapper
 	err := connection.Raw(func(c any) error {
 		// Include here all functions/interfaces we want a connection to implement in
 		// order to be wrapped by this wrapper
@@ -21,11 +36,12 @@ func NewConnectionWrapper(connection *sql.Conn) (*connectionWrapper, error) {
 		}
 		_, ok := c.(canBeWrapped)
 		if !ok {
-			return errors.New("unsupported connection type")
+			return common.NewOracleError(oracleErrors.UnsupportedFeature, nil, "Sessionless Transactions")
 		}
+		wrapper = &connectionWrapper{connection: connection}
 		return nil
 	})
-	return &connectionWrapper{connection: connection}, err
+	return wrapper, err
 }
 
 // BeginSessionlessTx starts a sessionless transaction on the wrapped connection.

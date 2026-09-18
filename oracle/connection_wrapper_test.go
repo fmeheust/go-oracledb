@@ -38,6 +38,7 @@ import (
 	"errors"
 	"testing"
 
+	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
@@ -250,7 +251,13 @@ func TestSessionlessTransactionWrappersRejectUnsupportedConnection(t *testing.T)
 
 	if _, err := NewConnectionWrapper(sqlConn); err == nil {
 		t.Fatal("NewConnectionWrapper unexpectedly accepted an unsupported connection")
-	} else if err.Error() != "unsupported connection type" {
-		t.Fatalf("unexpected wrapper error: %v", err)
+	} else {
+		sqlError, ok := err.(oracleErrors.SQLError)
+		if !ok {
+			t.Fatalf("unexpected wrapper error type %T: %v", err, err)
+		}
+		if sqlError.ErrorCode() != string(oracleErrors.UnsupportedFeature) {
+			t.Fatalf("unexpected wrapper error code: %s", sqlError.ErrorCode())
+		}
 	}
 }

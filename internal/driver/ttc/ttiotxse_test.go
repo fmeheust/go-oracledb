@@ -319,7 +319,7 @@ func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	}
 }
 
-// TestOTxSeRPA_UnMarshalFrom_Success verifies the OTXSE RPA unmarshalls
+// TestOTxSeRPA_UnMarshalFrom_Success verifies the OTXSE RPA unmarshals
 // correctly: UB4 application value, UB2 context length, then raw bytes.
 func TestOTxSeRPA_UnMarshalFrom_Success(t *testing.T) {
 	t.Parallel()

@@ -77,7 +77,7 @@ const (
 )
 
 // IsValid checks if the connection is valid. This method is used by the connection
-// pool prior to to placing the connection into theconnection pool. If the server
+// pool prior to placing the connection into the connection pool. If the server
 // has reported an ongoing transaction, it will be rolled back.
 //
 // Returns: true if the connection is valid otherwise false
@@ -91,7 +91,7 @@ func (c *connection) IsValid() bool {
 		defer cancel()
 		if err := c.rollbackActiveTransaction(ctx); err != nil {
 			common.Odl.Warn("Rollback of active transaction during reset has failed", "error", err)
-			// only invalidate the connection if the trasnaction is not closed after the call
+			// only invalidate the connection if the transaction is not closed after the call
 			// independent on whether there was an error.
 			if c._isInTransaction {
 				c._isValid = false

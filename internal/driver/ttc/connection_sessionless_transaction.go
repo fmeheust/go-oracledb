@@ -222,7 +222,7 @@ func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionI
 	// create and register the sessionless transaction object
 	tx := newSessionlessTransaction(ctx, c, globalTransactionID, 0)
 	c.shelf.registerTransaction(tx)
-	if err := c.resumeSessionlessTx(ctx, tx, 0); err != nil {
+	if err := c.resumeSessionlessTx(ctx, tx); err != nil {
 		// unregister as current transaction
 		c.shelf.unregisterTransaction()
 		return nil, c.shelf.LocalizeError(err)
@@ -278,11 +278,10 @@ func (t *sessionlessTransaction) Suspend() error {
 // Parameters:
 //   - ctx: Context used for the resume operation.
 //   - tx: Sessionless transaction to resume.
-//   - timeout: Transaction timeout in seconds.
 //
 // Returns:
 //   - error: Error if the message cannot be created or queued.
-func (c *connection) resumeSessionlessTx(ctx context.Context, tx *sessionlessTransaction, timeout uint16) error {
+func (c *connection) resumeSessionlessTx(ctx context.Context, tx *sessionlessTransaction) error {
 	common.Odl.Debug("Running sessionless transaction resume")
 	// get the streamer
 	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
@@ -408,33 +407,40 @@ func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransact
 	return append(extensions.GlobalTransactionID(nil), t.globalTransactionID...)
 }
 
+// setStartedOnServer records that the server has acknowledged the start of the
+// sessionless transaction. If the server supplies a different global
+// transaction ID, the transaction identity and XID are updated to match it.
+// Invalid global transaction IDs are ignored.
+//
+// Parameters:
+//   - globalTransactionID: Global transaction ID reported by the server.
 func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID extensions.GlobalTransactionID) {
-	// the server has notified that the transaction has started on the
-	// server. If the server GTRID does not match the one in the client
-	// update it, and mark the transaction as started on the server.
+	// Validate global transaction ID
 	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
 		common.Osl.Debug("Ignoring invalid server global transaction ID", "error", err)
 		return
 	}
+	// Update global transaction ID and XID if server ID does not match client ID
 	if !bytes.Equal(globalTransactionID, t.globalTransactionID) {
 		common.Osl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
 		t.globalTransactionID = append(extensions.GlobalTransactionID(nil), globalTransactionID...)
 		t.buildSessionlessXID()
 	}
+	// Set flag
 	common.Odl.Debug("Transaction has started by client received by server")
 	t.isStartedOnServer = true
 }
 
+// setEndedOnServer records that the server has acknowledged the end of the
+// sessionless transaction. The server does not return the transaction's global
+// transaction ID in the end notification, so the transaction identity is not
+// changed. Invalid global transaction IDs are ignored.
+//
+// Parameters:
+//   - globalTransactionID: Global transaction ID reported by the server.
 func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID extensions.GlobalTransactionID) {
-	// the server has notified that the transaction has ended on the
-	// server. If the server GTRID does not match the one in the client
-	// update it, and mark the transaction as started on the server.
-	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
-		common.Osl.Debug("Ignoring invalid server global transaction ID", "error", err)
-		return
-	}
-	// sessionless trasnaction end message contains an empty global
-	// transaction id, do not update
+	// no validation is needed in this case, just mark the transaction as ended
+	// on the server
 	common.Odl.Debug("Transaction has ended by client received by server")
 	t.isEndedOnServer = true
 }

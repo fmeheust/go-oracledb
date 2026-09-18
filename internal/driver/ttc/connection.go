@@ -413,7 +413,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 
 	switch {
 	case sync.IsSet() && sync.IsSyncClient():
-		// the client trasnaction has started on the server
+		// the client transaction has started on the server
 		common.Osl.Debug("Client transaction started", "global transaction ID", sync.globalTransactionID)
 		currentTx := c.shelf.getTransaction()
 		if currentTx != nil {
@@ -429,7 +429,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 			common.Odl.Debug("Got client sync message and no current transaction is registered")
 		}
 	case sync.IsUnset() && sync.IsSyncClient():
-		// the client trasnaction has ended on the server
+		// the client transaction has ended on the server
 		common.Osl.Debug("Client transaction ended", "global transaction ID", sync.globalTransactionID)
 		currentTx := c.shelf.getTransaction()
 		if currentTx != nil {
@@ -450,7 +450,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		currentTx := c.shelf.getTransaction()
 		var implicitTx *sessionlessTransaction
 		if currentTx == nil {
-			// this should never happen, if there is not transaction the connection is on auto-commit mode which would start and end the trasnaction at the same time
+			// this should never happen, if there is not transaction the connection is on auto-commit mode which would start and end the transaction at the same time
 			implicitTx = newSessionlessTransaction(context.Background(), c, sync.globalTransactionID, 0)
 		} else {
 			if tx, ok := currentTx.(*transaction); ok {

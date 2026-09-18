@@ -1774,8 +1774,14 @@ func TestSessionlessTransactionUnsupportedConnection(t *testing.T) {
 
 	if _, err := NewConnectionWrapper(conn); err == nil {
 		t.Fatal("NewConnectionWrapper unexpectedly accepted unsupported connection")
-	} else if err.Error() != "unsupported connection type" {
-		t.Fatalf("NewConnectionWrapper on unsupported connection returned unexpected error: %v", err)
+	} else {
+		sqlError, ok := err.(oracleErrors.SQLError)
+		if !ok {
+			t.Fatalf("NewConnectionWrapper on unsupported connection returned unexpected error type %T: %v", err, err)
+		}
+		if sqlError.ErrorCode() != string(oracleErrors.UnsupportedFeature) {
+			t.Fatalf("NewConnectionWrapper on unsupported connection returned error code %s, want %s", sqlError.ErrorCode(), oracleErrors.UnsupportedFeature)
+		}
 	}
 }
 
