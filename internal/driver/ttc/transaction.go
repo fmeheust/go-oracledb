@@ -161,6 +161,13 @@ func (t *transaction) Commit() error {
 // Returns:
 //   - error: Error if no transaction is active or the rollback fails.
 func (t *transaction) Rollback() error {
+	return t.rollback(common.BackgroundContext)
+}
+
+// rollback rolls back the transaction using the supplied context. The public
+// Rollback method uses a background context, while lifecycle cleanup can use a
+// bounded context so a cancellation watcher cannot block indefinitely.
+func (t *transaction) rollback(ctx context.Context) error {
 	common.Odl.Debug("Transaction rollback")
 
 	// check that the transaction is the active transaction on the connection
@@ -170,10 +177,10 @@ func (t *transaction) Rollback() error {
 
 	// get the transaction and execute rollback
 	currentTransaction := t.underlyingConnection().shelf.getTransaction()
-	runFuncErr := t.underlyingConnection().runOTxEn(common.BackgroundContext, otxenAbort, currentTransaction)
+	runFuncErr := t.underlyingConnection().runOTxEn(ctx, otxenAbort, currentTransaction)
 
 	// validate the current connection state
-	if err := t.underlyingConnection().shelf.checkCurrentState(common.BackgroundContext); err != nil {
+	if err := t.underlyingConnection().shelf.checkCurrentState(ctx); err != nil {
 		t.underlyingConnection().unregisterTransactionOnError()
 		return err
 	}

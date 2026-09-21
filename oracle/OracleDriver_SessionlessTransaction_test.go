@@ -329,6 +329,84 @@ func TestSessionlessTransactionRollback(t *testing.T) {
 	}
 }
 
+// TestSessionlessTransactionContextCancellationRollsBack verifies that
+// canceling the context that started a sessionless transaction rolls back its
+// uncommitted changes on the server.
+func TestSessionlessTransactionContextCancellationRollsBack(t *testing.T) {
+	t.Parallel()
+	ctx, db := openSessionlessTestDB(t)
+	defer db.Close()
+
+	table := createObjectName("sessionless_tx_context_cancel")
+	if err := createTable(ctx, db, table, map[string]string{"str_value": "VARCHAR(50)"}); err != nil {
+		t.Fatalf("create table %q: %v", table, err)
+	}
+	defer dropTable(ctx, db, table)
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("acquire connection for context cancellation test: %v", err)
+	}
+	defer conn.Close()
+
+	txCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	connectionWrapper, err := NewConnectionWrapper(conn)
+	if err != nil {
+		t.Fatalf("wrap connection for context cancellation test: %v", err)
+	}
+	tx, err := connectionWrapper.BeginSessionlessTx(txCtx, sql.TxOptions{Isolation: sql.LevelReadCommitted}, 300)
+	if err != nil {
+		t.Fatalf("begin sessionless transaction with cancellable context: %v", err)
+	}
+
+	if _, err := conn.ExecContext(txCtx,
+		"INSERT INTO "+table+" (str_value) VALUES ('context-cancelled')"); err != nil {
+		t.Fatalf("insert row before context cancellation into table %q: %v", table, err)
+	}
+
+	var count int
+	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
+		t.Fatalf("count rows before context cancellation for table %q: %v", table, err)
+	}
+	if count != 1 {
+		t.Fatalf("count rows before context cancellation for table %q = %d, want 1", table, count)
+	}
+
+	count, err = countRows(ctx, db, table)
+	if err != nil {
+		t.Fatalf("count rows from another connection before context cancellation for table %q: %v", table, err)
+	}
+	if count != 0 {
+		t.Fatalf("count rows from another connection before context cancellation for table %q = %d, want 0", table, count)
+	}
+
+	cancel()
+	deadline := time.Now().Add(10 * time.Second)
+	for len(tx.GlobalTransactionID()) != 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(tx.GlobalTransactionID()) != 0 {
+		t.Fatal("sessionless transaction remained registered after context cancellation")
+	}
+
+	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
+		t.Fatalf("count rows after context cancellation for table %q: %v", table, err)
+	}
+	if count != 0 {
+		t.Fatalf("count rows after context cancellation for table %q = %d, want 0", table, count)
+	}
+
+	count, err = countRows(ctx, db, table)
+	if err != nil {
+		t.Fatalf("count rows from another connection after context cancellation for table %q: %v", table, err)
+	}
+	if count != 0 {
+		t.Fatalf("count rows from another connection after context cancellation for table %q = %d, want 0", table, count)
+	}
+}
+
 // TestSessionlessTransactionStartTwice verifies starting a second sessionless
 // transaction on a connection that already has one returns
 // AlreadyInTransaction.
@@ -1094,7 +1172,8 @@ func TestSessionlessTransactionCommitPLSQLConn(t *testing.T) {
 // every supported isolation/read-only combination and that each transaction
 // can be ended cleanly.
 func TestSessionlessTransactionBeginOptions(t *testing.T) {
-	t.Parallel()
+	// this test should not be run in parallel, v$transaction will contain all transactions for the
+	// current user
 	tests := []struct {
 		name string
 		opts sql.TxOptions
@@ -1142,19 +1221,31 @@ func TestSessionlessTransactionBeginOptions(t *testing.T) {
 			}
 
 			var flag int
-			if err := conn.QueryRowContext(ctx, "select bitand(flag, power(2, 28)) from v$transaction").Scan(&flag); err != nil && err != sql.ErrNoRows {
+			if rows, err := conn.QueryContext(ctx, "select bitand(flag, power(2, 28)) from v$transaction"); err != nil {
 				if sqlError, ok := err.(oracleErrors.SQLError); ok && sqlError.ErrorCode() == "ORA-00942" {
 					t.Skip("User does not have privileges to read V$TRANSACTION")
 				}
 				t.Fatalf("query serializable flag with options %q: %v", test.name, err)
-			}
-			if test.opts.Isolation == sql.LevelSerializable && !test.opts.ReadOnly {
-				if flag == 0 {
-					t.Fatalf("serializable flag with options %q = %d, want non-zero", test.name, flag)
-				}
 			} else {
-				if flag != 0 {
-					t.Fatalf("serializable flag with options %q = %d, want 0", test.name, flag)
+				i := 0
+				for rows.Next() {
+					if rows.Err() != nil {
+						t.Fatalf("Unexpected error on rows.Next %v", rows.Err())
+					}
+					err := rows.Scan(&flag)
+					t.Logf("row %d, flag: %d", i, flag)
+					if err != nil {
+						t.Fatalf("Unexpected error getting flags %v", err)
+					}
+					if test.opts.Isolation == sql.LevelSerializable && !test.opts.ReadOnly {
+						if flag == 0 {
+							t.Errorf("serializable flag with options %q = %d, want non-zero", test.name, flag)
+						}
+					} else {
+						if flag != 0 {
+							t.Errorf("serializable flag with options %q = %d, want 0", test.name, flag)
+						}
+					}
 				}
 			}
 			if err := tx.Rollback(); err != nil {

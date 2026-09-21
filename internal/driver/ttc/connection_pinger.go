@@ -86,14 +86,14 @@ func (c *connection) IsValid() bool {
 	c.isValid()
 
 	// check for ongoing transaction and rollback
-	if c._isInTransaction {
+	if c._transactionState == active {
 		ctx, cancel := context.WithTimeout(common.BackgroundContext, _rollbackTimeout)
 		defer cancel()
 		if err := c.rollbackActiveTransaction(ctx); err != nil {
 			common.Odl.Warn("Rollback of active transaction during reset has failed", "error", err)
 			// only invalidate the connection if the transaction is not closed after the call
 			// independent on whether there was an error.
-			if c._isInTransaction {
+			if c._transactionState != inactive {
 				c._isValid = false
 			}
 		}
@@ -129,7 +129,6 @@ func (c *connection) rollbackActiveTransaction(ctx context.Context) error {
 		return err
 	}
 
-	c._isInTransaction = false
 	c.shelf.unregisterTransaction()
 	return nil
 }

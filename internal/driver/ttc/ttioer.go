@@ -560,13 +560,20 @@ func (o *tTIoer) isBeingDrained() bool {
 	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.connectionShouldBeDropped()
 }
 
-// isInTransaction returns true if the connection is currently in a transaction,
-// otherwise false.
+// transactionState returns the transaction state reported by the server.
 //
 // Returns:
-//   - bool: Whether the server reports an active transaction.
-func (o *tTIoer) isInTransaction() bool {
-	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.inTransaction()
+//   - transactionState: the transaction state reported by the server, or
+//     unknown when no state was reported
+func (o *tTIoer) transactionState() transactionState {
+	if o.eocStatus == nil {
+		return unknown
+	}
+	if o.eocStatus.inTransaction() {
+		return active
+	} else {
+		return inactive
+	}
 }
 
 // getError return nil if the tTIoer does not represent an error, otherwise and

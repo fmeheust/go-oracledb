@@ -121,11 +121,18 @@ func (sta *ttiSTA) isBeingDrained() bool {
 	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.connectionShouldBeDropped()
 }
 
-// isInTransaction returns true if the connection is currently in a transaction,
-// otherwise false.
+// transactionState returns the transaction state reported by the server.
 //
 // Returns:
-//   - bool: Whether the server reports an active transaction.
-func (sta *ttiSTA) isInTransaction() bool {
-	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.inTransaction()
+//   - transactionState: the transaction state reported by the server, or
+//     unknown when no state was reported
+func (sta *ttiSTA) transactionState() transactionState {
+	if sta.eocStatus == nil {
+		return unknown
+	}
+	if sta.eocStatus.inTransaction() {
+		return active
+	} else {
+		return inactive
+	}
 }

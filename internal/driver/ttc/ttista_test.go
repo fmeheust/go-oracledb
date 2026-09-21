@@ -251,7 +251,7 @@ func Test_ttiSTA_getConnectionShouldBeDropped(t *testing.T) {
 			endOfCallStatusFlags: ttiEocFRo | ttiEocDon | ttiEocCur | ttiEocTTi,
 		},
 	}
-	if !msg.isInTransaction() {
+	if msg.transactionState() != active {
 		t.Fatal("inTransaction() returned false")
 	}
 }

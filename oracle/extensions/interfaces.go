@@ -3,8 +3,6 @@ package extensions
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
-	"encoding/base64"
 )
 
 // ConnSessionlessTx is implemented by connections that support Oracle
@@ -36,31 +34,4 @@ type ConnSessionlessTx interface {
 	//   - SessionlessTx: Resumed sessionless transaction.
 	//   - error: Error if the transaction cannot be resumed.
 	ResumeSessionlessTx(ctx context.Context, globalTransactionID GlobalTransactionID) (SessionlessTx, error)
-}
-
-// GlobalTransactionID identifies a sessionless transaction.
-type GlobalTransactionID []byte
-
-// String returns the base64 encoding of the global transaction identifier.
-//
-// Returns:
-//   - string: Base64-encoded transaction identifier.
-func (value GlobalTransactionID) String() string {
-	return base64.StdEncoding.EncodeToString([]byte(value))
-}
-
-// SessionlessTx is a transaction that can be suspended and later resumed by
-// its global transaction identifier.
-type SessionlessTx interface {
-	driver.Tx
-	// Suspend detaches the transaction from its current connection.
-	//
-	// Returns:
-	//   - error: Error if the transaction cannot be detached.
-	Suspend() error
-	// GlobalTransactionID returns the identifier associated with the transaction.
-	//
-	// Returns:
-	//   - GlobalTransactionID: Transaction identifier, or nil when unavailable.
-	GlobalTransactionID() GlobalTransactionID
 }

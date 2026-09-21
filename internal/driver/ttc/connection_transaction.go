@@ -246,7 +246,7 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 // transaction is also removed when its end notification has been received,
 // even if the connection status still reports an active transaction.
 func (c *connection) unregisterTransactionOnError() {
-	if !c._isInTransaction {
+	if c._transactionState == inactive {
 		c.shelf.unregisterTransaction()
 		return
 	}

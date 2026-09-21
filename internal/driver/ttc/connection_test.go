@@ -297,6 +297,37 @@ func TestConnection_InvalidateOnOEROrSTA(t *testing.T) {
 	}
 }
 
+// TestConnection_EndOfCallStatusUpdatesTransactionState verifies that the
+// transaction state is changed only when reported by the server.
+func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
+	t.Parallel()
+
+	connection := &connection{_isValid: true}
+	inactiveMessage := &tTIoer{
+		_supportsEndOfCallStatus: true,
+		eocStatus:                &endOfCallStatus{},
+	}
+	if _, err := connection._handleEndOfCallStatus(inactiveMessage, nil); err != nil {
+		t.Fatalf("inactive end-of-call status failed: %v", err)
+	}
+	if connection._transactionState != inactive {
+		t.Fatalf("transaction state = %v, want inactive", connection._transactionState)
+	}
+
+	activeMessage := &tTIoer{
+		_supportsEndOfCallStatus: true,
+		eocStatus: &endOfCallStatus{
+			endOfCallStatusFlags: ttiEocCur,
+		},
+	}
+	if _, err := connection._handleEndOfCallStatus(activeMessage, nil); err != nil {
+		t.Fatalf("active end-of-call status failed: %v", err)
+	}
+	if connection._transactionState != active {
+		t.Fatalf("transaction state = %v, want active", connection._transactionState)
+	}
+}
+
 // corrupted streamer test.
 // 1 - create a data buffer marshaller , shelf etc..
 // 2 - create a NewWrappedMockStreamer with TTIiov message in the incoming queue
@@ -456,4 +487,4 @@ func (m *connInvalidationMsg) UnMarshalFrom(_ context.Context, _ driverCommon.Ma
 func (m *connInvalidationMsg) isBeingDrained() bool {
 	return m.connectionShouldBeDropped
 }
-func (m *connInvalidationMsg) isInTransaction() bool { return false }
+func (m *connInvalidationMsg) transactionState() transactionState { return unknown }

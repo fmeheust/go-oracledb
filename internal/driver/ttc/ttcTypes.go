@@ -458,10 +458,11 @@ const (
 type sessionlessTxSyncReason byte
 
 const (
-	sessionlessGlobalTransactionIDSyncMode   byte = 0xC0
-	sessionlessGlobalTransactionIDSyncSet    byte = 1 << 6
-	sessionlessGlobalTransactionIDSyncUnset  byte = 2 << 6
-	sessionlessGlobalTransactionIDSyncReason byte = 0x3F
+	sessionlessGlobalTransactionIDSyncMode    byte = 0xC0
+	sessionlessGlobalTransactionIDSyncSet     byte = 1 << 6
+	sessionlessGlobalTransactionIDSyncUnset   byte = 2 << 6
+	sessionlessGlobalTransactionIDSyncReason  byte = 0x3F
+	sessionlessGlobalTransactionIDSyncVersion byte = 2
 
 	sessionlessGlobalTransactionIDSyncServer sessionlessTxSyncReason = 1
 	sessionlessGlobalTransactionIDSyncClient sessionlessTxSyncReason = 2
@@ -485,18 +486,31 @@ type sessionlessGlobalTransactionIDSync struct {
 //
 // Returns:
 //   - SessionlessGlobalTransactionIDSync: Decoded synchronization value.
-//   - error: Error if raw does not contain the required flags and version bytes.
+//   - error: Error if raw is malformed or uses unsupported flags or version.
 func newSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (*sessionlessGlobalTransactionIDSync, error) {
 	if len(raw) < 2 {
 		return nil, common.NewOracleError(oracleErrors.FailUnmarshal, nil, "sessionless global transaction ID")
 	}
 
 	rawCopy := append(driverCommon.B1Array(nil), raw...)
+	globalTransactionIDLength := len(rawCopy) - 2
+	flags := rawCopy[globalTransactionIDLength]
+	version := rawCopy[globalTransactionIDLength+1]
+	mode := flags & sessionlessGlobalTransactionIDSyncMode
+	reason := sessionlessTxSyncReason(flags & sessionlessGlobalTransactionIDSyncReason)
+	if globalTransactionIDLength > maxSessionlessGlobalTransactionIDSize ||
+		version != sessionlessGlobalTransactionIDSyncVersion ||
+		(mode != sessionlessGlobalTransactionIDSyncSet && mode != sessionlessGlobalTransactionIDSyncUnset) ||
+		(reason != sessionlessGlobalTransactionIDSyncServer && reason != sessionlessGlobalTransactionIDSyncClient) ||
+		(mode == sessionlessGlobalTransactionIDSyncSet && globalTransactionIDLength == 0) {
+		return nil, common.NewOracleError(oracleErrors.FailUnmarshal, nil, "sessionless global transaction ID")
+	}
+
 	return &sessionlessGlobalTransactionIDSync{
 		raw:                 rawCopy,
-		globalTransactionID: append(extensions.GlobalTransactionID(nil), rawCopy[:len(rawCopy)-2]...),
-		flags:               rawCopy[len(rawCopy)-2],
-		version:             rawCopy[len(rawCopy)-1],
+		globalTransactionID: append(extensions.GlobalTransactionID(nil), rawCopy[:globalTransactionIDLength]...),
+		flags:               flags,
+		version:             version,
 	}, nil
 }
 

@@ -54,8 +54,8 @@ func NewConnectionWrapper(connection *sql.Conn) (*connectionWrapper, error) {
 // Returns:
 //   - extensions.SessionlessTx: Started sessionless transaction.
 //   - error: Error if the transaction cannot be started.
-func (wrapper *connectionWrapper) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions, timeout uint16) (extensions.SessionlessTx, error) {
-	var publicSessionlessTransaction extensions.SessionlessTx
+func (wrapper *connectionWrapper) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions, timeout uint16) (*sessionlessTx, error) {
+	var publicSessionlessTransaction *sessionlessTx
 	err := wrapper.connection.Raw(func(c any) error {
 		var err error
 		publicSessionlessTransaction, err = c.(extensions.ConnSessionlessTx).BeginSessionlessTx(ctx, opts, timeout)

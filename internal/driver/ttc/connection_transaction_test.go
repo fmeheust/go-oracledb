@@ -323,46 +323,46 @@ func TestConnectionBeginTxReturnsPushError(t *testing.T) {
 func TestTransactionOperationErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name                 string
-		operation            func(*transaction) error
-		message              string
-		serverInTransaction  bool
-		wantLocalTransaction bool
+		name                   string
+		operation              func(*transaction) error
+		message                string
+		serverTransactionState transactionState
+		wantLocalTransaction   bool
 	}{
 		{
-			name:                 "commit with transaction ended on server",
-			operation:            (*transaction).Commit,
-			message:              "commit failed",
-			serverInTransaction:  false,
-			wantLocalTransaction: false,
+			name:                   "commit with transaction ended on server",
+			operation:              (*transaction).Commit,
+			message:                "commit failed",
+			serverTransactionState: inactive,
+			wantLocalTransaction:   false,
 		},
 		{
-			name:                 "commit with transaction active on server",
-			operation:            (*transaction).Commit,
-			message:              "commit failed",
-			serverInTransaction:  true,
-			wantLocalTransaction: true,
+			name:                   "commit with transaction active on server",
+			operation:              (*transaction).Commit,
+			message:                "commit failed",
+			serverTransactionState: active,
+			wantLocalTransaction:   true,
 		},
 		{
-			name:                 "rollback with transaction ended on server",
-			operation:            (*transaction).Rollback,
-			message:              "rollback failed",
-			serverInTransaction:  false,
-			wantLocalTransaction: false,
+			name:                   "rollback with transaction ended on server",
+			operation:              (*transaction).Rollback,
+			message:                "rollback failed",
+			serverTransactionState: inactive,
+			wantLocalTransaction:   false,
 		},
 		{
-			name:                 "rollback with transaction active on server",
-			operation:            (*transaction).Rollback,
-			message:              "rollback failed",
-			serverInTransaction:  true,
-			wantLocalTransaction: true,
+			name:                   "rollback with transaction active on server",
+			operation:              (*transaction).Rollback,
+			message:                "rollback failed",
+			serverTransactionState: active,
+			wantLocalTransaction:   true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			streamer := &mockStreamer{pullMsg: &mockOer{err: errors.New(tt.message)}}
 			conn := newTransactionTestConnection(streamer)
-			conn._isInTransaction = tt.serverInTransaction
+			conn._transactionState = tt.serverTransactionState
 			tx := newTransaction(conn, context.Background())
 			conn.shelf.registerTransaction(tx)
 

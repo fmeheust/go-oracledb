@@ -193,6 +193,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 
 	{Name: "TestSessionlessTransactionCommit", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionCommit},
 	{Name: "TestSessionlessTransactionRollback", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionRollback},
+	{Name: "TestSessionlessTransactionContextCancellationRollsBack", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionContextCancellationRollsBack},
 	{Name: "TestSessionlessTransactionStartTwice", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionStartTwice},
 	{Name: "TestSessionlessTransactionSuspendTwice", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionSuspendTwice},
 	{Name: "TestSessionlessTransactionResumeTwice", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionResumeTwice},
@@ -206,7 +207,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestSessionlessTransactionPLSQLRollbackThenAPIRollback", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionPLSQLRollbackThenAPIRollback},
 	{Name: "TestSessionlessTransactionCommitPLSQLRunQueryBeforeSessionless", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionCommitPLSQLRunQueryBeforeSessionless},
 	{Name: "TestSessionlessTransactionCommitPLSQLConn", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionCommitPLSQLConn},
-	{Name: "TestSessionlessTransactionBeginOptions", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionBeginOptions},
+	{Name: "TestSessionlessTransactionBeginOptions", Categories: "functional", Exclusive: true, Fn: TestSessionlessTransactionBeginOptions},
 	{Name: "TestSessionlessTransactionResumeValidation", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionResumeValidation},
 	{Name: "TestSessionlessTransactionSQLCommitOrRollbackThenSuspend", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionSQLCommitOrRollbackThenSuspend},
 	{Name: "TestSessionlessTransactionAPIOperationThenSuspend", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionAPIOperationThenSuspend},

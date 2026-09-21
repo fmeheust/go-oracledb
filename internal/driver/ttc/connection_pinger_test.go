@@ -171,15 +171,15 @@ func TestConnectionValidator_RollsBackActiveTransaction(t *testing.T) {
 	connection.ns = &mockNetworkSession{
 		inband: false,
 	}
-	connection._isInTransaction = true
+	connection._transactionState = active
 
 	if !connection.IsValid() {
 		t.Fatalf("IsValid should have returned true")
 	}
 
 	assertTransactionFunction(t, streamer, common.SB4(otxenAbort), k2cmdAbort)
-	if connection._isInTransaction {
-		t.Fatal("IsValid should clear the active transaction state")
+	if connection._transactionState != active {
+		t.Fatal("IsValid should not update server transaction state on the client")
 	}
 	if connection.shelf.isInTransaction() {
 		t.Fatal("IsValid should unregister the rolled back transaction")
@@ -197,7 +197,7 @@ func TestConnectionValidator_RollbackFailureInvalidatesConnection(t *testing.T) 
 	connection.ns = &mockNetworkSession{
 		inband: false,
 	}
-	connection._isInTransaction = true
+	connection._transactionState = active
 
 	if connection.IsValid() {
 		t.Fatalf("IsValid should be false")

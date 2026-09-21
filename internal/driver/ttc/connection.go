@@ -54,6 +54,14 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
+type transactionState uint8
+
+const (
+	unknown transactionState = iota
+	inactive
+	active
+)
+
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
 type connection struct {
@@ -69,10 +77,10 @@ type connection struct {
 	// failure) or when then connectionShouldBeDropped flag is received on an STA
 	// or OER message (TODO).
 	_isValid bool
-	// _isInTransaction keeps the server state of the transaction. When a connection
+	// _transactionState keeps the server state of the transaction. When a connection
 	// is returned to the pool, if there is still a transaction started in that
 	// connection it will be rolled back
-	_isInTransaction bool
+	_transactionState transactionState
 }
 
 // newConnection constructs a new Oracle connection wrapping negotiated state.
@@ -206,12 +214,11 @@ type connectionStatusProvider interface {
 	// Returns:
 	//   - bool: Whether the connection should be dropped.
 	isBeingDrained() bool
-	// isInTransaction returns true if the connection is currently in a transaction,
-	// otherwise false.
+	// transactionState returns the transaction state as reported by the server
 	//
 	// Returns:
-	//   - bool: Whether the connection has an active transaction.
-	isInTransaction() bool
+	//   - transactionState: the transaction state reported by the server
+	transactionState() transactionState
 }
 
 // _registerHandleEndOfCallStatus registers post-unmarshal callbacks that
@@ -247,8 +254,8 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 	// released to the connection pool
 	c._isValid = !msg.(connectionStatusProvider).isBeingDrained()
 	// check for active transaction
-	c._isInTransaction = msg.(connectionStatusProvider).isInTransaction()
-	if c._isInTransaction {
+	c._transactionState = msg.(connectionStatusProvider).transactionState()
+	if c._transactionState == active {
 		common.Odl.Debug("Active transaction on server")
 	}
 	// return always true, the incoming message should be kept
@@ -460,12 +467,25 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 				return
 			}
 		}
+		implicitTx.isServerOriginated = true
 		implicitTx.isStartedOnServer = true
 		c.shelf.registerTransaction(implicitTx)
 
 	case sync.IsUnset() && sync.IsSyncServer():
 		common.Osl.Debug("Server transaction ended, ending implicit transaction", "global transaction ID", sync.globalTransactionID)
-		// end implicit sessionless transaction
+		// The server will return an empty transaction ID when the transaction
+		// is ended, check that the transaction is a sessionless transaction
+		// and that it has been started by the server; if that is not the
+		// case invalidate the connection
+		currentTx := c.shelf.getTransaction()
+		if currentTx == nil {
+			return
+		}
+		sessionlessTransaction, ok := currentTx.(*sessionlessTransaction)
+		if !ok || !sessionlessTransaction.isServerOriginated {
+			c._isValid = false
+			return
+		}
 		c.shelf.unregisterTransaction()
 
 	}

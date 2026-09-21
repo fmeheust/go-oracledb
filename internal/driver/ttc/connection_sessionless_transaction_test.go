@@ -45,6 +45,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
@@ -90,6 +91,113 @@ func newSessionlessTransactionTestConnection() (*connection, *mockStreamer) {
 	sessionCtx.GetSessionProperties().SetProperty(instanceName, "test-instance")
 
 	return newTestConnection(shelf, sessionCtx, nil), mockStr
+}
+
+func waitForSessionlessTransactionState(t *testing.T, conn *connection, wantRegistered bool) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if conn.shelf.isInTransaction() == wantRegistered {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("sessionless transaction registration = %v, want %v", conn.shelf.isInTransaction(), wantRegistered)
+}
+
+// TestSessionlessTransactionContextCancellationRollsBack verifies that a
+// canceled public sessionless transaction is rolled back and removed from the
+// connection.
+func TestSessionlessTransactionContextCancellationRollsBack(t *testing.T) {
+	t.Parallel()
+
+	conn, streamer := newSessionlessTransactionTestConnection()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if _, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300); err != nil {
+		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	}
+	cancel()
+	waitForSessionlessTransactionState(t, conn, false)
+	if got, want := streamer.pushedMsg.Len(), 2; got != want {
+		t.Fatalf("messages pushed after cancellation = %d, want %d", got, want)
+	}
+}
+
+// TestResumedSessionlessTransactionContextCancellationRollsBack verifies that
+// Resume installs the same cancellation cleanup as Begin.
+func TestResumedSessionlessTransactionContextCancellationRollsBack(t *testing.T) {
+	t.Parallel()
+
+	conn, streamer := newSessionlessTransactionTestConnection()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if _, err := conn.ResumeSessionlessTx(ctx, extensions.GlobalTransactionID("resume-id")); err != nil {
+		t.Fatalf("ResumeSessionlessTx failed: %v", err)
+	}
+	cancel()
+	waitForSessionlessTransactionState(t, conn, false)
+	if got, want := streamer.pushedMsg.Len(), 2; got != want {
+		t.Fatalf("messages pushed after resumed transaction cancellation = %d, want %d", got, want)
+	}
+}
+
+// TestSessionlessTransactionSuspendStopsContextWatcher verifies that a
+// suspended transaction remains resumable after its original context is
+// canceled.
+func TestSessionlessTransactionSuspendStopsContextWatcher(t *testing.T) {
+	t.Parallel()
+
+	conn, _ := newSessionlessTransactionTestConnection()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	transaction, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
+	if err != nil {
+		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	}
+	tx := transaction.(*sessionlessTransaction)
+	if err := tx.Suspend(); err != nil {
+		t.Fatalf("Suspend failed: %v", err)
+	}
+
+	cancel()
+	tx.lifecycleMu.Lock()
+	state := tx.lifecycleState
+	watcherInstalled := tx.contextWatcherStop != nil
+	tx.lifecycleMu.Unlock()
+	if state != sessionlessTransactionSuspended {
+		t.Fatalf("lifecycle state after cancellation = %d, want suspended", state)
+	}
+	if watcherInstalled {
+		t.Fatal("context watcher remained installed after suspend")
+	}
+}
+
+// TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure
+// verifies that an ambiguous cleanup result cannot return the connection to a
+// pool.
+func TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure(t *testing.T) {
+	t.Parallel()
+
+	conn, streamer := newSessionlessTransactionTestConnection()
+	streamer.pullMsg = &mockOer{err: errors.New("rollback failed")}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if _, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300); err != nil {
+		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	}
+	cancel()
+	deadline := time.Now().Add(time.Second)
+	for conn._isValid && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if conn._isValid {
+		t.Fatal("connection remained valid after failed cancellation rollback")
+	}
 }
 
 // TestSessionlessTransactionEndUsesOTxEn verifies that sessionless commit and
@@ -704,35 +812,37 @@ func TestSessionlessTransactionOperationErrors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                 string
-		operation            func(*sessionlessTransaction) error
-		serverInTransaction  bool
-		endedOnServer        bool
-		wantLocalTransaction bool
+		name                   string
+		operation              func(*sessionlessTransaction) error
+		serverTransactionState transactionState
+		endedOnServer          bool
+		wantLocalTransaction   bool
 	}{
 		{
-			name:                 "commit with transaction active on server",
-			operation:            func(tx *sessionlessTransaction) error { return tx.Commit() },
-			serverInTransaction:  true,
-			wantLocalTransaction: true,
+			name:                   "commit with transaction active on server",
+			operation:              func(tx *sessionlessTransaction) error { return tx.Commit() },
+			serverTransactionState: active,
+			wantLocalTransaction:   true,
 		},
 		{
-			name:                 "commit with transaction ended on server",
-			operation:            func(tx *sessionlessTransaction) error { return tx.Commit() },
-			endedOnServer:        true,
-			wantLocalTransaction: false,
+			name:                   "commit with transaction ended on server",
+			operation:              func(tx *sessionlessTransaction) error { return tx.Commit() },
+			endedOnServer:          true,
+			serverTransactionState: inactive,
+			wantLocalTransaction:   false,
 		},
 		{
-			name:                 "rollback with transaction active on server",
-			operation:            func(tx *sessionlessTransaction) error { return tx.Rollback() },
-			serverInTransaction:  true,
-			wantLocalTransaction: true,
+			name:                   "rollback with transaction active on server",
+			operation:              func(tx *sessionlessTransaction) error { return tx.Rollback() },
+			serverTransactionState: active,
+			wantLocalTransaction:   true,
 		},
 		{
-			name:                 "rollback with transaction ended on server",
-			operation:            func(tx *sessionlessTransaction) error { return tx.Rollback() },
-			endedOnServer:        true,
-			wantLocalTransaction: false,
+			name:                   "rollback with transaction ended on server",
+			operation:              func(tx *sessionlessTransaction) error { return tx.Rollback() },
+			endedOnServer:          true,
+			serverTransactionState: inactive,
+			wantLocalTransaction:   false,
 		},
 	}
 
@@ -742,7 +852,7 @@ func TestSessionlessTransactionOperationErrors(t *testing.T) {
 			streamer.pullMsg = &mockOer{err: errors.New("transaction operation failed")}
 			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("sessionless-id"), 300)
 			conn.shelf.registerTransaction(tx)
-			conn._isInTransaction = tt.serverInTransaction
+			conn._transactionState = tt.serverTransactionState
 			tx.isStartedOnServer = true
 			tx.isEndedOnServer = tt.endedOnServer
 
@@ -763,26 +873,26 @@ func TestSuspendSessionlessTxErrorRegistration(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                 string
-		serverInTransaction  bool
-		endedOnServer        bool
-		wantLocalTransaction bool
+		name                   string
+		serverTransactionState transactionState
+		endedOnServer          bool
+		wantLocalTransaction   bool
 	}{
 		{
-			name:                 "transaction active on server",
-			serverInTransaction:  true,
-			wantLocalTransaction: true,
+			name:                   "transaction active on server",
+			serverTransactionState: active,
+			wantLocalTransaction:   true,
 		},
 		{
-			name:                 "transaction ended on server",
-			serverInTransaction:  false,
-			wantLocalTransaction: false,
+			name:                   "transaction ended on server",
+			serverTransactionState: inactive,
+			wantLocalTransaction:   false,
 		},
 		{
-			name:                 "sessionless end notification received",
-			serverInTransaction:  true,
-			endedOnServer:        true,
-			wantLocalTransaction: false,
+			name:                   "sessionless end notification received",
+			serverTransactionState: active,
+			endedOnServer:          true,
+			wantLocalTransaction:   false,
 		},
 	}
 
@@ -792,7 +902,7 @@ func TestSuspendSessionlessTxErrorRegistration(t *testing.T) {
 			streamer.pushErr = errors.New("detach failed")
 			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("sessionless-id"), 300)
 			conn.shelf.registerTransaction(tx)
-			conn._isInTransaction = tt.serverInTransaction
+			conn._transactionState = tt.serverTransactionState
 			tx.isStartedOnServer = true
 			tx.isEndedOnServer = tt.endedOnServer
 
@@ -835,6 +945,64 @@ func TestSessionlessTransactionOperationsRejectStaleTransaction(t *testing.T) {
 			}
 			if conn.shelf.getTransaction() != currentTransaction {
 				t.Fatalf("stale %s changed the current transaction", tt.name)
+			}
+		})
+	}
+}
+
+// TestSessionlessTransactionRejectsReuseAfterEndingOperation verifies that
+// commit and rollback cannot reuse a sessionless transaction handle after
+// suspend, commit, or rollback, while repeated Suspend is a no-op.
+func TestSessionlessTransactionRejectsReuseAfterEndingOperation(t *testing.T) {
+	t.Parallel()
+
+	endingOperations := []struct {
+		name      string
+		operation func(*sessionlessTransaction) error
+	}{
+		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
+		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
+		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
+	}
+	followUpOperations := []struct {
+		name      string
+		operation func(*sessionlessTransaction) error
+	}{
+		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
+		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
+	}
+
+	for _, endingOperation := range endingOperations {
+		t.Run(endingOperation.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+			if err != nil {
+				t.Fatalf("BeginSessionlessTx failed: %v", err)
+			}
+			tx := transaction.(*sessionlessTransaction)
+			streamer.pushedMsg.Init()
+
+			if err := endingOperation.operation(tx); err != nil {
+				t.Fatalf("%s failed: %v", endingOperation.name, err)
+			}
+			messageCount := streamer.pushedMsg.Len()
+
+			for _, followUpOperation := range followUpOperations {
+				t.Run(followUpOperation.name, func(t *testing.T) {
+					if got := transactionErrorCode(t, followUpOperation.operation(tx)); got != oracleErrors.NotInTransaction {
+						t.Fatalf("error code after %s = %s, want %s", endingOperation.name, got, oracleErrors.NotInTransaction)
+					}
+					if got := streamer.pushedMsg.Len(); got != messageCount {
+						t.Fatalf("messages pushed after reusing transaction following %s = %d, want %d", endingOperation.name, got, messageCount)
+					}
+				})
+			}
+
+			if err := tx.Suspend(); err != nil {
+				t.Fatalf("suspend after %s = %v, want no error", endingOperation.name, err)
+			}
+			if got := streamer.pushedMsg.Len(); got != messageCount {
+				t.Fatalf("messages pushed after suspend following %s = %d, want %d", endingOperation.name, got, messageCount)
 			}
 		})
 	}
