@@ -66,6 +66,41 @@ func TestSessionlessServerEndDoesNotEndClientTransaction(t *testing.T) {
 	}
 }
 
+// TestSessionlessClientSyncUpdatesTransactionState verifies that client-side
+// session-property notifications update the transaction ID and server-state
+// flags without unregistering the client-owned transaction.
+func TestSessionlessClientSyncUpdatesTransactionState(t *testing.T) {
+	t.Parallel()
+
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("client-id"), 300)
+	conn.shelf.registerTransaction(tx)
+
+	// An invalid server ID is ignored and must not mark the transaction started.
+	tx.setStartedOnServer(nil)
+	if tx.isStartedOnServer {
+		t.Fatal("invalid server start ID marked the transaction as started")
+	}
+
+	conn.handleSessionPropertyChange(sessionlessSyncEventData(
+		t, "server-client-id", sessionlessGlobalTransactionIDSyncSet, sessionlessGlobalTransactionIDSyncClient))
+	if !tx.isStartedOnServer {
+		t.Fatal("client start notification did not mark the transaction as started")
+	}
+	if !bytes.Equal(tx.globalTransactionID, []byte("server-client-id")) {
+		t.Fatalf("global transaction ID = %q, want %q", tx.globalTransactionID, "server-client-id")
+	}
+
+	conn.handleSessionPropertyChange(sessionlessSyncEventData(
+		t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessGlobalTransactionIDSyncClient))
+	if !tx.isEndedOnServer {
+		t.Fatal("client end notification did not mark the transaction as ended")
+	}
+	if conn.shelf.getTransaction() != tx {
+		t.Fatal("client synchronization notification unregistered the transaction")
+	}
+}
+
 // TestSessionlessGlobalTransactionIDSyncRejectsMalformedPayload verifies that
 // invalid synchronization metadata cannot create or alter transaction state.
 func TestSessionlessGlobalTransactionIDSyncRejectsMalformedPayload(t *testing.T) {

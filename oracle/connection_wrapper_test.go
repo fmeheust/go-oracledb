@@ -140,19 +140,26 @@ func (*sessionlessTransactionTestPlainConn) Begin() (driver.Tx, error) {
 
 type sessionlessTransactionTestTx struct {
 	transactionEnded bool
+	runningFromTx    bool
+	commitErr        error
+	rollbackErr      error
+	suspendErr       error
 }
 
-// Commit succeeds without changing the fake transaction state.
-func (*sessionlessTransactionTestTx) Commit() error { return nil }
+// Commit returns the configured fake commit result.
+func (tx *sessionlessTransactionTestTx) Commit() error { return tx.commitErr }
 
-// Rollback succeeds without changing the fake transaction state.
-func (*sessionlessTransactionTestTx) Rollback() error { return nil }
+// Rollback returns the configured fake rollback result.
+func (tx *sessionlessTransactionTestTx) Rollback() error { return tx.rollbackErr }
 
-// Suspend succeeds without changing the fake transaction state.
-func (*sessionlessTransactionTestTx) Suspend() error { return nil }
+// Suspend returns the configured fake suspend result.
+func (tx *sessionlessTransactionTestTx) Suspend() error { return tx.suspendErr }
 
-// SetRunningFromSessionlessTx is a no-op for the fake transaction.
-func (*sessionlessTransactionTestTx) SetRunningFromSessionlessTx(bool) {}
+// SetRunningFromSessionlessTx records whether the wrapper authorized an
+// operation on the fake transaction.
+func (tx *sessionlessTransactionTestTx) SetRunningFromSessionlessTx(running bool) {
+	tx.runningFromTx = running
+}
 
 // SetTransactionEnded records whether the fake transaction has ended.
 func (tx *sessionlessTransactionTestTx) SetTransactionEnded(ended bool) { tx.transactionEnded = ended }
@@ -417,5 +424,171 @@ func TestSessionlessTransactionWrappersRejectUnsupportedConnection(t *testing.T)
 		if sqlError.ErrorCode() != string(oracleErrors.UnsupportedFeature) {
 			t.Fatalf("unexpected wrapper error code: %s", sqlError.ErrorCode())
 		}
+	}
+}
+
+// TestGlobalTransactionIDString verifies that the public transaction ID uses
+// hexadecimal encoding for its string representation.
+func TestGlobalTransactionIDString(t *testing.T) {
+	t.Parallel()
+
+	if got, want := (GlobalTransactionID{0x01, 0xab, 0xff}).String(), "01abff"; got != want {
+		t.Fatalf("GlobalTransactionID.String() = %q, want %q", got, want)
+	}
+}
+
+// TestSessionlessTransactionDirectSQLMethods verifies the non-context Exec and
+// Query wrapper methods, the context-aware QueryRow wrapper method, and confirms
+// that wrapper authorization is cleared when each operation returns.
+func TestSessionlessTransactionDirectSQLMethods(t *testing.T) {
+	t.Parallel()
+
+	transaction := &sessionlessTransactionTestTx{}
+	driverConn := &sessionlessTransactionTestConn{
+		beginTx:      transaction,
+		preparedStmt: &sessionlessTransactionTestStmt{},
+	}
+	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
+	tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+	if err != nil {
+		t.Fatalf("BeginSessionlessTx returned error: %v", err)
+	}
+
+	if _, err := tx.Exec("SELECT 1"); err != nil {
+		t.Fatalf("Exec returned error: %v", err)
+	}
+	if transaction.runningFromTx {
+		t.Fatal("Exec left sessionless authorization enabled")
+	}
+
+	if _, err := tx.Query("SELECT 1"); err == nil {
+		t.Fatal("Query unexpectedly succeeded with the unsupported fake statement")
+	}
+	if transaction.runningFromTx {
+		t.Fatal("Query left sessionless authorization enabled")
+	}
+
+	if err := tx.QueryRowContext(context.Background(), "SELECT 1").Scan(new(int)); err == nil {
+		t.Fatal("QueryRowContext unexpectedly succeeded with the unsupported fake statement")
+	}
+	if transaction.runningFromTx {
+		t.Fatal("QueryRowContext left sessionless authorization enabled")
+	}
+}
+
+// TestSessionlessTransactionGlobalTransactionID verifies that the wrapper
+// returns the active driver's transaction ID and returns nil when the wrapped
+// connection can no longer execute Raw callbacks.
+func TestSessionlessTransactionGlobalTransactionID(t *testing.T) {
+	t.Parallel()
+
+	driverConn := &sessionlessTransactionTestConn{beginTx: &sessionlessTransactionTestTx{}}
+	sqlConn := openSessionlessTransactionTestConnection(t, driverConn)
+	connectionWrapper, err := NewConnectionWrapper(sqlConn)
+	if err != nil {
+		t.Fatalf("NewConnectionWrapper returned error: %v", err)
+	}
+	tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+	if err != nil {
+		t.Fatalf("BeginSessionlessTx returned error: %v", err)
+	}
+
+	if got, want := string(tx.GlobalTransactionID()), "test-global-transaction-id"; got != want {
+		t.Fatalf("GlobalTransactionID() = %q, want %q", got, want)
+	}
+
+	if err := sqlConn.Close(); err != nil {
+		t.Fatalf("sql.Conn.Close returned error: %v", err)
+	}
+	if got := tx.GlobalTransactionID(); got != nil {
+		t.Fatalf("GlobalTransactionID() after connection close = %q, want nil", got)
+	}
+}
+
+// TestSessionlessTransactionCloseStatementsIsIdempotent verifies that repeated
+// cleanup closes each transaction-owned statement only once.
+func TestSessionlessTransactionCloseStatementsIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	transaction := &sessionlessTransactionTestTx{}
+	driverStmt := &sessionlessTransactionTestStmt{}
+	driverConn := &sessionlessTransactionTestConn{beginTx: transaction, preparedStmt: driverStmt}
+	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
+	tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+	if err != nil {
+		t.Fatalf("BeginSessionlessTx returned error: %v", err)
+	}
+	if _, err := tx.Prepare("SELECT 1"); err != nil {
+		t.Fatalf("Prepare returned error: %v", err)
+	}
+
+	tx.closeStatements()
+	tx.closeStatements()
+
+	if driverStmt.closeCount != 1 {
+		t.Fatalf("statement close count = %d, want 1", driverStmt.closeCount)
+	}
+	if !transaction.transactionEnded {
+		t.Fatal("closeStatements did not end the transaction")
+	}
+}
+
+// TestSessionlessTransactionClosesStatementsAfterEndingErrors verifies that
+// Commit, Rollback, and Suspend close owned statements even when the driver
+// operation returns an error.
+func TestSessionlessTransactionClosesStatementsAfterEndingErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		setup func(*sessionlessTransactionTestTx, error)
+		end   func(*sessionlessTx) error
+	}{
+		{
+			name:  "commit",
+			setup: func(tx *sessionlessTransactionTestTx, err error) { tx.commitErr = err },
+			end:   (*sessionlessTx).Commit,
+		},
+		{
+			name:  "rollback",
+			setup: func(tx *sessionlessTransactionTestTx, err error) { tx.rollbackErr = err },
+			end:   (*sessionlessTx).Rollback,
+		},
+		{
+			name:  "suspend",
+			setup: func(tx *sessionlessTransactionTestTx, err error) { tx.suspendErr = err },
+			end:   (*sessionlessTx).Suspend,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wantErr := errors.New(test.name + " failed")
+			transaction := &sessionlessTransactionTestTx{}
+			test.setup(transaction, wantErr)
+			stmt := &sessionlessTransactionTestStmt{}
+			driverConn := &sessionlessTransactionTestConn{
+				beginTx:      transaction,
+				preparedStmt: stmt,
+			}
+			connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
+			tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+			if err != nil {
+				t.Fatalf("BeginSessionlessTx returned error: %v", err)
+			}
+			if _, err := tx.Prepare("SELECT 1"); err != nil {
+				t.Fatalf("Prepare returned error: %v", err)
+			}
+
+			if err := test.end(tx); !errors.Is(err, wantErr) {
+				t.Fatalf("%s error = %v, want %v", test.name, err, wantErr)
+			}
+			if stmt.closeCount != 1 {
+				t.Fatalf("statement close count after %s = %d, want 1", test.name, stmt.closeCount)
+			}
+			if !transaction.transactionEnded {
+				t.Fatalf("transaction ended after %s = false, want true", test.name)
+			}
+		})
 	}
 }

@@ -155,19 +155,7 @@ func (tx *sessionlessTx) GlobalTransactionID() GlobalTransactionID {
 //   - sql.Result: Result returned by the database.
 //   - error: Error if the statement cannot be executed.
 func (tx *sessionlessTx) Exec(query string, args ...any) (sql.Result, error) {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return nil, err
-	}
-	defer tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(false)
-		return nil
-	})
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(true)
-		return nil
-	})
-	result, err := tx.underlyingConn.ExecContext(context.Background(), query, args...)
-	return result, err
+	return tx.ExecContext(context.Background(), query, args...)
 }
 
 // ExecContext executes a statement using the supplied context.
@@ -232,18 +220,7 @@ func (tx *sessionlessTx) PrepareContext(ctx context.Context, query string) (*sql
 //   - *sql.Rows: Rows returned by the database.
 //   - error: Error if the query cannot be executed.
 func (tx *sessionlessTx) Query(query string, args ...any) (*sql.Rows, error) {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return nil, err
-	}
-	defer tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(false)
-		return nil
-	})
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(true)
-		return nil
-	})
-	return tx.underlyingConn.QueryContext(context.Background(), query, args...)
+	return tx.QueryContext(context.Background(), query, args...)
 }
 
 // QueryContext executes a query using the supplied context.

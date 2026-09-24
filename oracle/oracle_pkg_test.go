@@ -192,6 +192,11 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestResumeSessionlessTxPropagatesError", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxPropagatesError},
 	{Name: "TestSessionlessTransactionEndsAndClosesPreparedStatements", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionEndsAndClosesPreparedStatements},
 	{Name: "TestSessionlessTransactionWrappersRejectUnsupportedConnection", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionWrappersRejectUnsupportedConnection},
+	{Name: "TestGlobalTransactionIDString", Categories: "unitary", Exclusive: false, Fn: TestGlobalTransactionIDString},
+	{Name: "TestSessionlessTransactionDirectSQLMethods", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionDirectSQLMethods},
+	{Name: "TestSessionlessTransactionGlobalTransactionID", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionGlobalTransactionID},
+	{Name: "TestSessionlessTransactionCloseStatementsIsIdempotent", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionCloseStatementsIsIdempotent},
+	{Name: "TestSessionlessTransactionClosesStatementsAfterEndingErrors", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClosesStatementsAfterEndingErrors},
 
 	{Name: "TestSessionlessTransactionCommit", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionCommit},
 	{Name: "TestSessionlessTransactionRollback", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionRollback},
