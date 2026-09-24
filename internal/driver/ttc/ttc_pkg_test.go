@@ -531,6 +531,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnection_ParseTimeZoneRejectsMalformedValues", Categories: "unitary", Exclusive: false, Fn: TestConnection_ParseTimeZoneRejectsMalformedValues},
 	{Name: "TestConnection_QueryContext_LocalizesError", Categories: "unitary", Exclusive: false, Fn: TestConnection_QueryContext_LocalizesError},
 	{Name: "TestConnection_cancelCurrentExecution", Categories: "unitary", Exclusive: false, Fn: TestConnection_cancelCurrentExecution},
+	{Name: "TestConnection_cancelCurrentExecutionClosesAfterBreakResetTimeout", Categories: "unitary", Exclusive: false, Fn: TestConnection_cancelCurrentExecutionClosesAfterBreakResetTimeout},
 	{Name: "TestEncryptPasswordBufferTooSmall", Categories: "unitary", Exclusive: false, Fn: TestEncryptPasswordBufferTooSmall},
 	{Name: "TestGetConnectionMissingLocalizationService", Categories: "unitary", Exclusive: false, Fn: TestGetConnectionMissingLocalizationService},
 	{Name: "TestGetMaxLengthForOac_NoPreviousOACs", Categories: "unitary", Exclusive: false, Fn: TestGetMaxLengthForOac_NoPreviousOACs},
@@ -555,9 +556,13 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestNewConnectionReturnsServerTimezoneError", Categories: "unitary", Exclusive: false, Fn: TestNewConnectionReturnsServerTimezoneError},
 	{Name: "TestPasswordAuthenticatorValidatePasswordLength", Categories: "unitary", Exclusive: false, Fn: TestPasswordAuthenticatorValidatePasswordLength},
 	{Name: "TestStatementCancellationCleanupReleasesStartedAfterFunc", Categories: "unitary", Exclusive: false, Fn: TestStatementCancellationCleanupReleasesStartedAfterFunc},
+	{Name: "TestStatementCancellationTimeout", Categories: "unitary", Exclusive: false, Fn: TestStatementCancellationTimeout},
 	{Name: "TestStatementExecContextTransactionCancellationBeforeSetup", Categories: "unitary", Exclusive: false, Fn: TestStatementExecContextTransactionCancellationBeforeSetup},
 	{Name: "TestStatementExecutor_Select_SuccessOERWithoutDCB", Categories: "unitary", Exclusive: false, Fn: TestStatementExecutor_Select_SuccessOERWithoutDCB},
+	{Name: "TestStatementExecutorExecRunExecHandlesBreakErrorAfterCancellation", Categories: "unitary", Exclusive: false, Fn: TestStatementExecutorExecRunExecHandlesBreakErrorAfterCancellation},
 	{Name: "TestStatementHandleContextCancelledRunsBreakReset", Categories: "unitary", Exclusive: false, Fn: TestStatementHandleContextCancelledRunsBreakReset},
+	{Name: "TestStatementHandleContextCancelledPropagatesBreakResetError", Categories: "unitary", Exclusive: false, Fn: TestStatementHandleContextCancelledPropagatesBreakResetError},
+	{Name: "TestStatementHandleContextCancelledInvalidatesAfterResponseReadFailure", Categories: "unitary", Exclusive: false, Fn: TestStatementHandleContextCancelledInvalidatesAfterResponseReadFailure},
 	{Name: "TestStatementQueryContextLocalization", Categories: "unitary", Exclusive: false, Fn: TestStatementQueryContextLocalization},
 	{Name: "TestTTCRowsColumnTypeScanType", Categories: "unitary", Exclusive: false, Fn: TestTTCRowsColumnTypeScanType},
 	{Name: "TestTTCRowsImplementsColumnTypeInterfaces", Categories: "unitary", Exclusive: false, Fn: TestTTCRowsImplementsColumnTypeInterfaces},
@@ -1094,6 +1099,7 @@ func (m *mockOer) GetMsgCode() common.MessageType { return TTIOER }
 type mockNetworkSession struct {
 	cancelCalls     atomic.Int32 // needed by -race
 	disconnectCalls atomic.Int32 // needed by -race
+	disconnectFlags atomic.Int32 // needed by -race
 	disconnectErr   error
 	sleepDuration   time.Duration
 	cancelErr       error
@@ -1119,6 +1125,7 @@ func newTestConnection(
 	conn.registerEventListeners(conn.shelf.getEventService())
 	_registerHandleConnectionShouldBeDropped(shelf, conn)
 	shelf.registerCancelExecution(conn.cancelCurrentExecution)
+	shelf.registerConnectionInvalidation(conn.invalidate)
 	return conn
 }
 
@@ -1142,6 +1149,7 @@ func (m *mockNetworkSession) CancelOperation(ctx context.Context) error {
 
 func (m *mockNetworkSession) Disconnect(ctx context.Context, flags int) error {
 	m.disconnectCalls.Add(1)
+	m.disconnectFlags.Store(int32(flags))
 	time.Sleep(m.sleepDuration)
 	return m.disconnectErr
 }
