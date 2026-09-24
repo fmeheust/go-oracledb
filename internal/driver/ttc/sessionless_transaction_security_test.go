@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	extensions "github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 func sessionlessSyncEventData(t *testing.T, globalTransactionID string, mode byte, reason sessionlessTxSyncReason) eventData {
@@ -55,7 +54,7 @@ func TestSessionlessServerEndDoesNotEndClientTransaction(t *testing.T) {
 	t.Parallel()
 
 	conn, _ := newSessionlessTransactionTestConnection()
-	tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("client-id"), 300)
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("client-id"), 300)
 	conn.shelf.registerTransaction(tx)
 
 	conn.handleSessionPropertyChange(sessionlessSyncEventData(t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessGlobalTransactionIDSyncServer))
@@ -88,35 +87,6 @@ func TestSessionlessGlobalTransactionIDSyncRejectsMalformedPayload(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := newSessionlessGlobalTransactionIDSync(test.raw); err == nil {
 				t.Fatal("malformed synchronization payload was accepted")
-			}
-		})
-	}
-}
-
-// TestSessionlessTransactionServerIDMismatchRebuildsXID verifies that a
-// server-canonical GTRID is reflected in the XID sent by later operations.
-func TestSessionlessTransactionServerIDMismatchRebuildsXID(t *testing.T) {
-	t.Parallel()
-
-	for _, test := range []struct {
-		name     string
-		setState func(*sessionlessTransaction, extensions.GlobalTransactionID)
-	}{
-		{name: "started", setState: (*sessionlessTransaction).setStartedOnServer},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			conn, _ := newSessionlessTransactionTestConnection()
-			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("client-id"), 300)
-			test.setState(tx, extensions.GlobalTransactionID("server-id"))
-
-			if !bytes.Equal(tx.globalTransactionID, extensions.GlobalTransactionID("server-id")) {
-				t.Fatalf("global transaction ID = %q, want server-id", tx.globalTransactionID)
-			}
-			if tx.globalTransactionIDLength != driverCommon.UB4(len("server-id")) {
-				t.Fatalf("global transaction ID length = %d, want %d", tx.globalTransactionIDLength, len("server-id"))
-			}
-			if !bytes.Equal(tx.xid[:len("server-id")], []byte("server-id")) {
-				t.Fatalf("XID prefix = %q, want server-id", tx.xid[:len("server-id")])
 			}
 		})
 	}

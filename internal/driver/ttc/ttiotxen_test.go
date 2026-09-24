@@ -14,7 +14,6 @@ import (
 
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	extensions "github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 func newOTxEnEngine(capacity int) (*ArrayBasedDataBuffer, *MarshalEngine) {
@@ -61,7 +60,7 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	ctx := context.Background()
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID:       extensions.GlobalTransactionID("g1"),
+		globalTransactionID:       []byte("g1"),
 		xid:                       xid,
 		globalTransactionIDLength: 2,
 		bqualLength:               2,
@@ -247,7 +246,7 @@ func TestOTxEnConfigureOperations(t *testing.T) {
 	t.Parallel()
 
 	tx := &sessionlessTransaction{
-		globalTransactionID:       extensions.GlobalTransactionID("g1"),
+		globalTransactionID:       []byte("g1"),
 		xid:                       driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
 		globalTransactionIDLength: 2,
 		bqualLength:               2,

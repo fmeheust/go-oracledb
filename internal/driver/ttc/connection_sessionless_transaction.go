@@ -1,3 +1,34 @@
+/*
+** Copyright (c) 2026 Oracle and/or its affiliates.
+**
+** The Universal Permissive License (UPL), Version 1.0
+**
+** Subject to the condition set forth below, permission is hereby granted to any
+** person obtaining a copy of this software, associated documentation and/or data
+** (collectively the "Software"), free of charge and under any and all copyright
+** and patent rights owned by each licensor hereunder covering either (i) the
+** unmodified Software as contributed to or provided by such licensor, or (ii)
+** the Larger Works (as defined below), to deal in both (a) the Software, and
+** (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
+** one is included in the Software (each a "Larger Work" to which the Software
+** is contributed by such licensors), without restriction, including without
+** limitation the rights to copy, create derivative works of, display, perform,
+** and distribute the Software and the Larger Work(s), and to sublicense the
+** foregoing rights on either these or other terms.
+**
+** This license is subject to the condition that the above copyright notice and
+** either this complete permission notice or at a minimum a reference to the UPL
+** must be included in all copies or substantial portions of the Software.
+**
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+** SOFTWARE.
+ */
+
 package ttc
 
 import (
@@ -12,7 +43,6 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	extensions "github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 const maxSessionlessGlobalTransactionIDSize = 64
@@ -34,14 +64,17 @@ type sessionlessTransaction struct {
 	lifecycleState     sessionlessTransactionLifecycleState
 	contextWatcherStop func() bool
 
-	globalTransactionID       extensions.GlobalTransactionID // globalTransactionID is the identifier of the sessionless transaction
-	timeout                   uint16                         // transaction timeout in seconds
-	isStartedOnServer         bool                           // isStartedOnServer indicates that the transaction has been started on the server
-	isEndedOnServer           bool                           // isEndedOnServer indicates that the transaction has ended on the server
-	xid                       driverCommon.B1Array           // calculate XID using globalTransactionID and instance name
-	bqualLength               driverCommon.UB4               // calculated field needed for TTC messages
-	globalTransactionIDLength driverCommon.UB4               // calculated field needed for TTC messages
-	isServerOriginated        bool                           // indicates whether the transaction was started using PL/SQL
+	globalTransactionID       []byte               // globalTransactionID is the identifier of the sessionless transaction
+	timeout                   uint16               // transaction timeout in seconds
+	isStartedOnServer         bool                 // isStartedOnServer indicates that the transaction has been started on the server
+	isEndedOnServer           bool                 // isEndedOnServer indicates that the transaction has ended on the server
+	xid                       driverCommon.B1Array // calculate XID using globalTransactionID and instance name
+	bqualLength               driverCommon.UB4     // calculated field needed for TTC messages
+	globalTransactionIDLength driverCommon.UB4     // calculated field needed for TTC messages
+	isServerOriginated        bool                 // indicates whether the transaction was started using PL/SQL
+
+	fromSessionlessTx bool
+	isEndedForClient  bool
 }
 
 // newSessionlessTransaction creates a sessionless transaction associated with
@@ -55,7 +88,7 @@ type sessionlessTransaction struct {
 //
 // Returns:
 //   - *sessionlessTransaction: Initialized sessionless transaction.
-func newSessionlessTransaction(ctx context.Context, conn *connection, globalTransactionID extensions.GlobalTransactionID, timeout uint16) *sessionlessTransaction {
+func newSessionlessTransaction(ctx context.Context, conn *connection, globalTransactionID []byte, timeout uint16) *sessionlessTransaction {
 	tx := newTransaction(conn, ctx)
 	return upgradeFromTransaction(tx, globalTransactionID, timeout)
 }
@@ -70,11 +103,11 @@ func newSessionlessTransaction(ctx context.Context, conn *connection, globalTran
 //
 // Returns:
 //   - *sessionlessTransaction: Upgraded sessionless transaction.
-func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.GlobalTransactionID, timeout uint16) *sessionlessTransaction {
+func upgradeFromTransaction(tx *transaction, globalTransactionID []byte, timeout uint16) *sessionlessTransaction {
 	sessionlessTx := &sessionlessTransaction{
 		transaction:         *tx,
 		timeout:             timeout,
-		globalTransactionID: append(extensions.GlobalTransactionID(nil), globalTransactionID...),
+		globalTransactionID: append([]byte(nil), globalTransactionID...),
 	}
 	// keep the transaction identity on upgrade, this allows to identify a
 	// transaction that has been upgraded to sessionless after a sessionless
@@ -88,7 +121,7 @@ func upgradeFromTransaction(tx *transaction, globalTransactionID extensions.Glob
 // random bytes encoded with UUID version and variant bits. The returned
 // identifier stores the raw bytes directly so it can be passed unchanged to TTC
 // payloads.
-func generateGlobalTransactionID() (extensions.GlobalTransactionID, error) {
+func generateGlobalTransactionID() ([]byte, error) {
 	var globalTransactionID [16]byte
 	if _, err := io.ReadFull(rand.Reader, globalTransactionID[:]); err != nil {
 		return nil, err
@@ -108,7 +141,7 @@ func generateGlobalTransactionID() (extensions.GlobalTransactionID, error) {
 // Returns:
 //   - error: InvalidGlobalTransactionIDValue when globalTransactionID is empty
 //     or exceeds the server limit; otherwise nil.
-func validateSessionlessGlobalTransactionID(globalTransactionID extensions.GlobalTransactionID) error {
+func validateSessionlessGlobalTransactionID(globalTransactionID []byte) error {
 	size := len(globalTransactionID)
 	if size == 0 {
 		return common.NewOracleError(oracleErrors.InvalidGlobalTransactionIDValue, nil)
@@ -239,12 +272,15 @@ func (t *sessionlessTransaction) finishLifecycleOperationLocked(err error) {
 // Parameters:
 //   - ctx: Context used for the transaction start operation.
 //   - opts: Standard transaction options.
-//   - timeout: Sessionless transaction timeout in seconds.
-//
+//   - timeout:  the time for how long (in seconds) after the suspension of
+//     this Sessionless transaction should the server roll back this
+//     transaction. This is an attempt to avoid a transaction from holding
+//     on to database resources (such as row locks) indefinitely.
+
 // Returns:
 //   - extensions.SessionlessTx: Started sessionless transaction.
 //   - error: Error if validation, message construction, or message queuing fails.
-func (c *connection) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions, timeout uint16) (extensions.SessionlessTx, error) {
+func (c *connection) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions, timeout uint16) (common.SessionlessTransaction, error) {
 	common.Odl.Debug("Starting sessionless transaction")
 
 	// check that there is no active transaction in the connection
@@ -295,11 +331,15 @@ func (c *connection) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions,
 // Parameters:
 //   - ctx: Context used for the resume operation.
 //   - globalTransactionID: Identifier of the sessionless transaction to resume.
+//   - timeout: the time for how long (in seconds) the server attempts to
+//     resume the transaction. If multiple sessions connect to the same database
+//     instance and request to resume the same Sessionless transaction, only one
+//     can successfully resume at any given time
 //
 // Returns:
 //   - extensions.SessionlessTx: Resumed sessionless transaction.
 //   - error: Error if validation, message construction, or message queuing fails.
-func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionID extensions.GlobalTransactionID) (extensions.SessionlessTx, error) {
+func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionID []byte, timeout uint16) (common.SessionlessTransaction, error) {
 
 	// check that the global transaction ID is valid
 	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
@@ -318,7 +358,7 @@ func (c *connection) ResumeSessionlessTx(ctx context.Context, globalTransactionI
 	}
 
 	// create and register the sessionless transaction object
-	tx := newSessionlessTransaction(ctx, c, globalTransactionID, 0)
+	tx := newSessionlessTransaction(ctx, c, globalTransactionID, timeout)
 	c.shelf.registerTransaction(tx)
 	if err := c.resumeSessionlessTx(ctx, tx); err != nil {
 		// unregister as current transaction
@@ -552,13 +592,13 @@ func (c *connection) detachTransaction(ctx context.Context) error {
 // transaction.
 //
 // Returns:
-//   - extensions.GlobalTransactionID: Transaction identifier while the
+//   - []byte: Transaction identifier while the
 //     transaction is registered on the connection; otherwise nil.
-func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransactionID {
+func (t *sessionlessTransaction) GlobalTransactionID() []byte {
 	if !t.transaction.isCurrentTransaction() {
 		return nil
 	}
-	return append(extensions.GlobalTransactionID(nil), t.globalTransactionID...)
+	return append([]byte(nil), t.globalTransactionID...)
 }
 
 // setStartedOnServer records that the server has acknowledged the start of the
@@ -568,7 +608,7 @@ func (t *sessionlessTransaction) GlobalTransactionID() extensions.GlobalTransact
 //
 // Parameters:
 //   - globalTransactionID: Global transaction ID reported by the server.
-func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID extensions.GlobalTransactionID) {
+func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID []byte) {
 	// Validate global transaction ID
 	if err := validateSessionlessGlobalTransactionID(globalTransactionID); err != nil {
 		common.Osl.Debug("Ignoring invalid server global transaction ID", "error", err)
@@ -577,7 +617,7 @@ func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID extensio
 	// Update global transaction ID and XID if server ID does not match client ID
 	if !bytes.Equal(globalTransactionID, t.globalTransactionID) {
 		common.Osl.Debug("Global transaction ID mismatch", "server global transaction ID", globalTransactionID, "client global transaction ID", t.globalTransactionID)
-		t.globalTransactionID = append(extensions.GlobalTransactionID(nil), globalTransactionID...)
+		t.globalTransactionID = append([]byte(nil), globalTransactionID...)
 		t.buildSessionlessXID()
 	}
 	// Set flag
@@ -592,9 +632,27 @@ func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID extensio
 //
 // Parameters:
 //   - globalTransactionID: Global transaction ID reported by the server.
-func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID extensions.GlobalTransactionID) {
+func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID []byte) {
 	// no validation is needed in this case, just mark the transaction as ended
 	// on the server
 	common.Odl.Debug("Transaction has ended by client received by server")
 	t.isEndedOnServer = true
+}
+
+// SetRunningFromSessionlessTx records whether the current operation was
+// authorized by the public sessionless transaction wrapper.
+func (t *sessionlessTransaction) SetRunningFromSessionlessTx(fromSessionlessTx bool) {
+	t.fromSessionlessTx = fromSessionlessTx
+}
+
+// SetTransactionEnded records that the public sessionless transaction handle
+// is no longer usable.
+func (t *sessionlessTransaction) SetTransactionEnded(isEndedForClient bool) {
+	t.isEndedForClient = isEndedForClient
+}
+
+// IsTransactionEnded reports whether the public sessionless transaction handle
+// has ended.
+func (t *sessionlessTransaction) IsTransactionEnded() bool {
+	return t.isEndedForClient
 }

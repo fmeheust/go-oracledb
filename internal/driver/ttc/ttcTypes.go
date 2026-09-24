@@ -48,7 +48,6 @@ import (
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	extensions "github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 // keyValueList Key-Value pair list. a list.List of *common.KeyValue
@@ -472,7 +471,7 @@ const (
 // SESSIONLESS_GTRID session property returned by the server.
 type sessionlessGlobalTransactionIDSync struct {
 	raw                 driverCommon.B1Array
-	globalTransactionID extensions.GlobalTransactionID
+	globalTransactionID []byte
 	flags               byte
 	version             byte
 }
@@ -508,7 +507,7 @@ func newSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (*sessionle
 
 	return &sessionlessGlobalTransactionIDSync{
 		raw:                 rawCopy,
-		globalTransactionID: append(extensions.GlobalTransactionID(nil), rawCopy[:globalTransactionIDLength]...),
+		globalTransactionID: append([]byte(nil), rawCopy[:globalTransactionIDLength]...),
 		flags:               flags,
 		version:             version,
 	}, nil
@@ -527,8 +526,8 @@ func (s *sessionlessGlobalTransactionIDSync) Raw() driverCommon.B1Array {
 //
 // Returns:
 //   - extensions.GlobalTransactionID: Copy of the decoded global transaction ID.
-func (s *sessionlessGlobalTransactionIDSync) GlobalTransactionID() extensions.GlobalTransactionID {
-	return append(extensions.GlobalTransactionID(nil), s.globalTransactionID...)
+func (s *sessionlessGlobalTransactionIDSync) GlobalTransactionID() []byte {
+	return append([]byte(nil), s.globalTransactionID...)
 }
 
 // Version returns the serialization version byte carried by the session property.

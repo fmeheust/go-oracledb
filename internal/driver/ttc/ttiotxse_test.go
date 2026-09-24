@@ -17,7 +17,6 @@ import (
 
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 func newOTxSeEngine(capacity int) (*ArrayBasedDataBuffer, *MarshalEngine) {
@@ -76,7 +75,7 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	msg := newOTxSe18().(*tTIOtxse)
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID:       extensions.GlobalTransactionID("g1"),
+		globalTransactionID:       []byte("g1"),
 		xid:                       xid,
 		timeout:                   30,
 		bqualLength:               2,
@@ -254,13 +253,13 @@ func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 	t.Parallel()
 
 	t.Run("accepts non-empty global transaction ID within server size limit", func(t *testing.T) {
-		if err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionID("valid-global-transaction-id")); err != nil {
+		if err := validateSessionlessGlobalTransactionID([]byte("valid-global-transaction-id")); err != nil {
 			t.Fatalf("validateSessionlessGlobalTransactionID returned unexpected error: %v", err)
 		}
 	})
 
 	t.Run("rejects empty global transaction ID", func(t *testing.T) {
-		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionID(""))
+		err := validateSessionlessGlobalTransactionID([]byte(""))
 		if err == nil {
 			t.Fatal("validateSessionlessGlobalTransactionID returned nil for empty global transaction ID")
 		}
@@ -274,7 +273,7 @@ func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 	})
 
 	t.Run("rejects global transaction ID larger than server limit", func(t *testing.T) {
-		err := validateSessionlessGlobalTransactionID(extensions.GlobalTransactionID(strings.Repeat("a", maxSessionlessGlobalTransactionIDSize+1)))
+		err := validateSessionlessGlobalTransactionID([]byte(strings.Repeat("a", maxSessionlessGlobalTransactionIDSize+1)))
 		if err == nil {
 			t.Fatal("validateSessionlessGlobalTransactionID returned nil for oversized global transaction ID")
 		}
@@ -304,11 +303,11 @@ func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 		t.Fatal("did not expect decoded sync payload to be unset")
 	}
 	globalTransactionID := sync.GlobalTransactionID()
-	if !slices.Equal(globalTransactionID, extensions.GlobalTransactionID("ab")) {
+	if !slices.Equal(globalTransactionID, []byte("ab")) {
 		t.Fatalf("GlobalTransactionID = %q, want %q", sync.GlobalTransactionID(), "ab")
 	}
 	globalTransactionID[0] = 'z'
-	if !slices.Equal(sync.GlobalTransactionID(), extensions.GlobalTransactionID("ab")) {
+	if !slices.Equal(sync.GlobalTransactionID(), []byte("ab")) {
 		t.Fatalf("GlobalTransactionID changed through returned slice: %q", sync.GlobalTransactionID())
 	}
 	if sync.Version() != 2 {

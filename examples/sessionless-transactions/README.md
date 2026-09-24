@@ -64,7 +64,7 @@ resumeConnectionWrapper, err := oracle.NewConnectionWrapper(resumeConn)
 if err != nil {
     return err
 }
-resumedTx, err := resumeConnectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID)
+resumedTx, err := resumeConnectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID, 300)
 ```
 
 The global transaction ID identifies the server-side transaction and should be

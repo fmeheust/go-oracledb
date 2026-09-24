@@ -83,6 +83,29 @@ type connection struct {
 	_transactionState transactionState
 }
 
+// checkSessionlessTransactionAccess rejects SQL operations that bypass the
+// public sessionless transaction wrapper while a client-owned sessionless
+// transaction is active.
+//
+// Server-originated sessionless transactions are intentionally excluded: SQL
+// executed by the PL/SQL call that started them must continue normally.
+func checkSessionlessTransactionAccess(shelf *ttiShelf[driverCommon.MessageType]) error {
+	if shelf.getTransaction() == nil {
+		return nil
+	}
+	sessionlessTx, ok := shelf.getTransaction().(*sessionlessTransaction)
+	if !ok || sessionlessTx.isServerOriginated {
+		return nil
+	}
+	if sessionlessTx.isEndedForClient {
+		return sql.ErrTxDone
+	}
+	if sessionlessTx.fromSessionlessTx {
+		return nil
+	}
+	return shelf.LocalizeError(common.NewOracleError(oracleErrors.AlreadyInTransaction, nil, nil))
+}
+
 // newConnection constructs a new Oracle connection wrapping negotiated state.
 // It returns an error when the server timezone cannot be initialized.
 //
@@ -153,8 +176,14 @@ Returns:
 - driver.Stmt: Prepared statement bound to this connection and query.
 - error: Non-nil if the connection is closed/invalid.
 */
-func (c *connection) PrepareContext(_ context.Context, query string) (driver.Stmt, error) {
+func (c *connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	common.Odl.Debug("Connection.PrepareContext: creating statement...")
+	if err := checkSessionlessTransactionAccess(c.shelf); err != nil {
+		return nil, err
+	}
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)
@@ -165,7 +194,13 @@ func (c *connection) PrepareContext(_ context.Context, query string) (driver.Stm
 // ExecContext implements driver.ExecerContext.
 // It creates a TTC Statement and delegates the execution.
 func (c *connection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	common.Odl.Debug("Connection.ExecContext: creating statement...")
+	if err := checkSessionlessTransactionAccess(c.shelf); err != nil {
+		return nil, err
+	}
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)
@@ -178,6 +213,15 @@ func (c *connection) ExecContext(ctx context.Context, query string, args []drive
 // QueryContext implements driver.QueryerContext.
 // It creates a TTC Statement and delegates the query.
 func (c *connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if common.IsSessionlessTransactionEnded(ctx) {
+		return nil, sql.ErrTxDone
+	}
+	if err := checkSessionlessTransactionAccess(c.shelf); err != nil {
+		return nil, err
+	}
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)

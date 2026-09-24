@@ -144,7 +144,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("wrap second connection: %w", err)
 	}
-	resumedTx, err := resumeOracleConnection.ResumeSessionlessTx(ctx, globalTransactionID)
+	resumedTx, err := resumeOracleConnection.ResumeSessionlessTx(ctx, globalTransactionID, 300)
 	if err != nil {
 		return fmt.Errorf("resume sessionless transaction: %w", err)
 	}

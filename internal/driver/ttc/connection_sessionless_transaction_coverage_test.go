@@ -11,6 +11,7 @@
 package ttc
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -20,7 +21,6 @@ import (
 
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 // TestBeginSessionlessTxValidationPaths verifies that BeginSessionlessTx
@@ -101,12 +101,83 @@ func TestResumeSessionlessTxValidationPaths(t *testing.T) {
 			conn, _ := newSessionlessTransactionTestConnection()
 			tt.setup(conn)
 
-			_, err := conn.ResumeSessionlessTx(context.Background(), extensions.GlobalTransactionID("resume-id"))
+			_, err := conn.ResumeSessionlessTx(context.Background(), []byte("resume-id"), 300)
 			if got := transactionErrorCode(t, err); got != tt.want {
 				t.Fatalf("ResumeSessionlessTx error code = %s, want %s", got, tt.want)
 			}
 		})
 	}
+}
+
+// TestClientSessionlessTransactionRequiresWrapperAccess verifies that direct
+// SQL operations are rejected while a client-owned sessionless transaction is
+// active unless the sessionless wrapper has authorized the operation.
+func TestClientSessionlessTransactionRequiresWrapperAccess(t *testing.T) {
+	t.Parallel()
+
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("client-id"), 300)
+	conn.shelf.registerTransaction(tx)
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{
+			name: "prepare",
+			call: func() error {
+				stmt, err := conn.PrepareContext(context.Background(), "SELECT 1")
+				if stmt != nil {
+					_ = stmt.Close()
+				}
+				return err
+			},
+		},
+		{
+			name: "exec",
+			call: func() error {
+				_, err := conn.ExecContext(context.Background(), "SELECT 1", nil)
+				return err
+			},
+		},
+		{
+			name: "query",
+			call: func() error {
+				_, err := conn.QueryContext(context.Background(), "SELECT 1", nil)
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.call()
+			if got := transactionErrorCode(t, err); got != oracleErrors.AlreadyInTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.AlreadyInTransaction)
+			}
+		})
+	}
+}
+
+// TestSessionlessTransactionAccessAllowsServerOriginatedSQL verifies that the
+// guard does not block SQL associated with a server/PLSQL-originated sessionless
+// transaction.
+func TestSessionlessTransactionAccessAllowsServerOriginatedSQL(t *testing.T) {
+	t.Parallel()
+
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("server-id"), 0)
+	tx.isServerOriginated = true
+	conn.shelf.registerTransaction(tx)
+
+	stmt, err := conn.PrepareContext(context.Background(), "SELECT 1")
+	if err != nil {
+		t.Fatalf("PrepareContext returned unexpected error: %v", err)
+	}
+	if stmt == nil {
+		t.Fatal("PrepareContext returned nil statement")
+	}
+	_ = stmt.Close()
 }
 
 // TestBuildSessionlessXIDPaths verifies XID construction when session
@@ -117,7 +188,7 @@ func TestBuildSessionlessXIDPaths(t *testing.T) {
 	tests := []struct {
 		name           string
 		configure      func(*connection)
-		globalID       extensions.GlobalTransactionID
+		globalID       []byte
 		wantGlobalSize int
 		wantBqualSize  int
 	}{
@@ -126,7 +197,7 @@ func TestBuildSessionlessXIDPaths(t *testing.T) {
 			configure: func(conn *connection) {
 				conn.sessCtx = nil
 			},
-			globalID:       extensions.GlobalTransactionID("global-id"),
+			globalID:       []byte("global-id"),
 			wantGlobalSize: len("global-id"),
 		},
 		{
@@ -134,7 +205,7 @@ func TestBuildSessionlessXIDPaths(t *testing.T) {
 			configure: func(conn *connection) {
 				conn.sessCtx = driverCommon.NewSessionContext()
 			},
-			globalID:       extensions.GlobalTransactionID("global-id"),
+			globalID:       []byte("global-id"),
 			wantGlobalSize: len("global-id"),
 		},
 		{
@@ -142,7 +213,7 @@ func TestBuildSessionlessXIDPaths(t *testing.T) {
 			configure: func(conn *connection) {
 				conn.sessCtx.GetSessionProperties().SetProperty(instanceName, strings.Repeat("i", maxSessionlessBQUALSize+1))
 			},
-			globalID:       extensions.GlobalTransactionID(strings.Repeat("g", maxSessionlessGlobalTransactionIDSize+1)),
+			globalID:       []byte(strings.Repeat("g", maxSessionlessGlobalTransactionIDSize+1)),
 			wantGlobalSize: maxSessionlessGlobalTransactionIDSize,
 			wantBqualSize:  maxSessionlessBQUALSize,
 		},
@@ -168,20 +239,24 @@ func TestBuildSessionlessXIDPaths(t *testing.T) {
 }
 
 // TestSessionlessTransactionServerStatePaths verifies client synchronization
-// updates with matching and mismatched global transaction IDs.
+// updates with matching and mismatched global transaction IDs. The mismatched
+// start subtest also verifies that the server-canonical ID is rebuilt into the
+// transaction XID used by later operations.
 func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name        string
-		setState    func(*sessionlessTransaction, extensions.GlobalTransactionID)
+		setState    func(*sessionlessTransaction, []byte)
 		initialID   string
 		syncID      string
 		wantID      string
 		wantStarted bool
 		wantEnded   bool
+		wantXID     string
 	}{
 		{
+			// A matching server start only marks the transaction as started.
 			name:        "matching start",
 			setState:    (*sessionlessTransaction).setStartedOnServer,
 			initialID:   "same-id",
@@ -190,14 +265,17 @@ func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 			wantStarted: true,
 		},
 		{
+			// A mismatched start adopts the server ID and rebuilds the XID.
 			name:        "mismatched start",
 			setState:    (*sessionlessTransaction).setStartedOnServer,
 			initialID:   "client-id",
 			syncID:      "server-id",
 			wantID:      "server-id",
 			wantStarted: true,
+			wantXID:     "server-id",
 		},
 		{
+			// An end notification does not change the transaction identity.
 			name:      "matching end",
 			setState:  (*sessionlessTransaction).setEndedOnServer,
 			initialID: "same-id",
@@ -206,6 +284,7 @@ func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 			wantEnded: true,
 		},
 		{
+			// The server end path still preserves the client-known ID.
 			name:      "mismatched end",
 			setState:  (*sessionlessTransaction).setEndedOnServer,
 			initialID: "client-id",
@@ -218,9 +297,9 @@ func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conn, _ := newSessionlessTransactionTestConnection()
-			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID(tt.initialID), 300)
+			tx := newSessionlessTransaction(context.Background(), conn, []byte(tt.initialID), 300)
 
-			tt.setState(tx, extensions.GlobalTransactionID(tt.syncID))
+			tt.setState(tx, []byte(tt.syncID))
 			if got := string(tx.globalTransactionID); got != tt.wantID {
 				t.Fatalf("global transaction ID = %q, want %q", got, tt.wantID)
 			}
@@ -229,6 +308,9 @@ func TestSessionlessTransactionServerStatePaths(t *testing.T) {
 			}
 			if tx.isEndedOnServer != tt.wantEnded {
 				t.Fatalf("endedOnServer = %v, want %v", tx.isEndedOnServer, tt.wantEnded)
+			}
+			if tt.wantXID != "" && !bytes.Equal(tx.xid[:len(tt.wantXID)], []byte(tt.wantXID)) {
+				t.Fatalf("XID prefix = %q, want %q", tx.xid[:len(tt.wantXID)], tt.wantXID)
 			}
 		})
 	}
@@ -267,7 +349,7 @@ func TestResumeSessionlessTxHelperSetupFailures(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			conn, _ := newSessionlessTransactionTestConnection()
 			tt.setup(conn)
-			tx := newSessionlessTransaction(context.Background(), conn, extensions.GlobalTransactionID("resume-id"), 300)
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("resume-id"), 300)
 
 			if got := transactionErrorCode(t, conn.resumeSessionlessTx(context.Background(), tx)); got != oracleErrors.InternalError {
 				t.Fatalf("resumeSessionlessTx error code = %s, want %s", got, oracleErrors.InternalError)

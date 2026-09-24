@@ -38,8 +38,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/oracle/go-oracledb/v26/internal/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
-	"github.com/oracle/go-oracledb/v26/oracle/extensions"
 )
 
 type sessionlessTransactionTestConnector struct {
@@ -61,21 +61,42 @@ func (sessionlessTransactionTestDriver) Open(string) (driver.Conn, error) {
 }
 
 type sessionlessTransactionTestConn struct {
-	beginTx      extensions.SessionlessTx
+	beginTx      common.SessionlessTransaction
 	beginErr     error
 	beginCtx     context.Context
 	beginOpts    sql.TxOptions
 	beginTimeout uint16
 	beginCalled  bool
 
-	resumeTx     extensions.SessionlessTx
-	resumeErr    error
-	resumeCtx    context.Context
-	resumeID     extensions.GlobalTransactionID
-	resumeCalled bool
+	resumeTx      common.SessionlessTransaction
+	resumeErr     error
+	resumeCtx     context.Context
+	resumeID      GlobalTransactionID
+	resumeTimeout uint16
+	resumeCalled  bool
+	preparedStmt  driver.Stmt
 }
 
-func (*sessionlessTransactionTestConn) Prepare(string) (driver.Stmt, error) {
+// SetRunningFromSessionlessTx is a no-op for the wrapper test connection.
+func (*sessionlessTransactionTestConn) SetRunningFromSessionlessTx(bool) {}
+
+// Prepare returns the statement injected into the wrapper test connection.
+func (c *sessionlessTransactionTestConn) Prepare(string) (driver.Stmt, error) {
+	if c.preparedStmt != nil {
+		return c.preparedStmt, nil
+	}
+	return nil, driver.ErrSkip
+}
+
+// QueryContext reports whether the test transaction has already ended.
+func (c *sessionlessTransactionTestConn) QueryContext(_ context.Context, _ string, _ []driver.NamedValue) (driver.Rows, error) {
+	transaction := c.beginTx
+	if transaction == nil {
+		transaction = c.resumeTx
+	}
+	if transaction != nil && transaction.IsTransactionEnded() {
+		return nil, sql.ErrTxDone
+	}
 	return nil, driver.ErrSkip
 }
 
@@ -85,7 +106,9 @@ func (*sessionlessTransactionTestConn) Begin() (driver.Tx, error) {
 	return nil, driver.ErrSkip
 }
 
-func (c *sessionlessTransactionTestConn) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions, timeout uint16) (extensions.SessionlessTx, error) {
+// BeginSessionlessTx records the wrapper request and returns the configured
+// test transaction or error.
+func (c *sessionlessTransactionTestConn) BeginSessionlessTx(ctx context.Context, opts sql.TxOptions, timeout uint16) (common.SessionlessTransaction, error) {
 	c.beginCalled = true
 	c.beginCtx = ctx
 	c.beginOpts = opts
@@ -93,10 +116,13 @@ func (c *sessionlessTransactionTestConn) BeginSessionlessTx(ctx context.Context,
 	return c.beginTx, c.beginErr
 }
 
-func (c *sessionlessTransactionTestConn) ResumeSessionlessTx(ctx context.Context, globalTransactionID extensions.GlobalTransactionID) (extensions.SessionlessTx, error) {
+// ResumeSessionlessTx records the wrapper request and returns the configured
+// test transaction or error.
+func (c *sessionlessTransactionTestConn) ResumeSessionlessTx(ctx context.Context, globalTransactionID []byte, timeout uint16) (common.SessionlessTransaction, error) {
 	c.resumeCalled = true
 	c.resumeCtx = ctx
 	c.resumeID = globalTransactionID
+	c.resumeTimeout = timeout
 	return c.resumeTx, c.resumeErr
 }
 
@@ -112,13 +138,54 @@ func (*sessionlessTransactionTestPlainConn) Begin() (driver.Tx, error) {
 	return nil, driver.ErrSkip
 }
 
-type sessionlessTransactionTestTx struct{}
+type sessionlessTransactionTestTx struct {
+	transactionEnded bool
+}
 
-func (*sessionlessTransactionTestTx) Commit() error   { return nil }
+// Commit succeeds without changing the fake transaction state.
+func (*sessionlessTransactionTestTx) Commit() error { return nil }
+
+// Rollback succeeds without changing the fake transaction state.
 func (*sessionlessTransactionTestTx) Rollback() error { return nil }
-func (*sessionlessTransactionTestTx) Suspend() error  { return nil }
-func (*sessionlessTransactionTestTx) GlobalTransactionID() extensions.GlobalTransactionID {
-	return extensions.GlobalTransactionID("test-global-transaction-id")
+
+// Suspend succeeds without changing the fake transaction state.
+func (*sessionlessTransactionTestTx) Suspend() error { return nil }
+
+// SetRunningFromSessionlessTx is a no-op for the fake transaction.
+func (*sessionlessTransactionTestTx) SetRunningFromSessionlessTx(bool) {}
+
+// SetTransactionEnded records whether the fake transaction has ended.
+func (tx *sessionlessTransactionTestTx) SetTransactionEnded(ended bool) { tx.transactionEnded = ended }
+
+// IsTransactionEnded reports whether the fake transaction has ended.
+func (tx *sessionlessTransactionTestTx) IsTransactionEnded() bool { return tx.transactionEnded }
+
+// GlobalTransactionID returns the fixed identifier used by wrapper tests.
+func (*sessionlessTransactionTestTx) GlobalTransactionID() []byte {
+	return []byte("test-global-transaction-id")
+}
+
+type sessionlessTransactionTestStmt struct {
+	closeCount int
+}
+
+// Close records that the fake statement was closed.
+func (stmt *sessionlessTransactionTestStmt) Close() error {
+	stmt.closeCount++
+	return nil
+}
+
+// NumInput reports that the fake statement accepts a variable number of inputs.
+func (*sessionlessTransactionTestStmt) NumInput() int { return -1 }
+
+// Exec succeeds and reports one affected row.
+func (*sessionlessTransactionTestStmt) Exec([]driver.Value) (driver.Result, error) {
+	return driver.RowsAffected(1), nil
+}
+
+// Query returns the unsupported-query error used by wrapper tests.
+func (*sessionlessTransactionTestStmt) Query([]driver.Value) (driver.Rows, error) {
+	return nil, errors.New("query not implemented by sessionless test statement")
 }
 
 func openSessionlessTransactionTestConnection(t *testing.T, conn driver.Conn) *sql.Conn {
@@ -159,8 +226,11 @@ func TestBeginSessionlessTxDelegates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BeginSessionlessTx returned error: %v", err)
 	}
-	if gotTx != wantTx {
-		t.Fatalf("BeginSessionlessTx returned %p, want %p", gotTx, wantTx)
+	if gotTx == nil {
+		t.Fatal("BeginSessionlessTx returned a nil public transaction")
+	}
+	if gotTx.transaction != wantTx {
+		t.Fatalf("BeginSessionlessTx returned underlying transaction %p, want %p", gotTx.transaction, wantTx)
 	}
 	if !driverConn.beginCalled {
 		t.Fatal("BeginSessionlessTx did not call the driver connection")
@@ -200,17 +270,20 @@ func TestResumeSessionlessTxDelegates(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.WithValue(context.Background(), struct{}{}, "resume")
-	globalTransactionID := extensions.GlobalTransactionID("resume-global-transaction-id")
+	globalTransactionID := GlobalTransactionID("resume-global-transaction-id")
 	wantTx := &sessionlessTransactionTestTx{}
 	driverConn := &sessionlessTransactionTestConn{resumeTx: wantTx}
 	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
 
-	gotTx, err := connectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID)
+	gotTx, err := connectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID, 123)
 	if err != nil {
 		t.Fatalf("ResumeSessionlessTx returned error: %v", err)
 	}
-	if gotTx != wantTx {
-		t.Fatalf("ResumeSessionlessTx returned %p, want %p", gotTx, wantTx)
+	if gotTx == nil {
+		t.Fatal("ResumeSessionlessTx returned a nil public transaction")
+	}
+	if gotTx.transaction != wantTx {
+		t.Fatalf("ResumeSessionlessTx returned underlying transaction %p, want %p", gotTx.transaction, wantTx)
 	}
 	if !driverConn.resumeCalled {
 		t.Fatal("ResumeSessionlessTx did not call the driver connection")
@@ -220,6 +293,9 @@ func TestResumeSessionlessTxDelegates(t *testing.T) {
 	}
 	if string(driverConn.resumeID) != string(globalTransactionID) {
 		t.Fatalf("ResumeSessionlessTx global transaction ID = %q, want %q", driverConn.resumeID, globalTransactionID)
+	}
+	if driverConn.resumeTimeout != 123 {
+		t.Fatalf("ResumeSessionlessTx timeout = %d, want 123", driverConn.resumeTimeout)
 	}
 }
 
@@ -233,12 +309,94 @@ func TestResumeSessionlessTxPropagatesError(t *testing.T) {
 	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
 
 	gotTx, err := connectionWrapper.ResumeSessionlessTx(
-		context.Background(), extensions.GlobalTransactionID("resume-global-transaction-id"))
+		context.Background(), GlobalTransactionID("resume-global-transaction-id"), 300)
 	if gotTx != nil {
 		t.Fatalf("ResumeSessionlessTx returned transaction %p on error", gotTx)
 	}
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("ResumeSessionlessTx error = %v, want %v", err, wantErr)
+	}
+}
+
+// TestSessionlessTransactionEndsAndClosesPreparedStatements
+// verifies that transaction-owned prepared statements are closed by every
+// terminal operation and that all error-returning transaction operations fail
+// afterwards. The commit, rollback, and suspend subtests cover the three
+// terminal paths independently.
+func TestSessionlessTransactionEndsAndClosesPreparedStatements(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		end  func(*sessionlessTx) error
+	}{
+		// Commit closes statements before the public handle becomes unusable.
+		{name: "commit", end: (*sessionlessTx).Commit},
+		// Rollback closes statements before the public handle becomes unusable.
+		{name: "rollback", end: (*sessionlessTx).Rollback},
+		// Suspend closes statements because the suspended handle cannot resume.
+		{name: "suspend", end: (*sessionlessTx).Suspend},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			preparedStmt := &sessionlessTransactionTestStmt{}
+			driverConn := &sessionlessTransactionTestConn{
+				beginTx:      &sessionlessTransactionTestTx{},
+				preparedStmt: preparedStmt,
+			}
+			connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
+
+			tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+			if err != nil {
+				t.Fatalf("BeginSessionlessTx returned error: %v", err)
+			}
+			if _, err := tx.Prepare("SELECT 1 FROM DUAL"); err != nil {
+				t.Fatalf("Prepare returned error: %v", err)
+			}
+
+			if err := test.end(tx); err != nil {
+				t.Fatalf("%s returned error: %v", test.name, err)
+			}
+			if preparedStmt.closeCount != 1 {
+				t.Fatalf("prepared statement close count after %s = %d, want 1", test.name, preparedStmt.closeCount)
+			}
+
+			if _, err := tx.Exec("SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("Exec after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if _, err := tx.ExecContext(context.Background(), "SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("ExecContext after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if _, err := tx.Prepare("SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("Prepare after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if _, err := tx.PrepareContext(context.Background(), "SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("PrepareContext after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if _, err := tx.Query("SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("Query after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if _, err := tx.QueryContext(context.Background(), "SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("QueryContext after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if err := tx.QueryRow("SELECT 1").Scan(new(int)); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("QueryRow after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if err := tx.QueryRowContext(context.Background(), "SELECT 1").Scan(new(int)); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("QueryRowContext after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if tx.GlobalTransactionID() != nil {
+				t.Errorf("GlobalTransactionID after %s returned a value, want nil", test.name)
+			}
+			if err := tx.Commit(); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("second Commit after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if err := tx.Rollback(); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("Rollback after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if err := tx.Suspend(); !errors.Is(err, sql.ErrTxDone) {
+				t.Errorf("Suspend after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+		})
 	}
 }
 
