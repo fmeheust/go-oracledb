@@ -302,7 +302,7 @@ func TestConnection_InvalidateOnOEROrSTA(t *testing.T) {
 func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
 	t.Parallel()
 
-	connection := &connection{_isValid: true}
+	connection := &connection{_isValid: true, shelf: newShelf[driverCommon.MessageType]()}
 	inactiveMessage := &tTIoer{
 		_supportsEndOfCallStatus: true,
 		eocStatus:                &endOfCallStatus{},

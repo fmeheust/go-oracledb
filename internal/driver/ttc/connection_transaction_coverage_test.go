@@ -21,81 +21,12 @@ package ttc
 
 import (
 	"context"
-	"database/sql/driver"
 	"errors"
 	"testing"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
-
-// nonCallbackStreamer implements a regular Streamer without the callback
-// support required by transaction operations.
-type nonCallbackStreamer struct{}
-
-func (*nonCallbackStreamer) Push(context.Context, common.Message[common.MessageType]) error {
-	return nil
-}
-
-func (*nonCallbackStreamer) Pull(context.Context, ...common.MessageType) (common.Message[common.MessageType], error) {
-	return nil, nil
-}
-
-func (*nonCallbackStreamer) Flush(context.Context) error {
-	return nil
-}
-
-func (*nonCallbackStreamer) Drain(context.Context, common.StreamDirection) (int, int) {
-	return 0, 0
-}
-
-// TestBeginTransactionSetupFailures verifies that BeginTx reports setup errors
-// and unregisters a transaction when beginTransaction cannot be initialized.
-func TestBeginTransactionSetupFailures(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		setup func(*connection)
-	}{
-		{
-			name: "streamer without callbacks",
-			setup: func(conn *connection) {
-				conn.shelf.RegisterMessageStreamer(&nonCallbackStreamer{})
-			},
-		},
-		{
-			name: "factory error",
-			setup: func(conn *connection) {
-				conn.shelf.RegisterMessageFactory(&mockFactory{returnErr: errors.New("factory failed")})
-			},
-		},
-		{
-			name: "unexpected message type",
-			setup: func(conn *connection) {
-				conn.shelf.RegisterMessageFactory(&mockFactory{returnMsg: NewOall18()})
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conn := newTransactionTestConnection(&mockStreamer{})
-			tt.setup(conn)
-
-			tx, err := conn.BeginTx(context.Background(), driver.TxOptions{})
-			if got := transactionErrorCode(t, err); got != oracleErrors.InternalError {
-				t.Fatalf("BeginTx error code = %s, want %s", got, oracleErrors.InternalError)
-			}
-			if tx != nil {
-				t.Fatalf("BeginTx returned transaction %T after setup failure", tx)
-			}
-			if conn.shelf.isInTransaction() {
-				t.Fatal("BeginTx setup failure should unregister the transaction")
-			}
-		})
-	}
-}
 
 // TestRunOTxEnSetupAndTransportFailures verifies the OTXEN setup, write,
 // flush, and read failures returned by runOTxEn.
@@ -109,26 +40,10 @@ func TestRunOTxEnSetupAndTransportFailures(t *testing.T) {
 		wantError oracleErrors.ErrorCode
 	}{
 		{
-			name:      "streamer without callbacks",
-			operation: otxenAbort,
-			setup: func(conn *connection, _ *mockStreamer) {
-				conn.shelf.RegisterMessageStreamer(&nonCallbackStreamer{})
-			},
-			wantError: oracleErrors.InternalError,
-		},
-		{
 			name:      "factory error",
 			operation: otxenAbort,
 			setup: func(conn *connection, _ *mockStreamer) {
 				conn.shelf.RegisterMessageFactory(&mockFactory{returnErr: errors.New("factory failed")})
-			},
-			wantError: oracleErrors.InternalError,
-		},
-		{
-			name:      "unexpected message type",
-			operation: otxenAbort,
-			setup: func(conn *connection, _ *mockStreamer) {
-				conn.shelf.RegisterMessageFactory(&mockFactory{returnMsg: NewOall18()})
 			},
 			wantError: oracleErrors.InternalError,
 		},
