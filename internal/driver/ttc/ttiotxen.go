@@ -41,24 +41,14 @@ import (
 
 type txStateChangeOperation driverCommon.SB4
 
-// OTXEN transaction state-change operations.
 const (
-	otxenCommit  txStateChangeOperation = 0x01
-	otxenAbort   txStateChangeOperation = 0x02
-	otxenPrepare txStateChangeOperation = 0x03
-	otxenForget  txStateChangeOperation = 0x04
-	otxenRecover txStateChangeOperation = 0x05
-	otxmlPrepare txStateChangeOperation = 0x06
+	// OTXEN transaction state-change operations.
+	otxenCommit txStateChangeOperation = 0x01 // commit transaction
+	otxenAbort  txStateChangeOperation = 0x02 // abort transaction
 
 	// K2 commands supplied as the OTXEN in-state value.
-	k2cmdPrepare       driverCommon.UB4 = 0
-	k2cmdRequestCommit driverCommon.UB4 = 1
-	k2cmdCommit        driverCommon.UB4 = 2
-	k2cmdAbort         driverCommon.UB4 = 3
-	k2cmdReadOnly      driverCommon.UB4 = 4
-	k2cmdForget        driverCommon.UB4 = 5
-	k2cmdRecovered     driverCommon.UB4 = 7
-	k2cmdTimeout       driverCommon.UB4 = 8
+	k2cmdCommit driverCommon.UB4 = 2 // commit transaction
+	k2cmdAbort  driverCommon.UB4 = 3 // abort transaction
 )
 
 // tTIOtxen represents the OTXEN TTC function used to end, prepare, forget, or

@@ -496,7 +496,7 @@ func initMessagesEn() {
 	// Action:   Commit or rollback the current transaction before starting a new
 	//           one.
 	// Comment:  N/A
-	message.SetString(language.English, string(oracleErrors.AlreadyInTransaction), "there is already an active transaction")
+	message.SetString(language.English, string(oracleErrors.AlreadyInTransaction), "a transaction is current active in this connection")
 	// Document: No
 	// Cause:    An error occurred while committing or rolling back the transaction.
 	// Action:   Try again.

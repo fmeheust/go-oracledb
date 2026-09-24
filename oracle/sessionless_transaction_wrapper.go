@@ -34,20 +34,21 @@ package oracle
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
+	"encoding/hex"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 )
 
-// GlobalTransactionID identifies a sessionless transaction.
+// GlobalTransactionID identifies a sessionless transaction as the raw bytes
+// supplied to or returned by the database.
 type GlobalTransactionID []byte
 
-// String returns the base64 encoding of the global transaction identifier.
+// String returns the hexadecimal encoding of the global transaction identifier.
 //
 // Returns:
-//   - string: Base64-encoded transaction identifier.
+//   - string: Hexadecimal-encoded transaction identifier.
 func (value GlobalTransactionID) String() string {
-	return base64.StdEncoding.EncodeToString([]byte(value))
+	return hex.EncodeToString([]byte(value))
 }
 
 // sessionlessTx adapts the driver's internal sessionless transaction to the

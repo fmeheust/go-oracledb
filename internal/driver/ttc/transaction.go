@@ -50,8 +50,7 @@ type oracleTx interface {
 	transactionContext() context.Context
 	// underlyingConnection returns the connection associated with the transaction.
 	underlyingConnection() *connection
-	// transactionIdentity returns the stable identity shared by handles for the
-	// same server transaction.
+	// transactionIdentity returns the identity of the transaction
 	transactionIdentity() *transaction
 }
 
@@ -59,8 +58,11 @@ type transaction struct {
 	_underlyingConnection *connection
 	// the current transaction context
 	_transactionContext context.Context
-	// _transactionIdentity is shared by transaction handles that represent the
-	// same server transaction after a regular transaction is promoted.
+	// _transactionIdentity identifies the transaction. The identity is constant even
+	// when a regular transaction is promoted to sessionless transaction. It allows
+	// the driver to check that the transaction used to execute an operation is the
+	// current active trasnaction in the connection. This prevents a stale transaction
+	// to execute an operation on the action transaction.
 	_transactionIdentity *transaction
 }
 

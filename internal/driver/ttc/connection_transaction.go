@@ -123,11 +123,7 @@ func isSupportedIsolationLevel(opts driver.TxOptions) bool {
 //   - error: Error if the OTXSE message cannot be created or queued.
 func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx, opts driver.TxOptions) error {
 	// get streamer
-	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
-	if !ok {
-		common.Odl.Warn("beginTransaction requires a message streamer with callback support")
-		return common.NewOracleError(oracleErrors.InternalError, nil)
-	}
+	stmr, _ := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 
 	// create message
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIPFN, oTxSe)
@@ -136,12 +132,7 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 		return common.NewOracleError(oracleErrors.InternalError, err)
 	}
 
-	otxse, ok := msg.(*tTIOtxse)
-	if !ok {
-		common.Odl.Warn("Unexpected message type for OTXSE", "message", msg)
-		return common.NewOracleError(oracleErrors.InternalError, nil)
-	}
-
+	otxse, _ := msg.(*tTIOtxse)
 	// configure message for operation and transaction options
 	otxse.configureForStart(transaction, opts)
 
@@ -172,11 +163,7 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 	common.Odl.Debug("Running OTXEN", "operation", operation)
 
 	// get the streamer
-	stmr, ok := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
-	if !ok {
-		common.Odl.Warn("OTXEN requires a message streamer with callback support")
-		return common.NewOracleError(oracleErrors.InternalError, nil)
-	}
+	stmr, _ := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
 
 	// create the transaction end message
 	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIFUN, oTxEn)
@@ -184,12 +171,8 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 		common.Odl.Warn("Error creating OTXEN message", "error", err)
 		return common.NewOracleError(oracleErrors.InternalError, err)
 	}
-	otxen, ok := msg.(*tTIOtxen)
-	if !ok {
-		common.Odl.Warn("Unexpected message type for OTXEN", "message", msg)
-		return common.NewOracleError(oracleErrors.InternalError, nil)
-	}
 
+	otxen, _ := msg.(*tTIOtxen)
 	// configure the message for the operation
 	switch operation {
 	case otxenCommit:
@@ -247,12 +230,14 @@ func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperat
 // even if the connection status still reports an active transaction.
 func (c *connection) unregisterTransactionOnError() {
 	if c._transactionState == inactive {
+		common.Odl.Debug("An error occurred while ending the transaction, but the server reported no active transaction, the transaction is unregistered")
 		c.shelf.unregisterTransaction()
 		return
 	}
 
 	if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 		if sessionlessTx.isEndedOnServer || !sessionlessTx.isStartedOnServer {
+			common.Odl.Debug("An error occurred while ending the transaction, but the server transaction has either been ended on the server or not started on the server, the transaction is unregistered")
 			c.shelf.unregisterTransaction()
 		}
 	}

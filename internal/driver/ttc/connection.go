@@ -42,6 +42,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -300,7 +301,9 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 	// check for active transaction
 	c._transactionState = msg.(connectionStatusProvider).transactionState()
 	if c._transactionState == active {
-		common.Odl.Debug("Active transaction on server")
+		if c.shelf.getTransaction() == nil {
+			common.Odl.Debug("The server has reported an active transaction and there is no active transaction in the client")
+		}
 	}
 	// return always true, the incoming message should be kept
 	return true, nil
@@ -465,7 +468,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 	switch {
 	case sync.IsSet() && sync.IsSyncClient():
 		// the client transaction has started on the server
-		common.Osl.Debug("Client transaction started", "global transaction ID", sync.globalTransactionID)
+		common.Osl.Debug("Client transaction started", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		currentTx := c.shelf.getTransaction()
 		if currentTx != nil {
 			if sessionlessTx, ok := currentTx.(*sessionlessTransaction); ok {
@@ -481,7 +484,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		}
 	case sync.IsUnset() && sync.IsSyncClient():
 		// the client transaction has ended on the server
-		common.Osl.Debug("Client transaction ended", "global transaction ID", sync.globalTransactionID)
+		common.Osl.Debug("Client transaction ended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		currentTx := c.shelf.getTransaction()
 		if currentTx != nil {
 			if sessionlessTx, ok := currentTx.(*sessionlessTransaction); ok {
@@ -497,7 +500,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		}
 	case sync.IsSet() && sync.IsSyncServer():
 		// a sessionless transaction started using PL/SQL, start an implicit sessionless transaction
-		common.Osl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", sync.globalTransactionID)
+		common.Osl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		currentTx := c.shelf.getTransaction()
 		var implicitTx *sessionlessTransaction
 		if currentTx == nil {
@@ -516,7 +519,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		c.shelf.registerTransaction(implicitTx)
 
 	case sync.IsUnset() && sync.IsSyncServer():
-		common.Osl.Debug("Server transaction ended, ending implicit transaction", "global transaction ID", sync.globalTransactionID)
+		common.Osl.Debug("Server transaction ended, ending implicit transaction", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		// The server will return an empty transaction ID when the transaction
 		// is ended, check that the transaction is a sessionless transaction
 		// and that it has been started by the server; if that is not the
