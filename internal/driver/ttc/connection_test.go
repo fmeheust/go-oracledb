@@ -377,12 +377,11 @@ func TestConnection_FaultyOnDrain(t *testing.T) {
 	shelf.RegisterCodecFactory(factory2)
 
 	mockNs := &mockNetworkSession{
-		disconnectCalls: 0,
-		disconnectErr:   nil,
-		sleepDuration:   0,
-		cancelErr:       nil,
+		disconnectErr: nil,
+		sleepDuration: 0,
+		cancelErr:     nil,
 	}
-
+	mockNs.disconnectCalls.Store(0)
 	connection := newTestConnection(shelf, driverCommon.NewSessionContext(), mockNs)
 
 	_, err := connection.QueryContext(context.Background(), "select * from DUAL", nil)
@@ -444,12 +443,11 @@ func TestConnection_FaultyOnDrainInStatement(t *testing.T) {
 	shelf.RegisterCodecFactory(factory2)
 
 	mockNs := &mockNetworkSession{
-		disconnectCalls: 0,
-		disconnectErr:   nil,
-		sleepDuration:   0,
-		cancelErr:       nil,
+		disconnectErr: nil,
+		sleepDuration: 0,
+		cancelErr:     nil,
 	}
-
+	mockNs.disconnectCalls.Store(0)
 	connection := newTestConnection(shelf, driverCommon.NewSessionContext(), mockNs)
 
 	_, err := connection.QueryContext(context.Background(), "select * from DUAL", nil)
