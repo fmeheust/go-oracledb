@@ -51,17 +51,16 @@ type txOperation uint8
 
 const (
 	// OTXSE transaction switching opcodes.
-	otxseStart  driverCommon.SB4 = 0x01
-	otxseDetach driverCommon.SB4 = 0x02
-	otxsePost   driverCommon.SB4 = 0x04
+	otxseStart  driverCommon.SB4 = 0x01 // Start transaction
+	otxseDetach driverCommon.SB4 = 0x02 // Suspend transaction
 
 	// OTXSE flags used for sessionless transaction control.
-	otxseTransNew          driverCommon.UB4 = 0x00000001
-	otxseTransResume       driverCommon.UB4 = 0x00000004
-	otxseTransSessionless  driverCommon.UB4 = 0x00000010
-	otxseTransReadOnly     driverCommon.UB4 = 0x00000100
-	otxseTransReadWrite    driverCommon.UB4 = 0x00000200
-	otxseTransSerializable driverCommon.UB4 = 0x00000400
+	otxseTransNew          driverCommon.UB4 = 0x00000001 // Used with otxseStart to start a new transaction
+	otxseTransResume       driverCommon.UB4 = 0x00000004 // Used with otxseStart to resume a new transaction
+	otxseTransSessionless  driverCommon.UB4 = 0x00000010 // Indicates the transaction is sessionless
+	otxseTransReadOnly     driverCommon.UB4 = 0x00000100 // Indicates the transaction is readonly
+	otxseTransReadWrite    driverCommon.UB4 = 0x00000200 // Indicates the transaction is read-write
+	otxseTransSerializable driverCommon.UB4 = 0x00000400 // Indicates the transaction is serializable
 
 	// Oracle format identifier used by JDBC for sessionless transactions.
 	k2gSessionless driverCommon.UB4 = 0x004e5c3e
