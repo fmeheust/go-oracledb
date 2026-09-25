@@ -146,23 +146,38 @@ type sessionlessTransactionTestTx struct {
 	suspendErr       error
 }
 
-// Commit returns the configured fake commit result.
-func (tx *sessionlessTransactionTestTx) Commit() error { return tx.commitErr }
+// Commit returns the configured fake commit result and updates the simulated
+// transaction state when the operation succeeds.
+func (tx *sessionlessTransactionTestTx) Commit() error {
+	if tx.commitErr == nil {
+		tx.transactionEnded = true
+	}
+	return tx.commitErr
+}
 
-// Rollback returns the configured fake rollback result.
-func (tx *sessionlessTransactionTestTx) Rollback() error { return tx.rollbackErr }
+// Rollback returns the configured fake rollback result and updates the
+// simulated transaction state when the operation succeeds.
+func (tx *sessionlessTransactionTestTx) Rollback() error {
+	if tx.rollbackErr == nil {
+		tx.transactionEnded = true
+	}
+	return tx.rollbackErr
+}
 
-// Suspend returns the configured fake suspend result.
-func (tx *sessionlessTransactionTestTx) Suspend() error { return tx.suspendErr }
+// Suspend returns the configured fake suspend result and updates the
+// simulated transaction state when the operation succeeds.
+func (tx *sessionlessTransactionTestTx) Suspend() error {
+	if tx.suspendErr == nil {
+		tx.transactionEnded = true
+	}
+	return tx.suspendErr
+}
 
 // SetRunningFromSessionlessTx records whether the wrapper authorized an
 // operation on the fake transaction.
 func (tx *sessionlessTransactionTestTx) SetRunningFromSessionlessTx(running bool) {
 	tx.runningFromTx = running
 }
-
-// SetTransactionEnded records whether the fake transaction has ended.
-func (tx *sessionlessTransactionTestTx) SetTransactionEnded(ended bool) { tx.transactionEnded = ended }
 
 // IsTransactionEnded reports whether the fake transaction has ended.
 func (tx *sessionlessTransactionTestTx) IsTransactionEnded() bool { return tx.transactionEnded }
@@ -528,9 +543,6 @@ func TestSessionlessTransactionCloseStatementsIsIdempotent(t *testing.T) {
 	if driverStmt.closeCount != 1 {
 		t.Fatalf("statement close count = %d, want 1", driverStmt.closeCount)
 	}
-	if !transaction.transactionEnded {
-		t.Fatal("closeStatements did not end the transaction")
-	}
 }
 
 // TestSessionlessTransactionClosesStatementsAfterEndingErrors verifies that
@@ -585,9 +597,6 @@ func TestSessionlessTransactionClosesStatementsAfterEndingErrors(t *testing.T) {
 			}
 			if stmt.closeCount != 1 {
 				t.Fatalf("statement close count after %s = %d, want 1", test.name, stmt.closeCount)
-			}
-			if !transaction.transactionEnded {
-				t.Fatalf("transaction ended after %s = false, want true", test.name)
 			}
 		})
 	}

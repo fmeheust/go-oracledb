@@ -326,6 +326,26 @@ func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
 	if connection._transactionState != active {
 		t.Fatalf("transaction state = %v, want active", connection._transactionState)
 	}
+
+	transaction := newTransaction(connection, context.Background())
+	connection.shelf.registerTransaction(transaction)
+	if transaction.transactionState != transactionStartedClient {
+		t.Fatalf("standard transaction state = %v, want client started", transaction.transactionState)
+	}
+	if _, err := connection._handleEndOfCallStatus(activeMessage, nil); err != nil {
+		t.Fatalf("active end-of-call status for standard transaction failed: %v", err)
+	}
+	if transaction.transactionState != transactionStartedServer {
+		t.Fatalf("standard transaction state = %v, want server started", transaction.transactionState)
+	}
+
+	transaction.transactionState = transactionEndedClient
+	if _, err := connection._handleEndOfCallStatus(inactiveMessage, nil); err != nil {
+		t.Fatalf("inactive end-of-call status for standard transaction failed: %v", err)
+	}
+	if transaction.transactionState != transactionEndedServer {
+		t.Fatalf("standard transaction state = %v, want server ended", transaction.transactionState)
+	}
 }
 
 // corrupted streamer test.
@@ -485,4 +505,4 @@ func (m *connInvalidationMsg) UnMarshalFrom(_ context.Context, _ driverCommon.Ma
 func (m *connInvalidationMsg) isBeingDrained() bool {
 	return m.connectionShouldBeDropped
 }
-func (m *connInvalidationMsg) transactionState() transactionState { return unknown }
+func (m *connInvalidationMsg) transactionState() endOfCallStatusTransactionState { return unknown }

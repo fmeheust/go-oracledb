@@ -560,12 +560,13 @@ func (o *tTIoer) isBeingDrained() bool {
 	return o._supportsEndOfCallStatus && o.eocStatus != nil && o.eocStatus.connectionShouldBeDropped()
 }
 
-// transactionState returns the transaction state reported by the server.
+// transactionState returns the End-of-Call transaction status reported by the
+// server.
 //
 // Returns:
-//   - transactionState: the transaction state reported by the server, or
-//     unknown when no state was reported
-func (o *tTIoer) transactionState() transactionState {
+//   - endOfCallStatusTransactionState: the status reported by the server, or
+//     unknown when no status was reported
+func (o *tTIoer) transactionState() endOfCallStatusTransactionState {
 	if o.eocStatus == nil {
 		return unknown
 	}

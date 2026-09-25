@@ -38,7 +38,7 @@ func TestSessionlessServerSyncLifecycle(t *testing.T) {
 	if !ok {
 		t.Fatalf("current transaction = %T, want *sessionlessTransaction", conn.shelf.getTransaction())
 	}
-	if !implicit.isStartedOnServer {
+	if implicit.transactionState != transactionStartedServer {
 		t.Fatal("implicit transaction was not marked as started on the server")
 	}
 
@@ -78,13 +78,13 @@ func TestSessionlessClientSyncUpdatesTransactionState(t *testing.T) {
 
 	// An invalid server ID is ignored and must not mark the transaction started.
 	tx.setStartedOnServer(nil)
-	if tx.isStartedOnServer {
+	if tx.transactionState != transactionStartedClient {
 		t.Fatal("invalid server start ID marked the transaction as started")
 	}
 
 	conn.handleSessionPropertyChange(sessionlessSyncEventData(
 		t, "server-client-id", sessionlessGlobalTransactionIDSyncSet, sessionlessGlobalTransactionIDSyncClient))
-	if !tx.isStartedOnServer {
+	if tx.transactionState != transactionStartedServer {
 		t.Fatal("client start notification did not mark the transaction as started")
 	}
 	if !bytes.Equal(tx.globalTransactionID, []byte("server-client-id")) {
@@ -93,7 +93,7 @@ func TestSessionlessClientSyncUpdatesTransactionState(t *testing.T) {
 
 	conn.handleSessionPropertyChange(sessionlessSyncEventData(
 		t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessGlobalTransactionIDSyncClient))
-	if !tx.isEndedOnServer {
+	if tx.transactionState != transactionEndedServer {
 		t.Fatal("client end notification did not mark the transaction as ended")
 	}
 	if conn.shelf.getTransaction() != tx {

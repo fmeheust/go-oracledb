@@ -150,7 +150,7 @@ func TestSessionlessTransactionXIDTruncation(t *testing.T) {
 }
 
 // TestSessionlessTransactionLifecycleNoOpPaths verifies that watcher setup and
-// cancellation cleanup do nothing for background contexts, ended lifecycle
+// cancellation cleanup do nothing for background contexts, ended transaction
 // states, duplicate watchers, and stale transaction handles.
 func TestSessionlessTransactionLifecycleNoOpPaths(t *testing.T) {
 	t.Parallel()
@@ -161,23 +161,22 @@ func TestSessionlessTransactionLifecycleNoOpPaths(t *testing.T) {
 	if !tx.fromSessionlessTx {
 		t.Fatal("SetRunningFromSessionlessTx did not enable wrapper authorization")
 	}
-	tx.SetTransactionEnded(true)
+	tx.transactionState = transactionEndedClient
 	if !tx.IsTransactionEnded() {
-		t.Fatal("SetTransactionEnded did not mark the transaction as ended")
+		t.Fatal("client-ended state was not reported as ended")
 	}
-	tx.SetTransactionEnded(false)
 	tx.startContextWatcherLocked()
 	if tx.contextWatcherStop != nil {
 		t.Fatal("background context installed a cancellation watcher")
 	}
 
-	tx.lifecycleState = sessionlessTransactionSuspended
+	tx.transactionState = transactionEndedClient
 	tx.startContextWatcherLocked()
 	if tx.contextWatcherStop != nil {
-		t.Fatal("suspended transaction installed a cancellation watcher")
+		t.Fatal("ending transaction installed a cancellation watcher")
 	}
 
-	tx.lifecycleState = sessionlessTransactionAttached
+	tx.transactionState = transactionStartedClient
 	tx.contextWatcherStop = func() bool { return true }
 	tx.startContextWatcherLocked()
 	if tx.contextWatcherStop == nil {
@@ -186,7 +185,7 @@ func TestSessionlessTransactionLifecycleNoOpPaths(t *testing.T) {
 	tx.contextWatcherStop = nil
 
 	conn.shelf.registerTransaction(tx)
-	tx.lifecycleState = sessionlessTransactionSuspended
+	tx.transactionState = transactionEndedClient
 	tx.rollbackOnContextCancellation()
 	if streamer.pushCalled {
 		t.Fatal("ended transaction cancellation attempted a rollback")

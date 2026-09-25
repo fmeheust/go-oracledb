@@ -74,14 +74,11 @@ func (tx *sessionlessTx) checkTransactionEnded() error {
 	return nil
 }
 
-// closeStatements ends the transaction and closes every statement prepared
-// through it. Statement close errors are intentionally ignored, matching
-// database/sql's transaction cleanup behavior.
+// closeStatements closes every statement prepared through the transaction.
+// Statement close errors are intentionally ignored, matching database/sql's
+// transaction cleanup behavior. The transaction state is updated by the
+// underlying transaction operation itself.
 func (tx *sessionlessTx) closeStatements() {
-	if tx.transaction.IsTransactionEnded() {
-		return
-	}
-	tx.transaction.SetTransactionEnded(true)
 	statements := tx.statements
 	tx.statements = nil
 

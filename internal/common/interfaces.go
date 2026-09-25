@@ -56,6 +56,5 @@ type SessionlessTransaction interface {
 	Suspend() error
 	GlobalTransactionID() []byte
 	SetRunningFromSessionlessTx(bool)
-	SetTransactionEnded(bool)
 	IsTransactionEnded() bool
 }

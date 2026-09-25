@@ -235,11 +235,11 @@ func (c *connection) unregisterTransactionOnError() {
 		return
 	}
 
-	if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
-		if sessionlessTx.isEndedOnServer || !sessionlessTx.isStartedOnServer {
-			common.Odl.Debug("An error occurred while ending the transaction, but the server transaction has either been ended on the server or not started on the server, the transaction is unregistered")
-			c.shelf.unregisterTransaction()
-		}
+	if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok &&
+		(sessionlessTx.transactionState == transactionStartedClient ||
+			sessionlessTx.transactionState == transactionEndedServer) {
+		common.Odl.Debug("An error occurred while ending the sessionless transaction, but the server transaction has either not started or has ended, the transaction is unregistered")
+		c.shelf.unregisterTransaction()
 	}
 }
 

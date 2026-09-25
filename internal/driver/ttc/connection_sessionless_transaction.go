@@ -48,33 +48,20 @@ import (
 const maxSessionlessGlobalTransactionIDSize = 64
 const maxSessionlessBQUALSize = 64
 
-type sessionlessTransactionLifecycleState uint8
-
-const (
-	sessionlessTransactionAttached sessionlessTransactionLifecycleState = iota
-	sessionlessTransactionSuspended
-	sessionlessTransactionCompleting
-	sessionlessTransactionCompleted
-)
-
 type sessionlessTransaction struct {
 	transaction
 
 	lifecycleMu        sync.Mutex
-	lifecycleState     sessionlessTransactionLifecycleState
 	contextWatcherStop func() bool
 
 	globalTransactionID       []byte               // globalTransactionID is the identifier of the sessionless transaction
-	timeout                   uint16               // transaction timeout in seconds
-	isStartedOnServer         bool                 // isStartedOnServer indicates that the transaction has been started on the server
-	isEndedOnServer           bool                 // isEndedOnServer indicates that the transaction has ended on the server
 	xid                       driverCommon.B1Array // calculate XID using globalTransactionID and instance name
 	bqualLength               driverCommon.UB4     // calculated field needed for TTC messages
 	globalTransactionIDLength driverCommon.UB4     // calculated field needed for TTC messages
-	isServerOriginated        bool                 // indicates whether the transaction was started using PL/SQL
+	timeout                   uint16               // transaction timeout in seconds
 
-	fromSessionlessTx bool
-	isEndedForClient  bool
+	isServerOriginated bool // indicates whether the transaction was started using PL/SQL
+	fromSessionlessTx  bool
 }
 
 // newSessionlessTransaction creates a sessionless transaction associated with
@@ -196,7 +183,7 @@ func (t *sessionlessTransaction) startContextWatcher() {
 // startContextWatcherLocked installs the cancellation callback while the
 // lifecycle mutex is held.
 func (t *sessionlessTransaction) startContextWatcherLocked() {
-	if t.lifecycleState != sessionlessTransactionAttached || t.contextWatcherStop != nil {
+	if !t.transactionState.isStarted() || t.contextWatcherStop != nil {
 		return
 	}
 	ctx := t.transactionContext()
@@ -207,9 +194,8 @@ func (t *sessionlessTransaction) startContextWatcherLocked() {
 }
 
 // stopContextWatcherLocked prevents a pending cancellation callback from
-// starting. If the callback has already started, the lifecycle state is set by
-// the caller before this function is invoked, so the callback will observe a
-// non-attached state and return without touching the transaction.
+// starting. If the callback has already started, it waits for lifecycleMu and
+// rechecks the transaction state before doing any cleanup.
 func (t *sessionlessTransaction) stopContextWatcherLocked() {
 	if stop := t.contextWatcherStop; stop != nil {
 		t.contextWatcherStop = nil
@@ -225,15 +211,13 @@ func (t *sessionlessTransaction) rollbackOnContextCancellation() {
 	t.lifecycleMu.Lock()
 	defer t.lifecycleMu.Unlock()
 
-	if t.lifecycleState != sessionlessTransactionAttached || !t.transaction.isCurrentTransaction() {
+	if !t.transactionState.isStarted() || !t.transaction.isCurrentTransaction() {
 		t.contextWatcherStop = nil
 		return
 	}
 
 	t.contextWatcherStop = nil
-	t.lifecycleState = sessionlessTransactionCompleting
 	err := t.rollbackWithCleanupContextLocked()
-	t.lifecycleState = sessionlessTransactionCompleted
 
 	if err != nil {
 		// The rollback result is unknown. Do not allow this physical connection
@@ -248,21 +232,23 @@ func (t *sessionlessTransaction) rollbackOnContextCancellation() {
 func (t *sessionlessTransaction) rollbackWithCleanupContextLocked() error {
 	rollbackContext, cancel := context.WithTimeout(common.BackgroundContext, _rollbackTimeout)
 	defer cancel()
-	return t.transaction.rollback(rollbackContext)
+	previousState := t.transactionState
+	err := t.transaction.rollback(rollbackContext)
+	// Context cleanup is an internal rollback. Restore the local state unless a
+	// server end notification superseded it, so the public wrapper can continue
+	// using the connection when the local cleanup result is not terminal.
+	t.restoreTransactionState(previousState)
+	return err
 }
 
-// finishLifecycleOperationLocked records the result of a terminal operation.
+// finishTransactionOperationLocked records the result of a terminal operation.
 // On an operation error, retain the watcher only if the transaction is still
 // current and the connection remains usable; a canceled context will invoke
 // the watcher immediately and complete cleanup.
-func (t *sessionlessTransaction) finishLifecycleOperationLocked(err error) {
-	if err == nil || !t.transaction.isCurrentTransaction() || !t.underlyingConnection()._isValid {
-		t.lifecycleState = sessionlessTransactionCompleted
-		return
+func (t *sessionlessTransaction) finishTransactionOperationLocked(err error) {
+	if err != nil && t.transaction.isCurrentTransaction() && t.underlyingConnection()._isValid {
+		t.startContextWatcherLocked()
 	}
-
-	t.lifecycleState = sessionlessTransactionAttached
-	t.startContextWatcherLocked()
 }
 
 // BeginSessionlessTx starts a sessionless transaction using the provided
@@ -376,14 +362,17 @@ func (t *sessionlessTransaction) Commit() error {
 	t.lifecycleMu.Lock()
 	defer t.lifecycleMu.Unlock()
 
-	if !t.transaction.isCurrentTransaction() || t.lifecycleState != sessionlessTransactionAttached {
-		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
+	if err := t.transaction.checkCurrentTransaction(); err != nil {
+		return t.underlyingConnection().shelf.LocalizeError(err)
 	}
-
-	t.lifecycleState = sessionlessTransactionCompleting
+	previousState := t.transactionState
+	t.transactionState = transactionEndedClient
 	t.stopContextWatcherLocked()
 	err := t.transaction.Commit()
-	t.finishLifecycleOperationLocked(err)
+	if err != nil {
+		t.restoreTransactionState(previousState)
+	}
+	t.finishTransactionOperationLocked(err)
 	return err
 }
 
@@ -394,21 +383,26 @@ func (t *sessionlessTransaction) Rollback() error {
 	t.lifecycleMu.Lock()
 	defer t.lifecycleMu.Unlock()
 
-	if !t.transaction.isCurrentTransaction() || t.lifecycleState != sessionlessTransactionAttached {
-		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
+	if err := t.transaction.checkCurrentTransaction(); err != nil {
+		return t.underlyingConnection().shelf.LocalizeError(err)
 	}
 
-	t.lifecycleState = sessionlessTransactionCompleting
+	previousState := t.transactionState
+	t.transactionState = transactionEndedClient
 	t.stopContextWatcherLocked()
 	err := t.transaction.Rollback()
-	t.finishLifecycleOperationLocked(err)
+	if err != nil {
+		t.restoreTransactionState(previousState)
+	}
+	t.finishTransactionOperationLocked(err)
 	return err
 }
 
-// Suspend detaches the current sessionless transaction from the connection. If
-// no transaction is active, Suspend is a no-op. A detach failure unregisters
-// the local transaction when the server no longer has it or its end
-// notification has already been received.
+// Suspend detaches the current sessionless transaction from the connection.
+// A successful suspend ends the transaction on this session while leaving it
+// resumable by another sessionless transaction object. A detach failure
+// unregisters the local transaction when the server no longer has it or its
+// end notification has already been received.
 //
 // Returns:
 //   - error: Error if the detach operation fails.
@@ -416,26 +410,22 @@ func (t *sessionlessTransaction) Suspend() error {
 	t.lifecycleMu.Lock()
 	defer t.lifecycleMu.Unlock()
 
-	// check that there is no active transaction in the connection
 	if !t.underlyingConnection().shelf.isInTransaction() {
 		// no-op
-		t.lifecycleState = sessionlessTransactionSuspended
 		t.stopContextWatcherLocked()
 		return nil
 	}
 
 	// check that there is an active transaction
-	if !t.transaction.isCurrentTransaction() {
-		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
+	if err := t.transaction.checkCurrentTransaction(); err != nil {
+		return t.underlyingConnection().shelf.LocalizeError(err)
 	}
-	if t.lifecycleState != sessionlessTransactionAttached {
-		return t.underlyingConnection().shelf.LocalizeError(newNotInTransactionError())
-	}
-
-	t.lifecycleState = sessionlessTransactionCompleting
+	previousState := t.transactionState
+	t.transactionState = transactionEndedClient
 	t.stopContextWatcherLocked()
 	// detach the transaction from the connection
 	if err := t.underlyingConnection().detachTransaction(t.transactionContext()); err != nil {
+		t.restoreTransactionState(previousState)
 		// Unregister only when the server no longer has the transaction.
 		t.underlyingConnection().unregisterTransactionOnError()
 		// If cancellation interrupted detach, make a bounded rollback attempt
@@ -448,7 +438,6 @@ func (t *sessionlessTransaction) Suspend() error {
 		}
 		// invalidate the connection
 		t.underlyingConnection()._isValid = false
-		t.lifecycleState = sessionlessTransactionCompleted
 		return t.underlyingConnection().shelf.LocalizeError(
 			common.NewOracleError(oracleErrors.ErrorInTransaction, err, "Suspend"),
 		)
@@ -456,14 +445,17 @@ func (t *sessionlessTransaction) Suspend() error {
 
 	// validate the current connection state
 	if err := t.underlyingConnection().shelf.checkCurrentState(common.BackgroundContext); err != nil {
+		t.restoreTransactionState(previousState)
 		t.underlyingConnection().unregisterTransactionOnError()
-		t.finishLifecycleOperationLocked(err)
+		t.finishTransactionOperationLocked(err)
 		return err
 	}
 
+	// Detach ends the transaction on this session. It remains resumable by a
+	// different sessionless transaction object.
+	t.transactionState = transactionEndedServer
 	// unregister the transaction
 	t.underlyingConnection().shelf.unregisterTransaction()
-	t.lifecycleState = sessionlessTransactionSuspended
 	return nil
 }
 
@@ -620,9 +612,9 @@ func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID []byte) 
 		t.globalTransactionID = append([]byte(nil), globalTransactionID...)
 		t.buildSessionlessXID()
 	}
-	// Set flag
+	// Set state
 	common.Odl.Debug("Transaction has started by client received by server")
-	t.isStartedOnServer = true
+	t.transactionState = transactionStartedServer
 }
 
 // setEndedOnServer records that the server has acknowledged the end of the
@@ -636,7 +628,7 @@ func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID []byte) {
 	// no validation is needed in this case, just mark the transaction as ended
 	// on the server
 	common.Odl.Debug("Transaction has ended by client received by server")
-	t.isEndedOnServer = true
+	t.transactionState = transactionEndedServer
 }
 
 // SetRunningFromSessionlessTx records whether the current operation was
@@ -645,14 +637,10 @@ func (t *sessionlessTransaction) SetRunningFromSessionlessTx(fromSessionlessTx b
 	t.fromSessionlessTx = fromSessionlessTx
 }
 
-// SetTransactionEnded records that the public sessionless transaction handle
-// is no longer usable.
-func (t *sessionlessTransaction) SetTransactionEnded(isEndedForClient bool) {
-	t.isEndedForClient = isEndedForClient
-}
-
 // IsTransactionEnded reports whether the public sessionless transaction handle
-// has ended.
+// is in either terminal transaction state.
 func (t *sessionlessTransaction) IsTransactionEnded() bool {
-	return t.isEndedForClient
+	t.lifecycleMu.Lock()
+	defer t.lifecycleMu.Unlock()
+	return t.transactionState == transactionEndedClient || t.transactionState == transactionEndedServer
 }

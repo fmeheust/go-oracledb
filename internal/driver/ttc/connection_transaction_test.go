@@ -320,14 +320,14 @@ func TestConnectionBeginTxReturnsPushError(t *testing.T) {
 
 // TestTransactionOperationErrors verifies that commit and rollback errors are
 // wrapped as transaction errors and that the local registration follows the
-// transaction state reported by the server.
+// End-of-Call transaction status reported by the server.
 func TestTransactionOperationErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name                   string
 		operation              func(*transaction) error
 		message                string
-		serverTransactionState transactionState
+		serverTransactionState endOfCallStatusTransactionState
 		wantLocalTransaction   bool
 	}{
 		{
@@ -423,8 +423,8 @@ func TestTransactionOperationsRejectStaleTransactions(t *testing.T) {
 			currentTransaction := newTransaction(conn, context.Background())
 			conn.shelf.registerTransaction(currentTransaction)
 
-			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotInTransaction {
-				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotInTransaction)
+			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotCurrentTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotCurrentTransaction)
 			}
 			if streamer.pushCalled {
 				t.Fatalf("stale %s should not send a transaction message", tt.name)

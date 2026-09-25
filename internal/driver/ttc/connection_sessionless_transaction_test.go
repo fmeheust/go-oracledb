@@ -172,11 +172,11 @@ func TestSessionlessTransactionSuspendStopsContextWatcher(t *testing.T) {
 
 	cancel()
 	tx.lifecycleMu.Lock()
-	state := tx.lifecycleState
+	state := tx.transactionState
 	watcherInstalled := tx.contextWatcherStop != nil
 	tx.lifecycleMu.Unlock()
-	if state != sessionlessTransactionSuspended {
-		t.Fatalf("lifecycle state after cancellation = %d, want suspended", state)
+	if state != transactionEndedServer {
+		t.Fatalf("transaction state after suspend = %d, want server ended", state)
 	}
 	if watcherInstalled {
 		t.Fatal("context watcher remained installed after suspend")
@@ -824,34 +824,36 @@ func TestSessionlessTransactionOperationErrors(t *testing.T) {
 	tests := []struct {
 		name                   string
 		operation              func(*sessionlessTransaction) error
-		serverTransactionState transactionState
-		endedOnServer          bool
+		serverTransactionState endOfCallStatusTransactionState
+		transactionState       transactionState
 		wantLocalTransaction   bool
 	}{
 		{
 			name:                   "commit with transaction active on server",
 			operation:              func(tx *sessionlessTransaction) error { return tx.Commit() },
 			serverTransactionState: active,
+			transactionState:       transactionStartedServer,
 			wantLocalTransaction:   true,
 		},
 		{
 			name:                   "commit with transaction ended on server",
 			operation:              func(tx *sessionlessTransaction) error { return tx.Commit() },
-			endedOnServer:          true,
 			serverTransactionState: inactive,
+			transactionState:       transactionEndedServer,
 			wantLocalTransaction:   false,
 		},
 		{
 			name:                   "rollback with transaction active on server",
 			operation:              func(tx *sessionlessTransaction) error { return tx.Rollback() },
 			serverTransactionState: active,
+			transactionState:       transactionStartedServer,
 			wantLocalTransaction:   true,
 		},
 		{
 			name:                   "rollback with transaction ended on server",
 			operation:              func(tx *sessionlessTransaction) error { return tx.Rollback() },
-			endedOnServer:          true,
 			serverTransactionState: inactive,
+			transactionState:       transactionEndedServer,
 			wantLocalTransaction:   false,
 		},
 	}
@@ -863,8 +865,7 @@ func TestSessionlessTransactionOperationErrors(t *testing.T) {
 			tx := newSessionlessTransaction(context.Background(), conn, []byte("sessionless-id"), 300)
 			conn.shelf.registerTransaction(tx)
 			conn._transactionState = tt.serverTransactionState
-			tx.isStartedOnServer = true
-			tx.isEndedOnServer = tt.endedOnServer
+			tx.transactionState = tt.transactionState
 
 			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.ErrorInTransaction {
 				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
@@ -884,24 +885,26 @@ func TestSuspendSessionlessTxErrorRegistration(t *testing.T) {
 
 	tests := []struct {
 		name                   string
-		serverTransactionState transactionState
-		endedOnServer          bool
+		serverTransactionState endOfCallStatusTransactionState
+		transactionState       transactionState
 		wantLocalTransaction   bool
 	}{
 		{
 			name:                   "transaction active on server",
 			serverTransactionState: active,
+			transactionState:       transactionStartedServer,
 			wantLocalTransaction:   true,
 		},
 		{
 			name:                   "transaction ended on server",
 			serverTransactionState: inactive,
+			transactionState:       transactionEndedServer,
 			wantLocalTransaction:   false,
 		},
 		{
 			name:                   "sessionless end notification received",
 			serverTransactionState: active,
-			endedOnServer:          true,
+			transactionState:       transactionEndedServer,
 			wantLocalTransaction:   false,
 		},
 	}
@@ -913,8 +916,7 @@ func TestSuspendSessionlessTxErrorRegistration(t *testing.T) {
 			tx := newSessionlessTransaction(context.Background(), conn, []byte("sessionless-id"), 300)
 			conn.shelf.registerTransaction(tx)
 			conn._transactionState = tt.serverTransactionState
-			tx.isStartedOnServer = true
-			tx.isEndedOnServer = tt.endedOnServer
+			tx.transactionState = tt.transactionState
 
 			if got := transactionErrorCode(t, tx.Suspend()); got != oracleErrors.ErrorInTransaction {
 				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
@@ -947,8 +949,8 @@ func TestSessionlessTransactionOperationsRejectStaleTransaction(t *testing.T) {
 			currentTransaction := newSessionlessTransaction(context.Background(), conn, []byte("current"), 300)
 			conn.shelf.registerTransaction(currentTransaction)
 
-			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotInTransaction {
-				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotInTransaction)
+			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotCurrentTransaction {
+				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotCurrentTransaction)
 			}
 			if streamer.pushCalled {
 				t.Fatalf("stale %s should not send a transaction message", tt.name)

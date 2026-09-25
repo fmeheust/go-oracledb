@@ -207,6 +207,9 @@ const (
 	ErrorInTransaction ErrorCode = "OGD-00083"
 	// Error when creating a transaction, ALTER SESSION to set isolation level
 	StartResumeTransactionFailure ErrorCode = "OGD-00084"
+	// NotCurrentTransaction indicates that a transaction handle is not the
+	// transaction currently registered on its connection.
+	NotCurrentTransaction ErrorCode = "OGD-00085"
 
 	AuthenticatorError      ErrorCode = "OGD-00091"
 	NegotiatorError         ErrorCode = "OGD-00092"

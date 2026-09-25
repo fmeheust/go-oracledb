@@ -40,7 +40,6 @@ package ttc
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"sync"
 	"time"
@@ -436,9 +435,6 @@ func (stmt *Statement) checkSessionlessTransactionAccess() error {
 	sessionlessTx, ok := stmt.shelf.getTransaction().(*sessionlessTransaction)
 	if !ok || sessionlessTx.isServerOriginated {
 		return nil
-	}
-	if sessionlessTx.isEndedForClient {
-		return sql.ErrTxDone
 	}
 	if sessionlessTx.fromSessionlessTx || stmt.fromSessionlessTx {
 		return nil

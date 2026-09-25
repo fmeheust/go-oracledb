@@ -121,12 +121,13 @@ func (sta *ttiSTA) isBeingDrained() bool {
 	return sta._supportsEndOfCallStatus && sta.eocStatus != nil && sta.eocStatus.connectionShouldBeDropped()
 }
 
-// transactionState returns the transaction state reported by the server.
+// transactionState returns the End-of-Call transaction status reported by the
+// server.
 //
 // Returns:
-//   - transactionState: the transaction state reported by the server, or
-//     unknown when no state was reported
-func (sta *ttiSTA) transactionState() transactionState {
+//   - endOfCallStatusTransactionState: the status reported by the server, or
+//     unknown when no status was reported
+func (sta *ttiSTA) transactionState() endOfCallStatusTransactionState {
 	if sta.eocStatus == nil {
 		return unknown
 	}
