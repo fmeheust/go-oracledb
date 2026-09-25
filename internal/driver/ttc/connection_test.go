@@ -46,6 +46,7 @@ import (
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
+	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -298,6 +299,8 @@ func TestConnection_FaultyOnDrain(t *testing.T) {
 
 	ctx := context.Background()
 	shelf, streamer, dbuf := newExecTestShelf(8192)
+	properties := oracleconfig.NewOracleDriverConfig().DriverProperties
+	shelf.UpdateConnectionProperties(&properties)
 
 	incomingMsgL := list.New()
 	incomingMsgL.PushBack(&mockOer{err: common.NewOERMessageError("ORA-12345", "dont read server time zone")})
@@ -364,6 +367,8 @@ func TestConnection_FaultyOnDrainInStatement(t *testing.T) {
 
 	ctx := context.Background()
 	shelf, streamer, dbuf := newExecTestShelf(8192)
+	properties := oracleconfig.NewOracleDriverConfig().DriverProperties
+	shelf.UpdateConnectionProperties(&properties)
 
 	incomingMsgL := list.New()
 	incomingMsgL.PushBack(&mockOer{err: common.NewOERMessageError("ORA-12345", "dont read server time zone")})
