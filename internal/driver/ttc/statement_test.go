@@ -118,8 +118,7 @@ func TestStatementCancellationTimeout(t *testing.T) {
 //   - a TTC shelf initialized with the configured statement cancellation timeout.
 func newStatementCancellationShelf() *ttiShelf[drvierCommon.MessageType] {
 	shelf := newShelf[drvierCommon.MessageType]()
-	properties := oracleconfig.NewOracleDriverConfig().DriverProperties
-	shelf.UpdateConnectionProperties(&properties)
+	initializeTestDriverProperties(shelf)
 	return shelf
 }
 
@@ -474,6 +473,7 @@ func TestStatementQueryContextLocalization(t *testing.T) {
 	mockStr := &mockStreamer{}
 
 	shelf := newShelf[drvierCommon.MessageType]()
+	initializeTestDriverProperties(shelf)
 	shelf.RegisterLocalizationService(common.NewLocalizationService(language.French))
 	shelf.RegisterMessageStreamer(mockStr)
 

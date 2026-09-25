@@ -53,7 +53,9 @@ import (
 	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
+	drvierCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleTest "github.com/oracle/go-oracledb/v26/internal/tests"
+	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 )
 
 func TestMain(m *testing.M) {
@@ -1108,6 +1110,16 @@ type mockNetworkSession struct {
 	remotePort      int
 }
 
+// initializeTestDriverProperties gives manually constructed TTC shelves the
+// driver properties that production connection setup normally supplies.
+func initializeTestDriverProperties(shelf *ttiShelf[drvierCommon.MessageType]) {
+	if shelf.GetConnectionProperties() != nil {
+		return
+	}
+	properties := oracleconfig.NewOracleDriverConfig().DriverProperties
+	shelf.UpdateConnectionProperties(&properties)
+}
+
 // newTestConnection creates a connection without querying DBTIMEZONE. Tests that
 // exercise connection behavior independently of initialization use this helper.
 func newTestConnection(
@@ -1115,6 +1127,7 @@ func newTestConnection(
 	sessCtx *common.SessionContext,
 	ns common.NetworkSession,
 ) *connection {
+	initializeTestDriverProperties(shelf)
 	conn := &connection{
 		shelf:     shelf,
 		sessCtx:   sessCtx,
