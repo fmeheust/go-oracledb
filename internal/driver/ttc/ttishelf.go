@@ -46,7 +46,6 @@ import (
 
 	internalCommon "github.com/oracle/go-oracledb/v26/internal/common"
 	common "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	oracleconfig "github.com/oracle/go-oracledb/v26/oracle/config"
 	"github.com/oracle/go-oracledb/v26/oracle/errors"
 	"github.com/oracle/go-oracledb/v26/oracle/providers"
 )
@@ -89,8 +88,6 @@ type ttiShelf[T any] struct {
 // configured properties before the connection is returned to the caller.
 func newShelf[T any]() *ttiShelf[T] {
 	base := common.NewShelf[T]()
-	properties := oracleconfig.NewOracleDriverConfig().DriverProperties
-	base.UpdateConnectionProperties(&properties)
 	return &ttiShelf[T]{
 		Shelf:              base,
 		codecFactory:       nil,
