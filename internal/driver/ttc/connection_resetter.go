@@ -56,21 +56,34 @@ func (c *connection) ResetSession(ctx context.Context) error {
 		return driver.ErrBadConn
 	}
 
-	statements := c.shelf.GetStatements(true)
-	for _, statement := range statements {
-		if err := statement.Close(); err != nil {
-			common.Odl.Warn("Stale statement left in connection cannot be closed", "error", err)
-			c._isValid = false
-			return driver.ErrBadConn
-		}
+	err := CloseOpenStatements(c, false)
+	if err != nil {
+		c._isValid = false
+		return driver.ErrBadConn
 	}
 
 	c.sessCtx.GetSessionProperties().Reset()
-	err := c.shelf.GetMessageStreamer().Flush(ctx)
+	err = c.shelf.GetMessageStreamer().Flush(ctx)
 	if err != nil {
 		common.Odl.Warn("Flush of messages during reset has failed", "error", err)
 		return driver.ErrBadConn
 	}
 
+	return nil
+}
+
+func CloseOpenStatements(c *connection, transacitonOnly bool) error {
+	var statements []*Statement
+	if transacitonOnly {
+		statements = c.shelf.GetTransactionStatements(true)
+	} else {
+		statements = c.shelf.GetStatements(true)
+	}
+	for _, statement := range statements {
+		if err := statement.Close(); err != nil {
+			common.Odl.Warn("Stale statement left in connection cannot be closed", "error", err)
+			return err
+		}
+	}
 	return nil
 }

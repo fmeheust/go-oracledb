@@ -522,6 +522,9 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestRunOTxEnAdditionalResponsePaths", Categories: "unitary", Exclusive: false, Fn: TestRunOTxEnAdditionalResponsePaths},
 
 	{Name: "TestSessionlessTransactionEndUsesOTxEn", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionEndUsesOTxEn},
+	{Name: "TestSessionlessTransactionClosesTransactionStatements", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClosesTransactionStatements},
+	{Name: "TestCloseOpenTransactionStatementsIsIdempotent", Categories: "unitary", Exclusive: false, Fn: TestCloseOpenTransactionStatementsIsIdempotent},
+	{Name: "TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors},
 	{Name: "TestSessionlessTransactionContextCancellationRollsBack", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionContextCancellationRollsBack},
 	{Name: "TestSessionlessTransactionSuspendStopsContextWatcher", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionSuspendStopsContextWatcher},
 	{Name: "TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure},

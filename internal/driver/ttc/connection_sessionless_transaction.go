@@ -368,7 +368,12 @@ func (t *sessionlessTransaction) Commit() error {
 	previousState := t.transactionState
 	t.transactionState = transactionEndedClient
 	t.stopContextWatcherLocked()
-	err := t.transaction.Commit()
+	// Close all statements created by the transaction
+	err := CloseOpenStatements(t.underlyingConnection(), true)
+	if err != nil {
+		common.Odl.Debug("Un error occured while closing statements", "error", err)
+	}
+	err = t.transaction.Commit()
 	if err != nil {
 		t.restoreTransactionState(previousState)
 	}
@@ -390,7 +395,12 @@ func (t *sessionlessTransaction) Rollback() error {
 	previousState := t.transactionState
 	t.transactionState = transactionEndedClient
 	t.stopContextWatcherLocked()
-	err := t.transaction.Rollback()
+	// Close all statements created by the transaction
+	err := CloseOpenStatements(t.underlyingConnection(), true)
+	if err != nil {
+		common.Odl.Debug("Un error occured while closing statements", "error", err)
+	}
+	err = t.transaction.Rollback()
 	if err != nil {
 		t.restoreTransactionState(previousState)
 	}
@@ -423,6 +433,11 @@ func (t *sessionlessTransaction) Suspend() error {
 	previousState := t.transactionState
 	t.transactionState = transactionEndedClient
 	t.stopContextWatcherLocked()
+	// Close all statements created by the transaction
+	err := CloseOpenStatements(t.underlyingConnection(), true)
+	if err != nil {
+		common.Odl.Debug("Un error occured while closing statements", "error", err)
+	}
 	// detach the transaction from the connection
 	if err := t.underlyingConnection().detachTransaction(t.transactionContext()); err != nil {
 		t.restoreTransactionState(previousState)

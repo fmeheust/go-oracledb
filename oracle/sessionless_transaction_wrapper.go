@@ -56,13 +56,6 @@ func (value GlobalTransactionID) String() string {
 type sessionlessTx struct {
 	underlyingConn *sql.Conn
 	transaction    common.SessionlessTransaction
-
-	statements []*sql.Stmt
-}
-
-// addStatement records a statement prepared through this transaction.
-func (tx *sessionlessTx) addStatement(stmt *sql.Stmt) {
-	tx.statements = append(tx.statements, stmt)
 }
 
 // checkTransactionEnded reports sql.ErrTxDone after the transaction has
@@ -74,19 +67,6 @@ func (tx *sessionlessTx) checkTransactionEnded() error {
 	return nil
 }
 
-// closeStatements closes every statement prepared through the transaction.
-// Statement close errors are intentionally ignored, matching database/sql's
-// transaction cleanup behavior. The transaction state is updated by the
-// underlying transaction operation itself.
-func (tx *sessionlessTx) closeStatements() {
-	statements := tx.statements
-	tx.statements = nil
-
-	for _, stmt := range statements {
-		_ = stmt.Close()
-	}
-}
-
 // Commit commits the sessionless transaction on its underlying connection.
 //
 // Returns:
@@ -95,7 +75,6 @@ func (tx *sessionlessTx) Commit() error {
 	if err := tx.checkTransactionEnded(); err != nil {
 		return err
 	}
-	defer tx.closeStatements()
 	return tx.underlyingConn.Raw(func(driverConn any) error {
 		return tx.transaction.Commit()
 	})
@@ -110,7 +89,6 @@ func (tx *sessionlessTx) Rollback() error {
 	if err := tx.checkTransactionEnded(); err != nil {
 		return err
 	}
-	defer tx.closeStatements()
 	return tx.underlyingConn.Raw(func(driverConn any) error {
 		return tx.transaction.Rollback()
 	})
@@ -124,7 +102,6 @@ func (tx *sessionlessTx) Suspend() error {
 	if err := tx.checkTransactionEnded(); err != nil {
 		return err
 	}
-	defer tx.closeStatements()
 	return tx.underlyingConn.Raw(func(driverConn any) error {
 		return tx.transaction.Suspend()
 	})
@@ -203,12 +180,7 @@ func (tx *sessionlessTx) PrepareContext(ctx context.Context, query string) (*sql
 		tx.transaction.SetRunningFromSessionlessTx(true)
 		return nil
 	})
-	stmt, err := tx.underlyingConn.PrepareContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	tx.addStatement(stmt)
-	return stmt, nil
+	return tx.underlyingConn.PrepareContext(ctx, query)
 }
 
 // Query executes a query using a background context.

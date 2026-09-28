@@ -141,36 +141,24 @@ func (*sessionlessTransactionTestPlainConn) Begin() (driver.Tx, error) {
 type sessionlessTransactionTestTx struct {
 	transactionEnded bool
 	runningFromTx    bool
-	commitErr        error
-	rollbackErr      error
-	suspendErr       error
 }
 
-// Commit returns the configured fake commit result and updates the simulated
-// transaction state when the operation succeeds.
+// Commit updates the simulated transaction state.
 func (tx *sessionlessTransactionTestTx) Commit() error {
-	if tx.commitErr == nil {
-		tx.transactionEnded = true
-	}
-	return tx.commitErr
+	tx.transactionEnded = true
+	return nil
 }
 
-// Rollback returns the configured fake rollback result and updates the
-// simulated transaction state when the operation succeeds.
+// Rollback updates the simulated transaction state.
 func (tx *sessionlessTransactionTestTx) Rollback() error {
-	if tx.rollbackErr == nil {
-		tx.transactionEnded = true
-	}
-	return tx.rollbackErr
+	tx.transactionEnded = true
+	return nil
 }
 
-// Suspend returns the configured fake suspend result and updates the
-// simulated transaction state when the operation succeeds.
+// Suspend updates the simulated transaction state.
 func (tx *sessionlessTransactionTestTx) Suspend() error {
-	if tx.suspendErr == nil {
-		tx.transactionEnded = true
-	}
-	return tx.suspendErr
+	tx.transactionEnded = true
+	return nil
 }
 
 // SetRunningFromSessionlessTx records whether the wrapper authorized an
@@ -188,14 +176,10 @@ func (*sessionlessTransactionTestTx) GlobalTransactionID() []byte {
 }
 
 type sessionlessTransactionTestStmt struct {
-	closeCount int
 }
 
-// Close records that the fake statement was closed.
-func (stmt *sessionlessTransactionTestStmt) Close() error {
-	stmt.closeCount++
-	return nil
-}
+// Close succeeds for the wrapper test statement.
+func (*sessionlessTransactionTestStmt) Close() error { return nil }
 
 // NumInput reports that the fake statement accepts a variable number of inputs.
 func (*sessionlessTransactionTestStmt) NumInput() int { return -1 }
@@ -340,23 +324,18 @@ func TestResumeSessionlessTxPropagatesError(t *testing.T) {
 	}
 }
 
-// TestSessionlessTransactionEndsAndClosesPreparedStatements
-// verifies that transaction-owned prepared statements are closed by every
-// terminal operation and that all error-returning transaction operations fail
-// afterwards. The commit, rollback, and suspend subtests cover the three
-// terminal paths independently.
-func TestSessionlessTransactionEndsAndClosesPreparedStatements(t *testing.T) {
+// TestSessionlessTransactionEnds verifies that all terminal operations make
+// the public transaction handle unusable afterwards. The commit, rollback,
+// and suspend subtests cover the three terminal paths independently.
+func TestSessionlessTransactionEnds(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
 		name string
 		end  func(*sessionlessTx) error
 	}{
-		// Commit closes statements before the public handle becomes unusable.
 		{name: "commit", end: (*sessionlessTx).Commit},
-		// Rollback closes statements before the public handle becomes unusable.
 		{name: "rollback", end: (*sessionlessTx).Rollback},
-		// Suspend closes statements because the suspended handle cannot resume.
 		{name: "suspend", end: (*sessionlessTx).Suspend},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -378,10 +357,6 @@ func TestSessionlessTransactionEndsAndClosesPreparedStatements(t *testing.T) {
 			if err := test.end(tx); err != nil {
 				t.Fatalf("%s returned error: %v", test.name, err)
 			}
-			if preparedStmt.closeCount != 1 {
-				t.Fatalf("prepared statement close count after %s = %d, want 1", test.name, preparedStmt.closeCount)
-			}
-
 			if _, err := tx.Exec("SELECT 1"); !errors.Is(err, sql.ErrTxDone) {
 				t.Errorf("Exec after %s error = %v, want %v", test.name, err, sql.ErrTxDone)
 			}
@@ -517,87 +492,5 @@ func TestSessionlessTransactionGlobalTransactionID(t *testing.T) {
 	}
 	if got := tx.GlobalTransactionID(); got != nil {
 		t.Fatalf("GlobalTransactionID() after connection close = %q, want nil", got)
-	}
-}
-
-// TestSessionlessTransactionCloseStatementsIsIdempotent verifies that repeated
-// cleanup closes each transaction-owned statement only once.
-func TestSessionlessTransactionCloseStatementsIsIdempotent(t *testing.T) {
-	t.Parallel()
-
-	transaction := &sessionlessTransactionTestTx{}
-	driverStmt := &sessionlessTransactionTestStmt{}
-	driverConn := &sessionlessTransactionTestConn{beginTx: transaction, preparedStmt: driverStmt}
-	connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
-	tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx returned error: %v", err)
-	}
-	if _, err := tx.Prepare("SELECT 1"); err != nil {
-		t.Fatalf("Prepare returned error: %v", err)
-	}
-
-	tx.closeStatements()
-	tx.closeStatements()
-
-	if driverStmt.closeCount != 1 {
-		t.Fatalf("statement close count = %d, want 1", driverStmt.closeCount)
-	}
-}
-
-// TestSessionlessTransactionClosesStatementsAfterEndingErrors verifies that
-// Commit, Rollback, and Suspend close owned statements even when the driver
-// operation returns an error.
-func TestSessionlessTransactionClosesStatementsAfterEndingErrors(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		setup func(*sessionlessTransactionTestTx, error)
-		end   func(*sessionlessTx) error
-	}{
-		{
-			name:  "commit",
-			setup: func(tx *sessionlessTransactionTestTx, err error) { tx.commitErr = err },
-			end:   (*sessionlessTx).Commit,
-		},
-		{
-			name:  "rollback",
-			setup: func(tx *sessionlessTransactionTestTx, err error) { tx.rollbackErr = err },
-			end:   (*sessionlessTx).Rollback,
-		},
-		{
-			name:  "suspend",
-			setup: func(tx *sessionlessTransactionTestTx, err error) { tx.suspendErr = err },
-			end:   (*sessionlessTx).Suspend,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			wantErr := errors.New(test.name + " failed")
-			transaction := &sessionlessTransactionTestTx{}
-			test.setup(transaction, wantErr)
-			stmt := &sessionlessTransactionTestStmt{}
-			driverConn := &sessionlessTransactionTestConn{
-				beginTx:      transaction,
-				preparedStmt: stmt,
-			}
-			connectionWrapper := openSessionlessTransactionTestConnectionWrapper(t, driverConn)
-			tx, err := connectionWrapper.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
-			if err != nil {
-				t.Fatalf("BeginSessionlessTx returned error: %v", err)
-			}
-			if _, err := tx.Prepare("SELECT 1"); err != nil {
-				t.Fatalf("Prepare returned error: %v", err)
-			}
-
-			if err := test.end(tx); !errors.Is(err, wantErr) {
-				t.Fatalf("%s error = %v, want %v", test.name, err, wantErr)
-			}
-			if stmt.closeCount != 1 {
-				t.Fatalf("statement close count after %s = %d, want 1", test.name, stmt.closeCount)
-			}
-		})
 	}
 }

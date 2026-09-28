@@ -266,6 +266,124 @@ func TestSessionlessTransactionEndUsesOTxEn(t *testing.T) {
 	}
 }
 
+// TestSessionlessTransactionClosesTransactionStatements verifies that commit,
+// rollback, and suspend close statements registered while the sessionless
+// transaction is active. Statements opened before the transaction remain on
+// the connection because sessionless transaction cleanup is transaction-scoped.
+func TestSessionlessTransactionClosesTransactionStatements(t *testing.T) {
+	t.Parallel()
+
+	endingOperations := []struct {
+		name      string
+		operation func(*sessionlessTransaction) error
+	}{
+		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
+		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
+		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
+	}
+
+	for _, endingOperation := range endingOperations {
+		t.Run(endingOperation.name, func(t *testing.T) {
+			conn, _ := newSessionlessTransactionTestConnection()
+			nonTransactionStatement, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 1")
+			if err != nil {
+				t.Fatalf("creating non-transaction statement: %v", err)
+			}
+			defer nonTransactionStatement.Close()
+
+			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+			if err != nil {
+				t.Fatalf("BeginSessionlessTx failed: %v", err)
+			}
+			tx, ok := transaction.(*sessionlessTransaction)
+			if !ok {
+				t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
+			}
+			if _, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 2"); err != nil {
+				t.Fatalf("creating transaction statement: %v", err)
+			}
+
+			if got := len(conn.shelf.GetTransactionStatements(false)); got != 1 {
+				t.Fatalf("transaction statements before %s = %d, want 1", endingOperation.name, got)
+			}
+			if err := endingOperation.operation(tx); err != nil {
+				t.Fatalf("%s failed: %v", endingOperation.name, err)
+			}
+			if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {
+				t.Fatalf("transaction statements after %s = %d, want 0", endingOperation.name, got)
+			}
+			if got := len(conn.shelf.GetStatements(false)); got != 1 {
+				t.Fatalf("all statements after %s = %d, want 1 non-transaction statement", endingOperation.name, got)
+			}
+		})
+	}
+}
+
+// TestCloseOpenTransactionStatementsIsIdempotent verifies that draining and
+// closing transaction-owned statements can safely be requested more than once.
+func TestCloseOpenTransactionStatementsIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("sessionless-id"), 300)
+	conn.shelf.registerTransaction(tx)
+	if _, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 1"); err != nil {
+		t.Fatalf("creating transaction statement: %v", err)
+	}
+
+	if err := CloseOpenStatements(conn, true); err != nil {
+		t.Fatalf("first statement cleanup failed: %v", err)
+	}
+	if err := CloseOpenStatements(conn, true); err != nil {
+		t.Fatalf("second statement cleanup failed: %v", err)
+	}
+	if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {
+		t.Fatalf("transaction statements after repeated cleanup = %d, want 0", got)
+	}
+}
+
+// TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors
+// verifies that statement cleanup is performed before commit, rollback, and
+// suspend even when the corresponding TTC operation returns an error.
+func TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors(t *testing.T) {
+	t.Parallel()
+
+	endingOperations := []struct {
+		name      string
+		operation func(*sessionlessTransaction) error
+	}{
+		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
+		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
+		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
+	}
+
+	for _, endingOperation := range endingOperations {
+		t.Run(endingOperation.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			streamer.pullMsg = &mockOer{err: errors.New(endingOperation.name + " failed")}
+
+			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
+			if err != nil {
+				t.Fatalf("BeginSessionlessTx failed: %v", err)
+			}
+			tx, ok := transaction.(*sessionlessTransaction)
+			if !ok {
+				t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
+			}
+			if _, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 1"); err != nil {
+				t.Fatalf("creating transaction statement: %v", err)
+			}
+
+			if err := endingOperation.operation(tx); err == nil {
+				t.Fatalf("%s unexpectedly succeeded", endingOperation.name)
+			}
+			if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {
+				t.Fatalf("transaction statements after failed %s = %d, want 0", endingOperation.name, got)
+			}
+		})
+	}
+}
+
 // TestBeginSessionlessTx verifies that starting a new sessionless transaction
 // returns the Oracle-specific SessionlessTx contract and sends an OTXSE start
 // request with the generated global transaction ID and new-sessionless flags.
