@@ -92,6 +92,11 @@ different dedicated connection.
 The following fragment assumes that `db` is already open and that it is inside
 a function returning an `error`.
 
+The timeout passed to resume does not extend the transaction's original
+post-suspension lifetime. Set it according to how long a resume attempt should
+wait, and use the begin timeout to control how long the suspended transaction
+can remain available for resumption.
+
 ```go
 ctx := context.Background()
 
@@ -210,11 +215,3 @@ operation does not replace an explicit transaction-ending operation.
 After suspending, do not use the old transaction handle. Resume the transaction
 with its global transaction ID and a new dedicated connection instead.
 
-## Error handling recommendations
-
-Always check errors from `BeginSessionlessTx`, `ResumeSessionlessTx`, SQL
-operations, and the ending operation. If an ending operation returns an error,
-the server may still have an active transaction; do not silently discard the
-transaction handle or connection. Follow the application's recovery policy and
-ensure that the connection is either cleaned up or discarded when its state is
-unknown.
