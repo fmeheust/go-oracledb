@@ -214,10 +214,31 @@ func TestSuspendSessionlessTransactionCancellationCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BeginSessionlessTx failed: %v", err)
 	}
+	transaction, ok := tx.(*sessionlessTransaction)
+	if !ok {
+		t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", tx)
+	}
+
+	// Stop the cancellation watcher before canceling the context. Otherwise the
+	// watcher and Suspend race to acquire lifecycleMu. If the watcher wins, it
+	// rolls back and unregisters the transaction before Suspend starts, making
+	// Suspend take its no-op path instead of exercising canceled-suspend cleanup.
+	transaction.lifecycleMu.Lock()
+	transaction.stopContextWatcherLocked()
+	// BeginSessionlessTx only queues the start request in this mock. Simulate
+	// the server acknowledgment so a failed detach retains the transaction for
+	// the bounded rollback cleanup below.
+	transaction.transactionState = transactionStartedServer
+	transaction.lifecycleMu.Unlock()
+	conn._transactionState = active
+
 	cancel()
 
 	if got := transactionErrorCode(t, tx.Suspend()); got != oracleErrors.ErrorInTransaction {
 		t.Fatalf("Suspend error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
+	}
+	if got, want := streamer.pushedMsg.Len(), 3; got != want {
+		t.Fatalf("messages pushed during canceled suspend cleanup = %d, want %d", got, want)
 	}
 	if conn._isValid {
 		t.Fatal("connection remained valid after ambiguous canceled suspend cleanup")

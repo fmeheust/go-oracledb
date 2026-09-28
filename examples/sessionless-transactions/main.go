@@ -106,12 +106,12 @@ func run() error {
 		return fmt.Errorf("begin sessionless transaction returned an empty global transaction ID")
 	}
 
-	if _, err := conn1.ExecContext(ctx, "INSERT INTO "+tableName+" (id, note) VALUES (1, 'inserted before suspend')"); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO "+tableName+" (id, note) VALUES (1, 'inserted before suspend')"); err != nil {
 		return fmt.Errorf("insert on first connection: %w", err)
 	}
 
 	var count int
-	if err := conn1.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&count); err != nil {
 		return fmt.Errorf("count rows before suspend: %w", err)
 	}
 	if count != 1 {
@@ -156,11 +156,11 @@ func run() error {
 
 	// Resume is a piggyback operation. The first database operation sends the
 	// resume request together with this insert.
-	if _, err := conn2.ExecContext(ctx, "INSERT INTO "+tableName+" (id, note) VALUES (2, 'inserted after resume')"); err != nil {
+	if _, err := resumedTx.ExecContext(ctx, "INSERT INTO "+tableName+" (id, note) VALUES (2, 'inserted after resume')"); err != nil {
 		return fmt.Errorf("insert on resumed connection: %w", err)
 	}
 
-	if err := conn2.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&count); err != nil {
+	if err := resumedTx.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&count); err != nil {
 		return fmt.Errorf("count rows after resume: %w", err)
 	}
 	if count != 2 {

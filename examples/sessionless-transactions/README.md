@@ -32,13 +32,6 @@ From this directory, run:
 ORACLE_DSN='user/password@localhost:1521/freepdb1' go run .
 ```
 
-On PowerShell, use:
-
-```powershell
-$env:ORACLE_DSN = 'user/password@localhost:1521/freepdb1'
-go run .
-```
-
 The DSN can also be supplied as a full Oracle connect descriptor. See the main
 project [README](../../README.md) for supported DSN formats.
 
