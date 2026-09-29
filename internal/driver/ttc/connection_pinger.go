@@ -124,7 +124,7 @@ func (c *connection) rollbackActiveTransaction(ctx context.Context) error {
 		transaction = newTransaction(c, ctx)
 	}
 
-	if err := c.runOTxEn(ctx, otxenAbort, transaction); err != nil {
+	if err := c.runTransactionEndingOperation(ctx, otxenAbort, transaction); err != nil {
 		c.unregisterTransactionOnError()
 		return err
 	}

@@ -331,10 +331,10 @@ func TestCloseOpenTransactionStatementsIsIdempotent(t *testing.T) {
 		t.Fatalf("creating transaction statement: %v", err)
 	}
 
-	if err := CloseOpenStatements(conn, true); err != nil {
+	if err := closeOpenStatements(conn, true); err != nil {
 		t.Fatalf("first statement cleanup failed: %v", err)
 	}
-	if err := CloseOpenStatements(conn, true); err != nil {
+	if err := closeOpenStatements(conn, true); err != nil {
 		t.Fatalf("second statement cleanup failed: %v", err)
 	}
 	if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {

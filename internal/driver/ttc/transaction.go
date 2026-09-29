@@ -195,7 +195,7 @@ func (t *transaction) Commit() error {
 	ctx := t.transactionContext()
 	previousState := t.transactionState
 	t.transactionState = transactionEndedClient
-	readFuncError := t.underlyingConnection().runOTxEn(ctx, otxenCommit, currentTransaction)
+	readFuncError := t.underlyingConnection().runTransactionEndingOperation(ctx, otxenCommit, currentTransaction)
 
 	// validate the current connection state
 	if err := t.underlyingConnection().shelf.checkCurrentState(ctx); err != nil {
@@ -240,7 +240,7 @@ func (t *transaction) rollback(ctx context.Context) error {
 	currentTransaction := t.underlyingConnection().shelf.getTransaction()
 	previousState := t.transactionState
 	t.transactionState = transactionEndedClient
-	runFuncErr := t.underlyingConnection().runOTxEn(ctx, otxenAbort, currentTransaction)
+	runFuncErr := t.underlyingConnection().runTransactionEndingOperation(ctx, otxenAbort, currentTransaction)
 
 	// validate the current connection state
 	if err := t.underlyingConnection().shelf.checkCurrentState(ctx); err != nil {

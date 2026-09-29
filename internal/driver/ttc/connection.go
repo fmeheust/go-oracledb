@@ -503,7 +503,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		var implicitTx *sessionlessTransaction
 		if currentTx == nil {
 			// this should never happen, if there is not transaction the connection is on auto-commit mode which would start and end the transaction at the same time
-			implicitTx = newSessionlessTransaction(context.Background(), c, sync.globalTransactionID, 0)
+			implicitTx = newSessionlessTransaction(common.BackgroundContext, c, sync.globalTransactionID, 0)
 		} else {
 			if tx, ok := currentTx.(*transaction); ok {
 				implicitTx = upgradeFromTransaction(tx, sync.globalTransactionID, 0)

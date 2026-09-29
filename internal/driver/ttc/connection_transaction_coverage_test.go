@@ -28,9 +28,9 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-// TestRunOTxEnSetupAndTransportFailures verifies the OTXEN setup, write,
-// flush, and read failures returned by runOTxEn.
-func TestRunOTxEnSetupAndTransportFailures(t *testing.T) {
+// TestRunTransactionEndingOperationSetupAndTransportFailures verifies the OTXEN setup, write,
+// flush, and read failures returned by RunTransactionEndingOperation.
+func TestRunTransactionEndingOperationSetupAndTransportFailures(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -86,16 +86,16 @@ func TestRunOTxEnSetupAndTransportFailures(t *testing.T) {
 			tt.setup(conn, streamer)
 
 			tx := newTransaction(conn, context.Background())
-			if got := transactionErrorCode(t, conn.runOTxEn(context.Background(), tt.operation, tx)); got != tt.wantError {
-				t.Fatalf("runOTxEn error code = %s, want %s", got, tt.wantError)
+			if got := transactionErrorCode(t, conn.runTransactionEndingOperation(context.Background(), tt.operation, tx)); got != tt.wantError {
+				t.Fatalf("RunTransactionEndingOperation error code = %s, want %s", got, tt.wantError)
 			}
 		})
 	}
 }
 
-// TestRunOTxEnAdditionalResponsePaths verifies that runOTxEn continues after
+// TestRunTransactionEndingOperationAdditionalResponsePaths verifies that RunTransactionEndingOperation continues after
 // an unexpected TTIRPA type and completes when TTISTA is the terminal response.
-func TestRunOTxEnAdditionalResponsePaths(t *testing.T) {
+func TestRunTransactionEndingOperationAdditionalResponsePaths(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -118,8 +118,8 @@ func TestRunOTxEnAdditionalResponsePaths(t *testing.T) {
 			conn := newTransactionTestConnection(streamer)
 			tx := newTransaction(conn, context.Background())
 
-			if err := conn.runOTxEn(context.Background(), otxenAbort, tx); err != nil {
-				t.Fatalf("runOTxEn returned error: %v", err)
+			if err := conn.runTransactionEndingOperation(context.Background(), otxenAbort, tx); err != nil {
+				t.Fatalf("RunTransactionEndingOperation returned error: %v", err)
 			}
 		})
 	}

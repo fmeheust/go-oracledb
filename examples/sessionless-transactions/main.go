@@ -101,11 +101,6 @@ func run() error {
 		}
 	}()
 
-	globalTransactionID := tx.GlobalTransactionID()
-	if len(globalTransactionID) == 0 {
-		return fmt.Errorf("begin sessionless transaction returned an empty global transaction ID")
-	}
-
 	if _, err := tx.ExecContext(ctx, "INSERT INTO "+tableName+" (id, note) VALUES (1, 'inserted before suspend')"); err != nil {
 		return fmt.Errorf("insert on first connection: %w", err)
 	}
@@ -116,6 +111,14 @@ func run() error {
 	}
 	if count != 1 {
 		return fmt.Errorf("row count before suspend = %d, want 1", count)
+	}
+
+	// The first SQL round trip flushes the piggybacked start request. Read the
+	// global transaction ID afterwards because the server may provide the
+	// authoritative identifier when it acknowledges the transaction.
+	globalTransactionID := tx.GlobalTransactionID()
+	if len(globalTransactionID) == 0 {
+		return fmt.Errorf("started sessionless transaction returned an empty global transaction ID")
 	}
 	fmt.Println("The first connection can see its uncommitted insert before suspend")
 

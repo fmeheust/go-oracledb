@@ -148,7 +148,7 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 
 }
 
-// runOTxEn sends a transaction end operation and waits for its return state and
+// runTransactionEndingOperation sends a transaction end operation and waits for its return state and
 // terminal status. OTXEN returns the transaction state in TTIRPA and completes
 // with TTIOER or TTISTA.
 //
@@ -159,7 +159,7 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 //
 // Returns:
 //   - error: Error if the operation cannot be sent or the server reports a failure.
-func (c *connection) runOTxEn(ctx context.Context, operation txStateChangeOperation, transaction oracleTx) error {
+func (c *connection) runTransactionEndingOperation(ctx context.Context, operation txStateChangeOperation, transaction oracleTx) error {
 	common.Odl.Debug("Running OTXEN", "operation", operation)
 
 	// get the streamer

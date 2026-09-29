@@ -129,7 +129,7 @@ func (tx *sessionlessTx) GlobalTransactionID() GlobalTransactionID {
 //   - sql.Result: Result returned by the database.
 //   - error: Error if the statement cannot be executed.
 func (tx *sessionlessTx) Exec(query string, args ...any) (sql.Result, error) {
-	return tx.ExecContext(context.Background(), query, args...)
+	return tx.ExecContext(common.BackgroundContext, query, args...)
 }
 
 // ExecContext executes a statement using the supplied context.
@@ -158,7 +158,7 @@ func (tx *sessionlessTx) ExecContext(ctx context.Context, query string, args ...
 //   - *sql.Stmt: Prepared statement.
 //   - error: Error if the statement cannot be prepared.
 func (tx *sessionlessTx) Prepare(query string) (*sql.Stmt, error) {
-	return tx.PrepareContext(context.Background(), query)
+	return tx.PrepareContext(common.BackgroundContext, query)
 }
 
 // PrepareContext prepares a statement using the supplied context. The
@@ -189,7 +189,7 @@ func (tx *sessionlessTx) PrepareContext(ctx context.Context, query string) (*sql
 //   - *sql.Rows: Rows returned by the database.
 //   - error: Error if the query cannot be executed.
 func (tx *sessionlessTx) Query(query string, args ...any) (*sql.Rows, error) {
-	return tx.QueryContext(context.Background(), query, args...)
+	return tx.QueryContext(common.BackgroundContext, query, args...)
 }
 
 // QueryContext executes a query using the supplied context.
@@ -218,7 +218,7 @@ func (tx *sessionlessTx) QueryContext(ctx context.Context, query string, args ..
 // Returns:
 //   - *sql.Row: Row returned by the database.
 func (tx *sessionlessTx) QueryRow(query string, args ...any) *sql.Row {
-	return tx.QueryRowContext(context.Background(), query, args...)
+	return tx.QueryRowContext(common.BackgroundContext, query, args...)
 }
 
 // QueryRowContext executes a query expected to return at most one row using

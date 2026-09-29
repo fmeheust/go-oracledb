@@ -17,8 +17,11 @@ Sessionless transactions require:
 - a connection wrapper created with `oracle.NewConnectionWrapper`.
 
 The transaction can use the standard `sql.TxOptions` values supported by the
-driver. The timeout argument is in seconds and tells the server how long a
-suspended transaction may remain detached before it is rolled back.
+driver. Timeout arguments are in seconds. For `BeginSessionlessTx`, the timeout
+controls how long the server keeps a suspended transaction available before
+rolling it back. For `ResumeSessionlessTx`, the timeout controls how long the
+server attempts to resume the transaction; it does not extend the original
+suspension lifetime.
 
 ## Begin and commit a transaction
 
@@ -85,9 +88,10 @@ connection at a time.
 
 ## Suspend and resume on another connection
 
-`GlobalTransactionID` identifies the server-side transaction. Save it before
-calling `Suspend`, then pass it to `ResumeSessionlessTx` on a wrapper around a
-different dedicated connection.
+`GlobalTransactionID` identifies the server-side transaction. Read it after the
+first SQL round trip following `BeginSessionlessTx`, then save it before calling
+`Suspend`. Pass it to `ResumeSessionlessTx` on a wrapper around a different
+dedicated connection.
 
 The following fragment assumes that `db` is already open and that it is inside
 a function returning an `error`.
@@ -116,12 +120,15 @@ if err != nil {
 	return err
 }
 
-globalTransactionID := tx.GlobalTransactionID()
 if _, err := tx.ExecContext(ctx, "INSERT INTO work_items (id) VALUES (1)"); err != nil {
 	tx.Rollback()
 	conn1.Close()
 	return err
 }
+
+// Begin is piggybacked, so read the GTRID after the first SQL round trip. The
+// server may provide the authoritative identifier when it acknowledges begin.
+globalTransactionID := tx.GlobalTransactionID()
 
 if err := tx.Suspend(); err != nil {
 	conn1.Close()
@@ -159,7 +166,9 @@ return resumedTx.Commit()
 The begin and resume requests are piggyback operations. The first SQL
 round-trip after `BeginSessionlessTx` or `ResumeSessionlessTx` sends the
 request to the server, so applications should perform a SQL operation after
-each lifecycle call before assuming that the request has completed.
+each lifecycle call before assuming that the request has completed. In
+particular, read `GlobalTransactionID` after the first SQL round trip following
+begin because the server may replace the locally generated identifier.
 
 The complete runnable version of this workflow is available in
 [`examples/sessionless-transactions`](../examples/sessionless-transactions/README.md).

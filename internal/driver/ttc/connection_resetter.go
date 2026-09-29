@@ -56,7 +56,7 @@ func (c *connection) ResetSession(ctx context.Context) error {
 		return driver.ErrBadConn
 	}
 
-	err := CloseOpenStatements(c, false)
+	err := closeOpenStatements(c, false)
 	if err != nil {
 		c._isValid = false
 		return driver.ErrBadConn
@@ -72,7 +72,7 @@ func (c *connection) ResetSession(ctx context.Context) error {
 	return nil
 }
 
-func CloseOpenStatements(c *connection, transacitonOnly bool) error {
+func closeOpenStatements(c *connection, transacitonOnly bool) error {
 	var statements []*Statement
 	if transacitonOnly {
 		statements = c.shelf.GetTransactionStatements(true)

@@ -11,7 +11,7 @@ The example performs the following operations:
 2. Gets a dedicated `*sql.Conn`, wraps it with `oracle.NewConnectionWrapper`,
    and begins a sessionless transaction.
 3. Inserts a row on the first connection and verifies that it is visible there.
-4. Suspends the transaction and keeps its global transaction ID.
+4. Suspends the transaction and keeps its server-confirmed global transaction ID.
 5. Gets a second dedicated `*sql.Conn`, wraps it, and resumes the transaction
    using that ID.
 6. Inserts a second row on the second connection and verifies that both rows are visible.
@@ -60,12 +60,22 @@ if err != nil {
 resumedTx, err := resumeConnectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID, 300)
 ```
 
+The timeout argument is in seconds. The example passes `300`, or five minutes,
+to both begin and resume. The context used by the example has a 30-second
+deadline, so context cancellation can stop an operation before that timeout
+expires.
+
 The global transaction ID identifies the server-side transaction and should be
-retained until the transaction is committed or rolled back.
+read after the first SQL round trip following `BeginSessionlessTx`. Begin is a
+piggyback operation, and the server may provide the authoritative global
+transaction ID when it acknowledges the transaction. Retain that ID until the
+transaction is committed or rolled back.
 
 Sessionless start and resume requests are piggyback operations. The first SQL
 operation after begin or resume sends the request to the server, so the example
-executes an insert immediately after each lifecycle operation.
+executes an insert immediately after each lifecycle operation. After the first
+insert and its verification query, the example reads the server-confirmed ID
+before suspending the transaction.
 
 The example creates and drops a table for each run, so the database user must
 be allowed to create and drop tables. The inserts are the transactional DML;
