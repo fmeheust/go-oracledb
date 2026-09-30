@@ -42,6 +42,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"reflect"
+	"time"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
