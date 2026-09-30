@@ -198,12 +198,13 @@ func TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure(t
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if _, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300); err != nil {
+	tx, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
+	if err != nil {
 		t.Fatalf("BeginSessionlessTx failed: %v", err)
 	}
 	cancel()
 	deadline := time.Now().Add(time.Second)
-	for conn._isValid && time.Now().Before(deadline) {
+	for !tx.IsTransactionEnded() && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
 	if conn._isValid {
