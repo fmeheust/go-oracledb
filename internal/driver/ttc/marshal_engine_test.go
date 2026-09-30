@@ -460,7 +460,7 @@ func TestMarshalCLR(t *testing.T) {
 					}
 					pos += 4
 					// Verify the chunk data
-					for i := 0; i < chunkSize; i++ {
+					for i := range chunkSize {
 						if dataBuffer.bytes[pos+i] != value[(tt.offset+dataRead+i)] {
 							t.Errorf("chunk data mismatch at index %d: got %d, want %d", i, dataBuffer.bytes[pos+i], value[(tt.offset+dataRead+i)])
 						}

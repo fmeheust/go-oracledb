@@ -500,7 +500,7 @@ func runPreparedInsertNclob(t *testing.T, table string, rows []clobRowData) {
 			minLen := min(len(gotNclob), len(rr.c))
 
 			mismatchAt := -1
-			for i := 0; i < minLen; i++ {
+			for i := range minLen {
 				if rr.c[i] != gotNclob[i] {
 					mismatchAt = i
 					break

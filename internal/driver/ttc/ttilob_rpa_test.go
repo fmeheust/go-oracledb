@@ -217,18 +217,6 @@ func assertLobDefinition(t *testing.T, def *lobDefinition, exp lobDefinitionExpe
 	}
 }
 
-//go:fix inline
-func intPtr(v int) *int { return new(v) }
-
-//go:fix inline
-func ub2Ptr(v common.UB2) *common.UB2 { return new(v) }
-
-//go:fix inline
-func ub8Ptr(v common.UB8) *common.UB8 { return new(v) }
-
-//go:fix inline
-func boolPtr(v bool) *bool { return new(v) }
-
 type lobRpaSuccessCase struct {
 	name    string
 	payload []string
@@ -282,9 +270,9 @@ func TestTTILobRpa_UnMarshalFrom_Success(t *testing.T) {
 				sourceLocatorLen:      new(114),
 				sourceLocator:         append([]byte(nil), expectedReadSourceLocator...),
 				destinationLocatorLen: new(0),
-				charsetID:             ub2Ptr(common.UB2(0)),
+				charsetID:             new(common.UB2(0)),
 				sendLobAmt:            new(true),
-				lobAmt:                ub8Ptr(common.UB8(4495)),
+				lobAmt:                new(common.UB8(4495)),
 				lobNull:               new(false),
 			},
 		},
@@ -304,9 +292,9 @@ func TestTTILobRpa_UnMarshalFrom_Success(t *testing.T) {
 			expect: lobDefinitionExpectations{
 				sourceLocatorLen: new(40),
 				sourceLocator:    append([]byte(nil), expectedCreateSourceLocator...),
-				charsetID:        ub2Ptr(common.UB2(873)),
+				charsetID:        new(common.UB2(873)),
 				sendLobAmt:       new(true),
-				lobAmt:           ub8Ptr(common.UB8(96)),
+				lobAmt:           new(common.UB8(96)),
 				lobNull:          new(true),
 			},
 		},
@@ -326,9 +314,9 @@ func TestTTILobRpa_UnMarshalFrom_Success(t *testing.T) {
 			expect: lobDefinitionExpectations{
 				sourceLocatorLen: new(40),
 				sourceLocator:    append([]byte(nil), expectedPageSizeSourceLocator...),
-				charsetID:        ub2Ptr(common.UB2(0)),
+				charsetID:        new(common.UB2(0)),
 				sendLobAmt:       new(true),
-				lobAmt:           ub8Ptr(common.UB8(8132)),
+				lobAmt:           new(common.UB8(8132)),
 				lobNull:          new(false),
 			},
 		},
@@ -348,9 +336,9 @@ func TestTTILobRpa_UnMarshalFrom_Success(t *testing.T) {
 			expect: lobDefinitionExpectations{
 				sourceLocatorLen: new(40),
 				sourceLocator:    append([]byte(nil), expectedWriteSourceLocator...),
-				charsetID:        ub2Ptr(common.UB2(0)),
+				charsetID:        new(common.UB2(0)),
 				sendLobAmt:       new(true),
-				lobAmt:           ub8Ptr(common.UB8(4500)),
+				lobAmt:           new(common.UB8(4500)),
 				lobNull:          new(false),
 			},
 		},
