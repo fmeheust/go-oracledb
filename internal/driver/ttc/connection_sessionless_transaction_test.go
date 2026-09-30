@@ -92,16 +92,16 @@ func newSessionlessTransactionTestConnection() (*connection, *mockStreamer) {
 	return newTestConnection(shelf, sessionCtx, nil), mockStr
 }
 
-func waitForSessionlessTransactionState(t *testing.T, conn *connection, wantRegistered bool) {
+func waitForSessionlessTransactionEnd(t *testing.T, transaction common.SessionlessTransaction) {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
-		if conn.shelf.isInTransaction() == wantRegistered {
+		if transaction.IsTransactionEnded() {
 			return
 		}
 		time.Sleep(time.Millisecond)
 	}
-	t.Fatalf("sessionless transaction registration = %v, want %v", conn.shelf.isInTransaction(), wantRegistered)
+	t.Fatal("sessionless transaction did not end after context cancellation")
 }
 
 // TestSessionlessTransactionContextCancellationRollsBack verifies that
@@ -136,11 +136,15 @@ func TestSessionlessTransactionContextCancellationRollsBack(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if _, err := test.start(conn, ctx); err != nil {
+			transaction, err := test.start(conn, ctx)
+			if err != nil {
 				t.Fatalf("%s sessionless transaction failed: %v", test.name, err)
 			}
 			cancel()
-			waitForSessionlessTransactionState(t, conn, false)
+			waitForSessionlessTransactionEnd(t, transaction)
+			if conn.shelf.isInTransaction() {
+				t.Fatalf("sessionless transaction remained registered after %s cancellation", test.name)
+			}
 			if got, want := streamer.pushedMsg.Len(), 2; got != want {
 				t.Fatalf("messages pushed after %s cancellation = %d, want %d", test.name, got, want)
 			}

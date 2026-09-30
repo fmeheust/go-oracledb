@@ -217,6 +217,9 @@ func (t *sessionlessTransaction) rollbackOnContextCancellation() {
 	}
 
 	t.contextWatcherStop = nil
+	// Mark transaction as ended by the client, after context cancellation the
+	// client should not be able to use the transaction.
+	t.transactionState = transactionEndedClient
 	err := t.rollbackWithCleanupContextLocked()
 
 	if err != nil {
@@ -639,7 +642,7 @@ func (t *sessionlessTransaction) setStartedOnServer(globalTransactionID []byte) 
 //
 // Parameters:
 //   - globalTransactionID: Global transaction ID reported by the server.
-func (t *sessionlessTransaction) setEndedOnServer(globalTransactionID []byte) {
+func (t *sessionlessTransaction) setEndedOnServer(_ []byte) {
 	// no validation is needed in this case, just mark the transaction as ended
 	// on the server
 	common.Odl.Debug("Transaction has ended by client received by server")
