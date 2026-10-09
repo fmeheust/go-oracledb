@@ -56,14 +56,6 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-type endOfCallStatusTransactionState uint8
-
-const (
-	unknown endOfCallStatusTransactionState = iota
-	inactive
-	active
-)
-
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
 type connection struct {
@@ -184,9 +176,6 @@ func (c *connection) ExecContext(ctx context.Context, query string, args []drive
 func (c *connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
-	}
-	if common.IsSessionlessTransactionEnded(ctx) {
-		return nil, sql.ErrTxDone
 	}
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {

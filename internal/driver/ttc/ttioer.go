@@ -48,6 +48,30 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
+// endOfCallStatusTransactionState represents the transaction state reported
+// by the server in a TTC End-of-Call status.
+type endOfCallStatusTransactionState uint8
+
+const (
+	// unknown means the response did not report a transaction state.
+	unknown endOfCallStatusTransactionState = iota
+	// inactive means the server reported no active transaction.
+	inactive
+	// active means the server reported an active transaction.
+	active
+)
+
+type endOfCallStatusFlag driverCommon.UB4
+
+const (
+	ttiEocFRo               endOfCallStatusFlag = 0x00000001 // ttiEocFRo: transaction is read only as of last call
+	ttiEocCur               endOfCallStatusFlag = 0x00000002 // ttiEocCur: currently in a txn
+	ttiEocDon               endOfCallStatusFlag = 0x00000004 // ttiEocDon: commit/rollback done
+	ttiEocEct               endOfCallStatusFlag = 0x00000008 // TtiEocEct: elapsed call time follows
+	ttiEocTTi               endOfCallStatusFlag = 0x00000400 // ttiEocTTi:  Transaction intention
+	ttiEocfDropWhenReturned endOfCallStatusFlag = 0x00000800 // TtiEocfDropWhenReturned indicates this connection is affected by a planned-down
+)
+
 // tTIOerIface defines an interface for Oracle error data protocol unmarshalling and processing.
 type tTIOerIface interface {
 	// getError gets the wrapped error sent back from the server.
@@ -142,7 +166,7 @@ func (e *endOfCallStatus) String() string {
 // Returns:
 //   - bool: True when the planned-down flag is set.
 func (e *endOfCallStatus) connectionShouldBeDropped() bool {
-	return e.endOfCallStatusFlags&ttiEocfDropWhenReturned != 0
+	return endOfCallStatusFlag(e.endOfCallStatusFlags)&ttiEocfDropWhenReturned != 0
 }
 
 // inTransaction reports whether the end-of-call status indicates an active
@@ -151,7 +175,7 @@ func (e *endOfCallStatus) connectionShouldBeDropped() bool {
 // Returns:
 //   - bool: True if the server reports an active transaction.
 func (e *endOfCallStatus) inTransaction() bool {
-	return e.endOfCallStatusFlags&ttiEocCur != 0
+	return endOfCallStatusFlag(e.endOfCallStatusFlags)&ttiEocCur != 0
 }
 
 // newTTIoer creates a new instance of tTIoer.
@@ -525,7 +549,7 @@ func unmarshalEndOfCallStatus(ctx context.Context, mar driverCommon.Marshaller) 
 		return nil, common.NewOracleError(oracleErrors.FailUnmarshal, err, "EndOfCallStatus")
 	}
 
-	if (retVal.endOfCallStatusFlags & ttiEocEct) != 0 {
+	if (endOfCallStatusFlag(retVal.endOfCallStatusFlags) & ttiEocEct) != 0 {
 		var elapsedTime driverCommon.UB8
 		if elapsedTime, err = mar.UnmarshalUB8(ctx); err != nil {
 			common.Odl.Error("unmarshalEndOfCallStatus: elapsedTime unmarshal failed",

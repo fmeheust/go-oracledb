@@ -42,6 +42,8 @@ import (
 	"context"
 	"regexp"
 	"testing"
+
+	"github.com/oracle/go-oracledb/v26/internal/driver/common"
 )
 
 // TestNewTTIoer ensures the constructor sets struct fields as expected.
@@ -468,7 +470,7 @@ func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
 			elapsedTime:          0,
-			endOfCallStatusFlags: ttiEocfDropWhenReturned,
+			endOfCallStatusFlags: common.UB4(ttiEocfDropWhenReturned),
 		},
 	}
 	if !msg.isBeingDrained() {
@@ -478,7 +480,7 @@ func TestTTIoer_getConnectionShouldBeDropped(t *testing.T) {
 	msg = &tTIoer{
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
-			endOfCallStatusFlags: ttiEocFRo | ttiEocDon | ttiEocCur | ttiEocTTi,
+			endOfCallStatusFlags: common.UB4(ttiEocFRo | ttiEocDon | ttiEocCur | ttiEocTTi),
 		},
 	}
 	if msg.transactionState() != active {

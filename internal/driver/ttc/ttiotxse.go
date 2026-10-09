@@ -40,6 +40,7 @@ package ttc
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
@@ -197,6 +198,32 @@ func (m *tTIOtxse) configureForSuspend() {
 	m.formatID = k2gSessionless
 	applicationValue := driverCommon.UB4(0)
 	m.applicationValue = &applicationValue
+}
+
+// convertTxOptionsToFlags converts standard transaction options to OTXSE flags.
+//
+// Note that otxseTransReadOnly, otxseTransSerializable and otxseTransReadWrite
+// cannot be combined. If opts.ReadOnly is set the isolation level will be
+// ignored.
+//
+// Parameters:
+//   - opts: Transaction isolation and read-only options.
+//
+// Returns:
+//   - driverCommon.UB4: OTXSE flags representing opts.
+func convertTxOptionsToFlags(opts driver.TxOptions) driverCommon.UB4 {
+	flags := otxseTransNew
+	if opts.ReadOnly {
+		flags |= otxseTransReadOnly
+		return flags
+	}
+	switch sql.IsolationLevel(opts.Isolation) {
+	case sql.LevelSerializable:
+		flags |= otxseTransSerializable
+	case sql.LevelReadCommitted, sql.LevelDefault:
+		flags |= otxseTransReadWrite
+	}
+	return flags
 }
 
 // MarshalTo serializes the OTXSE request using the TTC wire layout for transaction switching.

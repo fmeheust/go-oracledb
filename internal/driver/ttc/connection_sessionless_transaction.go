@@ -6,19 +6,26 @@
 ** Subject to the condition set forth below, permission is hereby granted to any
 ** person obtaining a copy of this software, associated documentation and/or data
 ** (collectively the "Software"), free of charge and under any and all copyright
-** and patent rights owned by each licensor hereunder covering either (i) the
-** unmodified Software as contributed to or provided by such licensor, or (ii)
-** the Larger Works (as defined below), to deal in both (a) the Software, and
-** (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
-** one is included in the Software (each a "Larger Work" to which the Software
-** is contributed by such licensors), without restriction, including without
-** limitation the rights to copy, create derivative works of, display, perform,
-** and distribute the Software and the Larger Work(s), and to sublicense the
-** foregoing rights on either these or other terms.
+** rights in the Software, and any and all patent rights owned or freely
+** licensable by each licensor hereunder covering either (i) the unmodified
+** Software as contributed to or provided by such licensor, or (ii) the Larger
+** Works (as defined below), to deal in both
 **
-** This license is subject to the condition that the above copyright notice and
-** either this complete permission notice or at a minimum a reference to the UPL
-** must be included in all copies or substantial portions of the Software.
+** (a) the Software, and
+** (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
+** one is included with the Software (each a "Larger Work" to which the Software
+** is contributed by such licensors),
+**
+** without restriction, including without limitation the rights to copy, create
+** derivative works of, display, perform, and distribute the Software and make,
+** use, sell, offer for sale, import, export, have made, and have sold the
+** Software and the Larger Work(s), and to sublicense the foregoing rights on
+** either these or other terms.
+**
+** This license is subject to the following condition:
+** The above copyright notice and either this complete permission notice or at
+** a minimum a reference to the UPL must be included in all copies or
+** substantial portions of the Software.
 **
 ** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 ** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -60,11 +67,17 @@ const (
 // sessionlessTransaction holds the sessionless transaction identifier, XID,
 // timeout, and the operation state used to start or resume it.
 type sessionlessTransaction struct {
-	transaction                                   // transaction embeds shared transaction state and connection identity.
-	globalTransactionID []byte                    // globalTransactionID is the identifier assigned to this transaction.
-	timeout             uint16                    // Start: suspended lifetime; resume: wait for the transaction to become available.
-	startOperation      TransactionStartOperation // startOperation indicates whether BeginTx starts or resumes this transaction.
-	endOperationMutex   sync.Mutex                // endOperationMutex prevents suspend and rollback from running simultaneously when the transaction is rolled back due to context cancellation
+	// transaction embeds shared transaction state and connection identity.
+	transaction
+	// globalTransactionID is the identifier assigned to this transaction.
+	globalTransactionID []byte
+	// Start: suspended lifetime; resume: wait for the transaction to become available.
+	timeout uint16
+	// startOperation indicates whether BeginTx starts or resumes this transaction.
+	startOperation TransactionStartOperation
+	// endOperationMutex prevents suspend and rollback from running simultaneously
+	// when the transaction is rolled back due to context cancellation
+	endOperationMutex sync.Mutex
 }
 
 // newSessionlessTransaction creates a sessionless transaction associated with
@@ -88,7 +101,6 @@ func newSessionlessTransaction(ctx context.Context, conn *connection, globalTran
 		timeout:             timeout,
 		globalTransactionID: append([]byte(nil), globalTransactionID...),
 	}
-	sessionlessTx.buildSessionlessXID()
 	return sessionlessTx
 }
 

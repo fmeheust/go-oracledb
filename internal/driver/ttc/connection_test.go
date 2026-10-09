@@ -317,7 +317,7 @@ func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
 	activeMessage := &tTIoer{
 		_supportsEndOfCallStatus: true,
 		eocStatus: &endOfCallStatus{
-			endOfCallStatusFlags: ttiEocCur,
+			endOfCallStatusFlags: driverCommon.UB4(ttiEocCur),
 		},
 	}
 	if _, err := connection._handleEndOfCallStatus(activeMessage, nil); err != nil {
