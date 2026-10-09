@@ -56,7 +56,7 @@ const (
 
 	// OTXSE flags used for sessionless transaction control.
 	otxseTransNew          driverCommon.UB4 = 0x00000001 // Used with otxseStart to start a new transaction
-	otxseTransResume       driverCommon.UB4 = 0x00000004 // Used with otxseStart to resume a new transaction
+	otxseTransResume       driverCommon.UB4 = 0x00000004 // Used with otxseStart to resume an existing transaction
 	otxseTransSessionless  driverCommon.UB4 = 0x00000010 // Indicates the transaction is sessionless
 	otxseTransReadOnly     driverCommon.UB4 = 0x00000100 // Indicates the transaction is readonly
 	otxseTransReadWrite    driverCommon.UB4 = 0x00000200 // Indicates the transaction is read-write
@@ -69,17 +69,27 @@ const (
 // tTIOtxse represents the OTXSE TTC function request used for transaction
 // start, resume and detach operations.
 type tTIOtxse struct {
+	// headerMarshaller writes the TTC function or piggyback header.
 	headerMarshaller driverCommon.Marshallable
-	msgCode          driverCommon.MessageType
-
-	operation                 driverCommon.SB4
-	xid                       driverCommon.B1Array
-	formatID                  driverCommon.UB4
+	// msgCode identifies the TTC message category used for this request.
+	msgCode driverCommon.MessageType
+	// operation selects OTXSE start/resume or detach behavior.
+	operation driverCommon.SB4
+	// xid contains the global transaction ID followed by the branch qualifier.
+	xid driverCommon.B1Array
+	// formatID identifies the XID format.
+	formatID driverCommon.UB4
+	// globalTransactionIDLength is the number of XID bytes used for the global ID.
 	globalTransactionIDLength driverCommon.UB4
-	bqualLength               driverCommon.UB4
-	flags                     driverCommon.UB4
-	timeout                   driverCommon.UB2
-	applicationValue          *driverCommon.UB4
+	// bqualLength is the number of XID bytes used for the branch qualifier.
+	bqualLength driverCommon.UB4
+	// flags carries transaction mode and sessionless operation bits.
+	flags driverCommon.UB4
+	// timeout is the start's suspended lifetime or resume's wait for the
+	// transaction to become available, in seconds.
+	timeout driverCommon.UB2
+	// applicationValue carries the OTXSE application return value when present.
+	applicationValue *driverCommon.UB4
 }
 
 // newOTxSe creates an OTXSE function message using the standard TTIFUN header.
@@ -146,37 +156,35 @@ func (m *tTIOtxse) GetMsgCode() driverCommon.MessageType { return m.msgCode }
 //   - driverCommon.FunctionType: OTXSE function code.
 func (m *tTIOtxse) GetFuncCode() driverCommon.FunctionType { return oTxSe }
 
-// configureForStart configures m for a new transaction start operation.
+// configureForTransaction configures m for a transaction start or resume.
+// Start mode flags come from opts. Sessionless transactions also use their
+// stored identifier, lengths, and timeout; a prepared resume replaces the mode
+// flags with the sessionless resume flag.
 //
 // Parameters:
-//   - tx: Transaction to start.
-//   - opts: Transaction isolation and read-only options.
+//   - tx: Transaction to start or resume.
+//   - opts: Transaction isolation and read-only options for a start operation;
+//     a sessionless resume uses its resume flag instead.
 //
 // Returns:
 //   - None. The message is updated in place.
-func (m *tTIOtxse) configureForStart(tx oracleTx, opts driver.TxOptions) {
+func (m *tTIOtxse) configureForTransaction(tx oracleTx, opts driver.TxOptions) {
 	m.operation = otxseStart
 	applicationValue := driverCommon.UB4(0)
 	m.applicationValue = &applicationValue
 	m.flags = convertTxOptionsToFlags(opts)
 	if sessionlessTx, ok := tx.(*sessionlessTransaction); ok {
-		m._configureSessionless(sessionlessTx)
+		m.formatID = k2gSessionless
+		xid, globalTransactionIDLength, bqualLength := sessionlessTx.buildSessionlessXID()
+		m.xid = xid
+		m.globalTransactionIDLength = globalTransactionIDLength
+		m.bqualLength = bqualLength
+		m.timeout = driverCommon.UB2(sessionlessTx.timeout)
+		if sessionlessTx.startOperation == SessionlessResume {
+			m.flags = otxseTransResume
+		}
+		m.flags |= otxseTransSessionless
 	}
-}
-
-// configureForResume configures m for resuming a sessionless transaction.
-//
-// Parameters:
-//   - sessionlessTx: Sessionless transaction to resume.
-//
-// Returns:
-//   - None. The message is updated in place.
-func (m *tTIOtxse) configureForResume(sessionlessTx *sessionlessTransaction) {
-	m.operation = otxseStart
-	m.flags = otxseTransResume
-	applicationValue := driverCommon.UB4(0)
-	m.applicationValue = &applicationValue
-	m._configureSessionless(sessionlessTx)
 }
 
 // configureForSuspend configures m for detaching a sessionless transaction.
@@ -189,22 +197,6 @@ func (m *tTIOtxse) configureForSuspend() {
 	m.formatID = k2gSessionless
 	applicationValue := driverCommon.UB4(0)
 	m.applicationValue = &applicationValue
-}
-
-// _configureSessionless copies sessionless transaction identifiers into m.
-//
-// Parameters:
-//   - sessionlessTx: Sessionless transaction whose identifiers should be sent.
-//
-// Returns:
-//   - None. The message is updated in place.
-func (m *tTIOtxse) _configureSessionless(sessionlessTx *sessionlessTransaction) {
-	m.formatID = k2gSessionless
-	m.xid = sessionlessTx.xid
-	m.globalTransactionIDLength = sessionlessTx.globalTransactionIDLength
-	m.bqualLength = sessionlessTx.bqualLength
-	m.timeout = driverCommon.UB2(sessionlessTx.timeout)
-	m.flags |= otxseTransSessionless
 }
 
 // MarshalTo serializes the OTXSE request using the TTC wire layout for transaction switching.

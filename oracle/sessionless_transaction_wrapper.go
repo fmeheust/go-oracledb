@@ -54,17 +54,12 @@ func (value GlobalTransactionID) String() string {
 // sessionlessTx adapts the driver's internal sessionless transaction to the
 // public Oracle connection API.
 type sessionlessTx struct {
-	underlyingConn *sql.Conn
-	transaction    common.SessionlessTransaction
-}
-
-// checkTransactionEnded reports sql.ErrTxDone after the transaction has
-// completed through Commit, Rollback, or Suspend.
-func (tx *sessionlessTx) checkTransactionEnded() error {
-	if tx.transaction.IsTransactionEnded() {
-		return sql.ErrTxDone
-	}
-	return nil
+	// transactionContext is the context used to begin or resume the transaction.
+	transactionContext context.Context
+	// transaction is the database/sql transaction used to execute operations.
+	transaction *sql.Tx
+	// underlyingTx supplies the driver-specific sessionless lifecycle operations.
+	underlyingTx common.SessionlessTransaction
 }
 
 // Commit commits the sessionless transaction on its underlying connection.
@@ -72,12 +67,7 @@ func (tx *sessionlessTx) checkTransactionEnded() error {
 // Returns:
 //   - error: Error if the transaction cannot be committed.
 func (tx *sessionlessTx) Commit() error {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return err
-	}
-	return tx.underlyingConn.Raw(func(driverConn any) error {
-		return tx.transaction.Commit()
-	})
+	return tx.transaction.Commit()
 }
 
 // Rollback rolls back the sessionless transaction on its underlying
@@ -86,41 +76,18 @@ func (tx *sessionlessTx) Commit() error {
 // Returns:
 //   - error: Error if the transaction cannot be rolled back.
 func (tx *sessionlessTx) Rollback() error {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return err
-	}
-	return tx.underlyingConn.Raw(func(driverConn any) error {
-		return tx.transaction.Rollback()
-	})
+	return tx.transaction.Rollback()
 }
 
-// Suspend detaches the transaction from its current connection.
+// Suspend detaches the transaction from its current connection and then rolls
+// back the database/sql transaction handle to release that connection. The
+// handle is rolled back even if detaching returns an error.
 //
 // Returns:
 //   - error: Error if the transaction cannot be detached.
 func (tx *sessionlessTx) Suspend() error {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return err
-	}
-	return tx.underlyingConn.Raw(func(driverConn any) error {
-		return tx.transaction.Suspend()
-	})
-}
-
-// GlobalTransactionID returns the identifier associated with the transaction.
-//
-// Returns:
-//   - GlobalTransactionID: Transaction identifier, or nil when unavailable.
-func (tx *sessionlessTx) GlobalTransactionID() GlobalTransactionID {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return nil
-	}
-	var gtrid GlobalTransactionID
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		gtrid = tx.transaction.GlobalTransactionID()
-		return nil
-	})
-	return gtrid
+	defer tx.transaction.Rollback()
+	return tx.underlyingTx.Suspend()
 }
 
 // Exec executes a statement using a background context.
@@ -138,18 +105,7 @@ func (tx *sessionlessTx) Exec(query string, args ...any) (sql.Result, error) {
 //   - sql.Result: Result returned by the database.
 //   - error: Error if the statement cannot be executed.
 func (tx *sessionlessTx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return nil, err
-	}
-	defer tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(false)
-		return nil
-	})
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(true)
-		return nil
-	})
-	return tx.underlyingConn.ExecContext(ctx, query, args...)
+	return tx.transaction.ExecContext(ctx, query, args...)
 }
 
 // Prepare prepares a statement using a background context.
@@ -169,18 +125,25 @@ func (tx *sessionlessTx) Prepare(query string) (*sql.Stmt, error) {
 //   - *sql.Stmt: Prepared statement.
 //   - error: Error if the statement cannot be prepared.
 func (tx *sessionlessTx) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return nil, err
-	}
-	defer tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(false)
-		return nil
-	})
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(true)
-		return nil
-	})
-	return tx.underlyingConn.PrepareContext(ctx, query)
+	return tx.transaction.PrepareContext(ctx, query)
+}
+
+// Stmt returns a transaction-scoped version of stmt using a background
+// context. The returned statement is closed when the transaction ends.
+//
+// Returns:
+//   - *sql.Stmt: Statement bound to this transaction.
+func (tx *sessionlessTx) Stmt(stmt *sql.Stmt) *sql.Stmt {
+	return tx.StmtContext(common.BackgroundContext, stmt)
+}
+
+// StmtContext returns a transaction-scoped version of stmt using the supplied
+// context. The returned statement is closed when the transaction ends.
+//
+// Returns:
+//   - *sql.Stmt: Statement bound to this transaction.
+func (tx *sessionlessTx) StmtContext(ctx context.Context, stmt *sql.Stmt) *sql.Stmt {
+	return tx.transaction.StmtContext(ctx, stmt)
 }
 
 // Query executes a query using a background context.
@@ -198,18 +161,7 @@ func (tx *sessionlessTx) Query(query string, args ...any) (*sql.Rows, error) {
 //   - *sql.Rows: Rows returned by the database.
 //   - error: Error if the query cannot be executed.
 func (tx *sessionlessTx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return nil, err
-	}
-	defer tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(false)
-		return nil
-	})
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(true)
-		return nil
-	})
-	return tx.underlyingConn.QueryContext(ctx, query, args...)
+	return tx.transaction.QueryContext(ctx, query, args...)
 }
 
 // QueryRow executes a query expected to return at most one row using a
@@ -227,17 +179,13 @@ func (tx *sessionlessTx) QueryRow(query string, args ...any) *sql.Row {
 // Returns:
 //   - *sql.Row: Row returned by the database.
 func (tx *sessionlessTx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
-	if err := tx.checkTransactionEnded(); err != nil {
-		return tx.underlyingConn.QueryRowContext(
-			common.WithSessionlessTransactionEnded(ctx), "SELECT 1")
-	}
-	defer tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(false)
-		return nil
-	})
-	_ = tx.underlyingConn.Raw(func(driverConn any) error {
-		tx.transaction.SetRunningFromSessionlessTx(true)
-		return nil
-	})
-	return tx.underlyingConn.QueryRowContext(ctx, query, args...)
+	return tx.transaction.QueryRowContext(ctx, query, args...)
+}
+
+// GlobalTransactionID returns the identifier currently stored for this
+// sessionless transaction. Save the identifier before Suspend, Commit, or
+// Rollback because server synchronization may clear it when the transaction
+// ends on the current connection.
+func (tx *sessionlessTx) GlobalTransactionID() GlobalTransactionID {
+	return GlobalTransactionID(tx.underlyingTx.GlobalTransactionID())
 }

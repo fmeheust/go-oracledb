@@ -297,8 +297,8 @@ func TestConnection_InvalidateOnOEROrSTA(t *testing.T) {
 	}
 }
 
-// TestConnection_EndOfCallStatusUpdatesTransactionState verifies that the
-// transaction state is changed only when reported by the server.
+// TestConnection_EndOfCallStatusUpdatesTransactionState verifies that an
+// inactive end-of-call status marks and unregisters a standard transaction.
 func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
 	t.Parallel()
 
@@ -310,8 +310,8 @@ func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
 	if _, err := connection._handleEndOfCallStatus(inactiveMessage, nil); err != nil {
 		t.Fatalf("inactive end-of-call status failed: %v", err)
 	}
-	if connection._transactionState != inactive {
-		t.Fatalf("transaction state = %v, want inactive", connection._transactionState)
+	if connection.shelf.getTransaction() != nil {
+		t.Fatal("an end-of-call status should not create a local transaction")
 	}
 
 	activeMessage := &tTIoer{
@@ -323,28 +323,32 @@ func TestConnection_EndOfCallStatusUpdatesTransactionState(t *testing.T) {
 	if _, err := connection._handleEndOfCallStatus(activeMessage, nil); err != nil {
 		t.Fatalf("active end-of-call status failed: %v", err)
 	}
-	if connection._transactionState != active {
-		t.Fatalf("transaction state = %v, want active", connection._transactionState)
+	if connection.shelf.getTransaction() != nil {
+		t.Fatal("an end-of-call status should not create a local transaction")
 	}
 
 	transaction := newTransaction(connection, context.Background())
+	transaction.transactionState(transactionStartedClient)
 	connection.shelf.registerTransaction(transaction)
-	if transaction.transactionState != transactionStartedClient {
-		t.Fatalf("standard transaction state = %v, want client started", transaction.transactionState)
+	if transaction._transactionState != transactionStartedClient {
+		t.Fatalf("standard transaction state = %v, want client started", transaction._transactionState)
 	}
 	if _, err := connection._handleEndOfCallStatus(activeMessage, nil); err != nil {
 		t.Fatalf("active end-of-call status for standard transaction failed: %v", err)
 	}
-	if transaction.transactionState != transactionStartedServer {
-		t.Fatalf("standard transaction state = %v, want server started", transaction.transactionState)
+	if transaction._transactionState != transactionStartedServer {
+		t.Fatalf("standard transaction state = %v, want server started", transaction._transactionState)
 	}
 
-	transaction.transactionState = transactionEndedClient
+	transaction.transactionState(transactionEndedClient)
 	if _, err := connection._handleEndOfCallStatus(inactiveMessage, nil); err != nil {
 		t.Fatalf("inactive end-of-call status for standard transaction failed: %v", err)
 	}
-	if transaction.transactionState != transactionEndedServer {
-		t.Fatalf("standard transaction state = %v, want server ended", transaction.transactionState)
+	if transaction._transactionState != transactionEndedServer {
+		t.Fatalf("standard transaction state = %v, want server ended", transaction._transactionState)
+	}
+	if connection.shelf.getTransaction() != nil {
+		t.Fatal("inactive end-of-call status left the standard transaction registered")
 	}
 }
 

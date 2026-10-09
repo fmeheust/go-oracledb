@@ -2,65 +2,26 @@
 ** Copyright (c) 2026 Oracle and/or its affiliates.
 **
 ** The Universal Permissive License (UPL), Version 1.0
-**
-** Subject to the condition set forth below, permission is hereby granted to any
-** person obtaining a copy of this software, associated documentation and/or data
-** (collectively the "Software"), free of charge and under any and all copyright
-** rights in the Software, and any and all patent rights owned or freely
-** licensable by each licensor hereunder covering either (i) the unmodified
-** Software as contributed to or provided by such licensor, or (ii) the Larger
-** Works (as defined below), to deal in both
-**
-** (a) the Software, and
-** (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
-** one is included with the Software (each a "Larger Work" to which the Software
-** is contributed by such licensors),
-**
-** without restriction, including without limitation the rights to copy, create
-** derivative works of, display, perform, and distribute the Software and make,
-** use, sell, offer for sale, import, export, have made, and have sold the
-** Software and the Larger Work(s), and to sublicense the foregoing rights on
-** either these or other terms.
-**
-** This license is subject to the following condition:
-** The above copyright notice and either this complete permission notice or at
-** a minimum a reference to the UPL must be included in all copies or
-** substantial portions of the Software.
-**
-** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-** SOFTWARE.
  */
 
 package ttc
 
 import (
+	"bytes"
 	"context"
-	"database/sql"
 	"database/sql/driver"
-	"errors"
-	"slices"
-	"testing"
-	"time"
 
-	"github.com/oracle/go-oracledb/v26/internal/common"
+	"errors"
+	"strings"
+	"testing"
+
+	internalCommon "github.com/oracle/go-oracledb/v26/internal/common"
 	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-type mockStreamerWithFlushError struct {
-	*mockStreamer
-	flushErr error
-}
-
-func (m *mockStreamerWithFlushError) Flush(_ context.Context) error {
-	return m.flushErr
-}
-
+// newSessionlessTransactionTestConnection creates a capable connection and
+// streamer for sessionless transaction tests.
 func newSessionlessTransactionTestConnection() (*connection, *mockStreamer) {
 	messageRegistry := NewRegistry[driverCommon.MessageType]()
 	_ = messageRegistry.Register(TTIOER, 1, newTTIoer)
@@ -79,1068 +40,504 @@ func newSessionlessTransactionTestConnection() (*connection, *mockStreamer) {
 		msgregistry:  messageRegistry,
 		funcregistry: functionRegistry,
 	}
-	mockStr := &mockStreamer{pullMsg: &mockOer{}}
+	streamer := &mockStreamer{}
 	shelf := newShelf[driverCommon.MessageType]()
 	shelf.RegisterMessageFactory(messageFactory).
-		RegisterMessageStreamer(mockStr).
+		RegisterMessageStreamer(streamer).
 		RegisterCapabilities(map[string]driverCommon.Capability{
 			kpccapCtbTtc5SessionlessTxn: {IsSet: true},
 		})
-	sessionCtx := driverCommon.NewSessionContext()
-	sessionCtx.GetSessionProperties().SetProperty(instanceName, "test-instance")
+	sessionContext := driverCommon.NewSessionContext()
+	sessionContext.GetSessionProperties().SetProperty(instanceName, "test-instance")
 
-	return newTestConnection(shelf, sessionCtx, nil), mockStr
+	return newTestConnection(shelf, sessionContext, nil), streamer
 }
 
-func waitForSessionlessTransactionEnd(t *testing.T, transaction common.SessionlessTransaction) {
+// sessionlessSyncEventData builds a SESSIONLESS_GTRID property-change event.
+func sessionlessSyncEventData(t *testing.T, globalTransactionID string, mode byte, reason sessionlessTxSyncReason) eventData {
 	t.Helper()
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if transaction.IsTransactionEnded() {
-			return
-		}
-		time.Sleep(time.Millisecond)
+	raw := driverCommon.B1Array(append([]byte(globalTransactionID), mode|byte(reason), sessionlessGlobalTransactionIDSyncVersion))
+	sync, err := newSessionlessGlobalTransactionIDSync(raw)
+	if err != nil {
+		t.Fatalf("newSessionlessGlobalTransactionIDSync failed: %v", err)
 	}
-	t.Fatal("sessionless transaction did not end after context cancellation")
+	properties := driverCommon.NewProperties[string]()
+	properties.SetProperty(sessionlessGlobalTransactionIDProperty, sync)
+	return propertiesEventData{properties: properties}
 }
 
-// TestSessionlessTransactionContextCancellationRollsBack verifies that
-// cancellation cleanup is installed for both ways of obtaining a sessionless
-// transaction:
-//   - begin starts a new transaction and rolls it back after cancellation;
-//   - resume attaches an existing transaction and applies the same cleanup.
-func TestSessionlessTransactionContextCancellationRollsBack(t *testing.T) {
+// pushedOTxSe returns the single OTXSE message queued by a test operation.
+func pushedOTxSe(t *testing.T, streamer *mockStreamer) *tTIOtxse {
+	t.Helper()
+	if streamer.pushedMsg.Len() != 1 {
+		t.Fatalf("pushed messages = %d, want 1", streamer.pushedMsg.Len())
+	}
+	message, ok := streamer.pushedMsg.Front().Value.(*driverCommon.Message[driverCommon.MessageType])
+	if !ok {
+		t.Fatalf("pushed message value = %T, want TTC message pointer", streamer.pushedMsg.Front().Value)
+	}
+	otxse, ok := (*message).(*tTIOtxse)
+	if !ok {
+		t.Fatalf("pushed message = %T, want *tTIOtxse", *message)
+	}
+	return otxse
+}
+
+// TestConnectionBeginTxStartsOrResumesSessionlessTransaction verifies that a
+// prepared start or resume is encoded correctly and becomes the active local
+// transaction when BeginTx consumes it.
+func TestConnectionBeginTxStartsOrResumesSessionlessTransaction(t *testing.T) {
 	t.Parallel()
 
-	for _, test := range []struct {
-		name  string
-		start func(*connection, context.Context) (common.SessionlessTransaction, error)
+	tests := []struct {
+		name      string
+		resume    bool
+		globalID  []byte
+		wantFlags driverCommon.UB4
 	}{
 		{
-			// Begin installs a watcher for a newly created transaction.
-			name: "begin",
-			start: func(conn *connection, ctx context.Context) (common.SessionlessTransaction, error) {
-				return conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
-			},
+			name:      "start",
+			wantFlags: otxseTransNew | otxseTransReadWrite | otxseTransSessionless,
 		},
 		{
-			// Resume must install the same watcher for an attached transaction.
-			name: "resume",
-			start: func(conn *connection, ctx context.Context) (common.SessionlessTransaction, error) {
-				return conn.ResumeSessionlessTx(ctx, []byte("resume-id"), 300)
-			},
+			name:      "resume",
+			resume:    true,
+			globalID:  []byte("resume-global-id"),
+			wantFlags: otxseTransResume | otxseTransSessionless,
 		},
-	} {
+	}
+
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			conn, streamer := newSessionlessTransactionTestConnection()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := context.Background()
 
-			transaction, err := test.start(conn, ctx)
+			var preparedTx internalCommon.SessionlessTransaction
+			var err error
+			if test.resume {
+				preparedTx, err = conn.PrepareForSessionlessResumeOperation(ctx, test.globalID, 45)
+			} else {
+				preparedTx, err = conn.PrepareForSessionlessStartOperation(ctx, 45)
+			}
 			if err != nil {
-				t.Fatalf("%s sessionless transaction failed: %v", test.name, err)
+				t.Fatalf("prepare sessionless transaction: %v", err)
 			}
-			cancel()
-			waitForSessionlessTransactionEnd(t, transaction)
-			if conn.shelf.isInTransaction() {
-				t.Fatalf("sessionless transaction remained registered after %s cancellation", test.name)
+
+			startedTx, err := conn.BeginTx(ctx, driver.TxOptions{})
+			if err != nil {
+				t.Fatalf("BeginTx returned error: %v", err)
 			}
-			if got, want := streamer.pushedMsg.Len(), 2; got != want {
-				t.Fatalf("messages pushed after %s cancellation = %d, want %d", test.name, got, want)
+			if test.resume {
+				conn.ClearPrepareForSessionlessResumeOperation(preparedTx, nil)
+			}
+
+			preparedSessionlessTx := preparedTx.(*sessionlessTransaction)
+			startedSessionlessTx, ok := startedTx.(*sessionlessTransaction)
+			if !ok || startedSessionlessTx != preparedSessionlessTx {
+				t.Fatalf("BeginTx transaction = %T, want the prepared sessionless transaction", startedTx)
+			}
+			if conn.shelf.getTransaction() != preparedSessionlessTx {
+				t.Fatal("BeginTx did not leave the prepared transaction registered")
+			}
+			if got := preparedSessionlessTx.currentTransactionState(); got != transactionStartedClient {
+				t.Fatalf("transaction state = %d, want client-started", got)
+			}
+			if test.resume && !bytes.Equal(preparedTx.GlobalTransactionID(), test.globalID) {
+				t.Fatalf("resumed global transaction ID = %q, want %q", preparedTx.GlobalTransactionID(), test.globalID)
+			}
+
+			message := pushedOTxSe(t, streamer)
+			if message.operation != otxseStart || message.flags != test.wantFlags {
+				t.Fatalf("OTXSE operation/flags = (%d, %#x), want (%d, %#x)",
+					message.operation, message.flags, otxseStart, test.wantFlags)
+			}
+			if message.timeout != 45 || message.formatID != k2gSessionless {
+				t.Fatalf("OTXSE timeout/format ID = (%d, %#x), want (45, %#x)",
+					message.timeout, message.formatID, k2gSessionless)
+			}
+			xid, _, _ := preparedSessionlessTx.buildSessionlessXID()
+			if !bytes.Equal(message.xid, xid) {
+				t.Fatal("OTXSE XID differs from the prepared sessionless transaction")
 			}
 		})
 	}
 }
 
-// TestSessionlessTransactionSuspendStopsContextWatcher verifies that a
-// suspended transaction remains resumable after its original context is
-// canceled.
-func TestSessionlessTransactionSuspendStopsContextWatcher(t *testing.T) {
+// TestConnectionBeginTxPushFailureClearsSessionlessPreparation verifies that
+// a failed OTXSE start or resume leaves no prepared transaction on the shelf.
+func TestConnectionBeginTxPushFailureClearsSessionlessPreparation(t *testing.T) {
 	t.Parallel()
 
-	conn, _ := newSessionlessTransactionTestConnection()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	for _, resume := range []bool{false, true} {
+		name := "start"
+		if resume {
+			name = "resume"
+		}
+		t.Run(name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			streamer.pushErr = errors.New("write failed")
+			ctx := context.Background()
 
-	transaction, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
-	}
-	tx, ok := transaction.(*sessionlessTransaction)
-	if !ok {
-		t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
-	}
-	if err := tx.Suspend(); err != nil {
-		t.Fatalf("Suspend failed: %v", err)
-	}
+			var preparedTx internalCommon.SessionlessTransaction
+			var err error
+			if resume {
+				preparedTx, err = conn.PrepareForSessionlessResumeOperation(ctx, []byte("resume-id"), 30)
+			} else {
+				preparedTx, err = conn.PrepareForSessionlessStartOperation(ctx, 30)
+			}
+			if err != nil {
+				t.Fatalf("prepare sessionless transaction: %v", err)
+			}
 
-	cancel()
-	tx.lifecycleMu.Lock()
-	state := tx.transactionState
-	watcherInstalled := tx.contextWatcherStop != nil
-	tx.lifecycleMu.Unlock()
-	if state != transactionEndedServer {
-		t.Fatalf("transaction state after suspend = %d, want server ended", state)
-	}
-	if watcherInstalled {
-		t.Fatal("context watcher remained installed after suspend")
+			_, err = conn.BeginTx(ctx, driver.TxOptions{})
+			if got, want := transactionErrorCode(t, err), oracleErrors.StreamerWriteError; got != want {
+				t.Fatalf("BeginTx error code = %s, want %s", got, want)
+			}
+			if resume {
+				conn.ClearPrepareForSessionlessResumeOperation(preparedTx, err)
+			} else {
+				conn.ClearPrepareForSessionlessStartOperation()
+			}
+			if conn.shelf.getTransaction() != nil {
+				t.Fatal("failed BeginTx left a sessionless transaction registered")
+			}
+			if got := preparedTx.(*sessionlessTransaction).currentTransactionState(); got != transactionPrepared {
+				t.Fatalf("failed BeginTx transaction state = %d, want prepared", got)
+			}
+		})
 	}
 }
 
-// TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure
-// verifies that an ambiguous cleanup result cannot return the connection to a
-// pool.
-func TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure(t *testing.T) {
+// TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction verifies that a
+// GTRID update returned with a successful detach marks the transaction ended and
+// unregisters it before Suspend returns.
+func TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction(t *testing.T) {
 	t.Parallel()
 
 	conn, streamer := newSessionlessTransactionTestConnection()
-	streamer.pullMsg = &mockOer{err: errors.New("rollback failed")}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	tx, err := conn.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	streamer.pullMsgs = []driverCommon.Message[driverCommon.MessageType]{newTTISTA()}
+	streamer.pullHook = func(driverCommon.Message[driverCommon.MessageType]) {
+		conn.handleSessionPropertyChange(sessionlessSyncEventData(
+			t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessSyncStartSuspendClient))
 	}
-	cancel()
-	deadline := time.Now().Add(time.Second)
-	for !tx.IsTransactionEnded() && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
-	if conn._isValid {
-		t.Fatal("connection remained valid after failed cancellation rollback")
-	}
-}
-
-// TestSessionlessTransactionEndUsesOTxEn verifies that sessionless commit and
-// rollback send OTXEN with the sessionless XID and the matching K2 command.
-func TestSessionlessTransactionEndUsesOTxEn(t *testing.T) {
-	t.Parallel()
-
-	for _, test := range []struct {
-		name      string
-		end       func(driver.Tx) error
-		operation driverCommon.SB4
-		inState   driverCommon.UB4
-	}{
-		{name: "commit", end: func(tx driver.Tx) error { return tx.Commit() }, operation: driverCommon.SB4(otxenCommit), inState: k2cmdCommit},
-		{name: "rollback", end: func(tx driver.Tx) error { return tx.Rollback() }, operation: driverCommon.SB4(otxenAbort), inState: k2cmdAbort},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			conn, streamer := newSessionlessTransactionTestConnection()
-			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
-			if err != nil {
-				t.Fatalf("BeginSessionlessTx failed: %v", err)
-			}
-			tx, ok := transaction.(*sessionlessTransaction)
-			if !ok {
-				t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
-			}
-			streamer.pushedMsg.Init()
-
-			if err := test.end(tx); err != nil {
-				t.Fatalf("sessionless %s returned error: %v", test.name, err)
-			}
-			if streamer.pushedMsg.Len() != 1 {
-				t.Fatalf("%s pushed %d messages, want 1", test.name, streamer.pushedMsg.Len())
-			}
-			msg := streamer.pushedMsg.Front().Value.(*driverCommon.Message[driverCommon.MessageType])
-			otxen, ok := (*msg).(*tTIOtxen)
-			if !ok {
-				t.Fatalf("%s message = %T, want *tTIOtxen", test.name, *msg)
-			}
-			if otxen.operation != test.operation {
-				t.Fatalf("%s OTXEN operation = %d, want %d", test.name, otxen.operation, test.operation)
-			}
-			if otxen.inState != test.inState {
-				t.Fatalf("%s OTXEN in-state = %d, want %d", test.name, otxen.inState, test.inState)
-			}
-			if otxen.flags != 0 {
-				t.Fatalf("%s OTXEN transaction state change flags = %d, want 0", test.name, otxen.flags)
-			}
-			if otxen.formatID != k2gSessionless {
-				t.Fatalf("%s OTXEN format ID = %#x, want %#x", test.name, otxen.formatID, k2gSessionless)
-			}
-			if otxen.timeout != 300 {
-				t.Fatalf("%s OTXEN timeout = %d, want 300", test.name, otxen.timeout)
-			}
-			if otxen.globalTransactionIDLength != 16 || otxen.bqualLength != driverCommon.UB4(len("test-instance")) {
-				t.Fatalf("%s OTXEN XID lengths = (%d, %d), want (16, %d)", test.name, otxen.globalTransactionIDLength, otxen.bqualLength, len("test-instance"))
-			}
-		})
-	}
-}
-
-// TestSessionlessTransactionClosesTransactionStatements verifies that commit,
-// rollback, and suspend close statements registered while the sessionless
-// transaction is active. Statements opened before the transaction remain on
-// the connection because sessionless transaction cleanup is transaction-scoped.
-func TestSessionlessTransactionClosesTransactionStatements(t *testing.T) {
-	t.Parallel()
-
-	endingOperations := []struct {
-		name      string
-		operation func(*sessionlessTransaction) error
-	}{
-		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
-		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
-		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
-	}
-
-	for _, endingOperation := range endingOperations {
-		t.Run(endingOperation.name, func(t *testing.T) {
-			conn, _ := newSessionlessTransactionTestConnection()
-			nonTransactionStatement, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 1")
-			if err != nil {
-				t.Fatalf("creating non-transaction statement: %v", err)
-			}
-			defer nonTransactionStatement.Close()
-
-			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
-			if err != nil {
-				t.Fatalf("BeginSessionlessTx failed: %v", err)
-			}
-			tx, ok := transaction.(*sessionlessTransaction)
-			if !ok {
-				t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
-			}
-			if _, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 2"); err != nil {
-				t.Fatalf("creating transaction statement: %v", err)
-			}
-
-			if got := len(conn.shelf.GetTransactionStatements(false)); got != 1 {
-				t.Fatalf("transaction statements before %s = %d, want 1", endingOperation.name, got)
-			}
-			if err := endingOperation.operation(tx); err != nil {
-				t.Fatalf("%s failed: %v", endingOperation.name, err)
-			}
-			if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {
-				t.Fatalf("transaction statements after %s = %d, want 0", endingOperation.name, got)
-			}
-			if got := len(conn.shelf.GetStatements(false)); got != 1 {
-				t.Fatalf("all statements after %s = %d, want 1 non-transaction statement", endingOperation.name, got)
-			}
-		})
-	}
-}
-
-// TestCloseOpenTransactionStatementsIsIdempotent verifies that draining and
-// closing transaction-owned statements can safely be requested more than once.
-func TestCloseOpenTransactionStatementsIsIdempotent(t *testing.T) {
-	t.Parallel()
-
-	conn, _ := newSessionlessTransactionTestConnection()
-	tx := newSessionlessTransaction(context.Background(), conn, []byte("sessionless-id"), 300)
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("suspend-id"), 30)
+	tx.transactionState(transactionStartedClient)
 	conn.shelf.registerTransaction(tx)
-	if _, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 1"); err != nil {
-		t.Fatalf("creating transaction statement: %v", err)
-	}
-
-	if err := closeOpenStatements(conn, true); err != nil {
-		t.Fatalf("first statement cleanup failed: %v", err)
-	}
-	if err := closeOpenStatements(conn, true); err != nil {
-		t.Fatalf("second statement cleanup failed: %v", err)
-	}
-	if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {
-		t.Fatalf("transaction statements after repeated cleanup = %d, want 0", got)
-	}
-}
-
-// TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors
-// verifies that statement cleanup is performed before commit, rollback, and
-// suspend even when the corresponding TTC operation returns an error.
-func TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors(t *testing.T) {
-	t.Parallel()
-
-	endingOperations := []struct {
-		name      string
-		operation func(*sessionlessTransaction) error
-	}{
-		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
-		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
-		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
-	}
-
-	for _, endingOperation := range endingOperations {
-		t.Run(endingOperation.name, func(t *testing.T) {
-			conn, streamer := newSessionlessTransactionTestConnection()
-			streamer.pullMsg = &mockOer{err: errors.New(endingOperation.name + " failed")}
-
-			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
-			if err != nil {
-				t.Fatalf("BeginSessionlessTx failed: %v", err)
-			}
-			tx, ok := transaction.(*sessionlessTransaction)
-			if !ok {
-				t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
-			}
-			if _, err := newStatement(conn.shelf, conn.sessCtx, "SELECT 1"); err != nil {
-				t.Fatalf("creating transaction statement: %v", err)
-			}
-
-			if err := endingOperation.operation(tx); err == nil {
-				t.Fatalf("%s unexpectedly succeeded", endingOperation.name)
-			}
-			if got := len(conn.shelf.GetTransactionStatements(false)); got != 0 {
-				t.Fatalf("transaction statements after failed %s = %d, want 0", endingOperation.name, got)
-			}
-		})
-	}
-}
-
-// TestBeginSessionlessTx verifies that starting a new sessionless transaction
-// returns the Oracle-specific SessionlessTx contract and sends an OTXSE start
-// request with the generated global transaction ID and new-sessionless flags.
-func TestBeginSessionlessTx(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
-	}
-	if tx == nil {
-		t.Fatal("BeginSessionlessTx returned nil transaction")
-	}
-	if got := tx.GlobalTransactionID(); got == nil {
-		t.Fatal("BeginSessionlessTx returned an empty global transaction ID")
-	} else if len([]byte(got)) != 16 {
-		t.Fatalf("generated global transaction ID length = %d, want 16", len([]byte(got)))
-	}
-
-	if mockStr.pushedMsg.Len() != 1 {
-		t.Fatalf("pushed message count = %d, want 1", mockStr.pushedMsg.Len())
-	}
-	if len(mockStr.pullTypes) != 0 {
-		t.Fatalf("pull types = %v, want none for deferred start", mockStr.pullTypes)
-	}
-
-	pushedMsg := mockStr.pushedMsg.Front().Value.(*driverCommon.Message[driverCommon.MessageType])
-	otxse, ok := (*pushedMsg).(*tTIOtxse)
-	if !ok {
-		t.Fatalf("second pushed message = %T, want *tTIOtxse", *pushedMsg)
-	}
-	if otxse.operation != otxseStart {
-		t.Fatalf("OTXSE operation = %d, want %d", otxse.operation, otxseStart)
-	}
-	if otxse.flags != otxseTransSessionless|otxseTransNew|otxseTransReadWrite {
-		t.Fatalf("OTXSE flags = %#x, want %#x", otxse.flags, otxseTransSessionless|otxseTransNew|otxseTransReadWrite)
-	}
-	if otxse.formatID != k2gSessionless {
-		t.Fatalf("OTXSE formatID = %#x, want %#x", otxse.formatID, k2gSessionless)
-	}
-	if len(otxse.xid) != maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize {
-		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize)
-	}
-	if got := []byte(otxse.xid[:len(tx.GlobalTransactionID())]); !slices.Equal(got, tx.GlobalTransactionID()) {
-		t.Fatalf("OTXSE xid global transaction ID prefix = %q, want %q", got, tx.GlobalTransactionID())
-	}
-	if got := string(otxse.xid[len(tx.GlobalTransactionID()) : len(tx.GlobalTransactionID())+len("test-instance")]); got != "test-instance" {
-		t.Fatalf("OTXSE xid bqual segment = %q, want %q", got, "test-instance")
-	}
-	if otxse.globalTransactionIDLength != driverCommon.UB4(len(tx.GlobalTransactionID())) {
-		t.Fatalf("OTXSE globalTransactionIDLength = %d, want %d", otxse.globalTransactionIDLength, len(tx.GlobalTransactionID()))
-	}
-	if otxse.bqualLength != driverCommon.UB4(len("test-instance")) {
-		t.Fatalf("OTXSE bqualLength = %d, want %d", otxse.bqualLength, len("test-instance"))
-	}
-}
-
-// TestResumeSessionlessTx verifies that resuming a sessionless transaction
-// preserves the caller-supplied global transaction ID and sends an OTXSE start request with the
-// resume-sessionless flags.
-func TestResumeSessionlessTx(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	globalTransactionID := []byte("resume-global-transaction-id")
-	wantGlobalTransactionID := append([]byte(nil), globalTransactionID...)
-
-	tx, err := conn.ResumeSessionlessTx(context.Background(), globalTransactionID, 300)
-	if err != nil {
-		t.Fatalf("ResumeSessionlessTx failed: %v", err)
-	}
-	if tx == nil {
-		t.Fatal("ResumeSessionlessTx returned nil transaction")
-	}
-	if got := tx.GlobalTransactionID(); !slices.Equal(got, globalTransactionID) {
-		t.Fatalf("GlobalTransactionID = %q, want %q", got, globalTransactionID)
-	}
-
-	if mockStr.pushedMsg.Len() != 1 {
-		t.Fatalf("pushed message count = %d, want 1", mockStr.pushedMsg.Len())
-	}
-	if len(mockStr.pullTypes) != 0 {
-		t.Fatalf("pull types = %v, want none for deferred resume", mockStr.pullTypes)
-	}
-
-	pushedMsg := mockStr.pushedMsg.Front().Value.(*driverCommon.Message[driverCommon.MessageType])
-	otxse, ok := (*pushedMsg).(*tTIOtxse)
-	if !ok {
-		t.Fatalf("pushed message = %T, want *tTIOtxse", *pushedMsg)
-	}
-	if otxse.operation != otxseStart {
-		t.Fatalf("OTXSE operation = %d, want %d", otxse.operation, otxseStart)
-	}
-	if otxse.flags != otxseTransSessionless|otxseTransResume {
-		t.Fatalf("OTXSE flags = %#x, want %#x", otxse.flags, otxseTransSessionless|otxseTransResume)
-	}
-	if otxse.timeout != 300 {
-		t.Fatalf("OTXSE timeout = %d, want 300", otxse.timeout)
-	}
-	if len(otxse.xid) != maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize {
-		t.Fatalf("OTXSE xid length = %d, want %d", len(otxse.xid), maxSessionlessGlobalTransactionIDSize+maxSessionlessBQUALSize)
-	}
-	if got := []byte(otxse.xid[:len(globalTransactionID)]); !slices.Equal(got, globalTransactionID) {
-		t.Fatalf("OTXSE xid global transaction ID prefix = %q, want %q", got, globalTransactionID)
-	}
-	if otxse.globalTransactionIDLength != driverCommon.UB4(len(globalTransactionID)) {
-		t.Fatalf("OTXSE globalTransactionIDLength = %d, want %d", otxse.globalTransactionIDLength, len(globalTransactionID))
-	}
-	if otxse.bqualLength != driverCommon.UB4(len("test-instance")) {
-		t.Fatalf("OTXSE bqualLength = %d, want %d", otxse.bqualLength, len("test-instance"))
-	}
-
-	// The transaction must retain its own copy of the caller-provided ID.
-	globalTransactionID[0] = 'X'
-	if got := tx.GlobalTransactionID(); !slices.Equal(got, wantGlobalTransactionID) {
-		t.Fatalf("GlobalTransactionID changed when the input was modified: %q", got)
-	}
-
-	// The accessor must also return a copy so callers cannot mutate transaction state.
-	returnedGlobalTransactionID := tx.GlobalTransactionID()
-	returnedGlobalTransactionID[0] = 'Y'
-	if got := tx.GlobalTransactionID(); !slices.Equal(got, wantGlobalTransactionID) {
-		t.Fatalf("GlobalTransactionID changed through the returned slice: %q", got)
-	}
-
-	// An old transaction handle must not expose an ID after the shelf points to
-	// another transaction, even when operations are performed sequentially.
-	conn.shelf.registerTransaction(newTransaction(conn, context.Background()))
-	if got := tx.GlobalTransactionID(); got != nil {
-		t.Fatalf("GlobalTransactionID from a non-current transaction = %q, want empty", got)
-	}
-}
-
-// TestBeginSessionlessTxPushFailure verifies that a write failure during the
-// OTXSE start request is surfaced and unregisters the partially started
-// transaction.
-func TestBeginSessionlessTxPushFailure(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	mockStr.pushErr = errors.New("push failed")
-
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err == nil {
-		t.Fatal("BeginSessionlessTx returned nil error on push failure")
-	}
-	if tx != nil {
-		t.Fatalf("BeginSessionlessTx returned transaction %T on push failure, want nil", tx)
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("BeginSessionlessTx error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.StartResumeTransactionFailure) {
-		t.Fatalf("BeginSessionlessTx error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.StartResumeTransactionFailure)
-	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("BeginSessionlessTx push failure should unregister the transaction")
-	}
-}
-
-// TestBeginSessionlessTxDefersFlush verifies that a deferred OTXSE start does
-// not flush during BeginSessionlessTx.
-func TestBeginSessionlessTxDefersFlush(t *testing.T) {
-	t.Parallel()
-
-	baseConn, baseMock := newSessionlessTransactionTestConnection()
-	streamer := &mockStreamerWithFlushError{mockStreamer: baseMock}
-	baseConn.shelf.RegisterMessageStreamer(streamer)
-	streamer.flushErr = errors.New("flush failed")
-
-	tx, err := baseConn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed despite deferred flush: %v", err)
-	}
-	if tx == nil || !baseConn.shelf.isInTransaction() {
-		t.Fatal("BeginSessionlessTx should register a deferred transaction")
-	}
-}
-
-// TestBeginSessionlessTxDefersPull verifies that a deferred OTXSE start does
-// not read a response during BeginSessionlessTx.
-func TestBeginSessionlessTxDefersPull(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	mockStr.pullErr = errors.New("pull failed")
-
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed despite deferred pull: %v", err)
-	}
-	if tx == nil || !conn.shelf.isInTransaction() {
-		t.Fatal("BeginSessionlessTx should register a deferred transaction")
-	}
-}
-
-// TestBeginSessionlessTxDefersOER verifies that a deferred OTXSE start does
-// not consume a server response during BeginSessionlessTx.
-func TestBeginSessionlessTxDefersOER(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	mockStr.pullMsg = &mockOer{err: common.NewOERMessageError("ORA-24776", "start failed")}
-
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed despite deferred response: %v", err)
-	}
-	if tx == nil || !conn.shelf.isInTransaction() {
-		t.Fatal("BeginSessionlessTx should register a deferred transaction")
-	}
-}
-
-// TestResumeSessionlessTxInvalidGlobalTransactionID verifies that invalid caller-provided
-// identifiers are rejected before any transaction is started.
-func TestResumeSessionlessTxInvalidGlobalTransactionID(t *testing.T) {
-	t.Parallel()
-
-	conn, _ := newSessionlessTransactionTestConnection()
-
-	tx, err := conn.ResumeSessionlessTx(context.Background(), nil, 300)
-	if err == nil {
-		t.Fatal("ResumeSessionlessTx returned nil error for invalid global transaction ID")
-	}
-	if tx != nil {
-		t.Fatalf("ResumeSessionlessTx returned transaction %T for invalid global transaction ID, want nil", tx)
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("ResumeSessionlessTx error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.InvalidGlobalTransactionIDValue) {
-		t.Fatalf("ResumeSessionlessTx error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.InvalidGlobalTransactionIDValue)
-	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("ResumeSessionlessTx invalid global transaction ID should not register a transaction")
-	}
-}
-
-// TestResumeSessionlessTxPushFailure verifies that a write failure during the
-// OTXSE resume request is surfaced and unregisters the partially started
-// transaction.
-func TestResumeSessionlessTxPushFailure(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	mockStr.pushErr = errors.New("push failed")
-
-	tx, err := conn.ResumeSessionlessTx(context.Background(), []byte("resume-global-transaction-id"), 300)
-	if err == nil {
-		t.Fatal("ResumeSessionlessTx returned nil error on push failure")
-	}
-	if tx != nil {
-		t.Fatalf("ResumeSessionlessTx returned transaction %T on push failure, want nil", tx)
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("ResumeSessionlessTx error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.StartResumeTransactionFailure) {
-		t.Fatalf("ResumeSessionlessTx error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.StartResumeTransactionFailure)
-	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("ResumeSessionlessTx push failure should unregister the transaction")
-	}
-}
-
-// TestResumeSessionlessTxDefersFlush verifies that a deferred OTXSE resume does
-// not flush during ResumeSessionlessTx.
-func TestResumeSessionlessTxDefersFlush(t *testing.T) {
-	t.Parallel()
-
-	baseConn, baseMock := newSessionlessTransactionTestConnection()
-	streamer := &mockStreamerWithFlushError{mockStreamer: baseMock}
-	baseConn.shelf.RegisterMessageStreamer(streamer)
-	streamer.flushErr = errors.New("flush failed")
-
-	tx, err := baseConn.ResumeSessionlessTx(context.Background(), []byte("resume-global-transaction-id"), 300)
-	if err != nil {
-		t.Fatalf("ResumeSessionlessTx failed despite deferred flush: %v", err)
-	}
-	if tx == nil || !baseConn.shelf.isInTransaction() {
-		t.Fatal("ResumeSessionlessTx should register a deferred transaction")
-	}
-}
-
-// TestResumeSessionlessTxDefersPull verifies that a deferred OTXSE resume does
-// not read a response during ResumeSessionlessTx.
-func TestResumeSessionlessTxDefersPull(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	mockStr.pullErr = errors.New("pull failed")
-
-	tx, err := conn.ResumeSessionlessTx(context.Background(), []byte("resume-global-transaction-id"), 300)
-	if err != nil {
-		t.Fatalf("ResumeSessionlessTx failed despite deferred pull: %v", err)
-	}
-	if tx == nil || !conn.shelf.isInTransaction() {
-		t.Fatal("ResumeSessionlessTx should register a deferred transaction")
-	}
-}
-
-// TestResumeSessionlessTxDefersOER verifies that a deferred OTXSE resume does
-// not consume a server response during ResumeSessionlessTx.
-func TestResumeSessionlessTxDefersOER(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	mockStr.pullMsg = &mockOer{err: common.NewOERMessageError("ORA-24776", "resume failed")}
-
-	tx, err := conn.ResumeSessionlessTx(context.Background(), []byte("resume-global-transaction-id"), 300)
-	if err != nil {
-		t.Fatalf("ResumeSessionlessTx failed despite deferred response: %v", err)
-	}
-	if tx == nil || !conn.shelf.isInTransaction() {
-		t.Fatal("ResumeSessionlessTx should register a deferred transaction")
-	}
-}
-
-// TestSuspendSessionlessTx verifies that suspending the active sessionless
-// transaction uses the immediate OTXSE detach path, clears the transaction
-// global transaction ID, and unregisters the transaction from the connection shelf.
-func TestSuspendSessionlessTx(t *testing.T) {
-	t.Parallel()
-
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
-	}
-
-	mockStr.pushedMsg.Init()
 
 	if err := tx.Suspend(); err != nil {
-		t.Fatalf("Suspend failed: %v", err)
+		t.Fatalf("Suspend returned error: %v", err)
+	}
+	if conn.shelf.getTransaction() != nil {
+		t.Fatal("Suspend response with GTRID sync left the transaction registered")
+	}
+	if got := tx.currentTransactionState(); got != transactionEndedServer {
+		t.Fatalf("transaction state after successful Suspend = %d, want server-ended", got)
 	}
 	if got := tx.GlobalTransactionID(); got != nil {
-		t.Fatalf("GlobalTransactionID after suspend = %q, want empty", got)
+		t.Fatalf("global transaction ID after successful Suspend = %q, want nil", got)
 	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("Suspend should unregister the active transaction from the shelf")
+	message := pushedOTxSe(t, streamer)
+	if message.operation != otxseDetach || message.flags != otxseTransSessionless || len(message.xid) != 0 {
+		t.Fatalf("suspend OTXSE fields = (operation %d, flags %#x, XID length %d)",
+			message.operation, message.flags, len(message.xid))
 	}
-	if mockStr.pushedMsg.Len() != 1 {
-		t.Fatalf("pushed message count = %d, want 1", mockStr.pushedMsg.Len())
-	}
-	if len(mockStr.pullTypes) != 3 || mockStr.pullTypes[0] != TTIRPA || mockStr.pullTypes[1] != TTIOER || mockStr.pullTypes[2] != TTISTA {
-		t.Fatalf("pull types = %v, want [TTIRPA TTIOER TTISTA]", mockStr.pullTypes)
-	}
-
-	pushedMsg := mockStr.pushedMsg.Front().Value.(*driverCommon.Message[driverCommon.MessageType])
-	otxse, ok := (*pushedMsg).(*tTIOtxse)
-	if !ok {
-		t.Fatalf("pushed message = %T, want *tTIOtxse", *pushedMsg)
-	}
-	if otxse.operation != otxseDetach {
-		t.Fatalf("OTXSE operation = %d, want %d", otxse.operation, otxseDetach)
-	}
-	if otxse.flags != otxseTransSessionless {
-		t.Fatalf("OTXSE flags = %#x, want %#x", otxse.flags, otxseTransSessionless)
-	}
-	if len(otxse.xid) != 0 {
-		t.Fatalf("OTXSE xid length = %d, want 0", len(otxse.xid))
-	}
-	if otxse.globalTransactionIDLength != 0 {
-		t.Fatalf("OTXSE globalTransactionIDLength = %d, want 0", otxse.globalTransactionIDLength)
-	}
-	if otxse.timeout != 0 {
-		t.Fatalf("OTXSE timeout = %d, want 0", otxse.timeout)
+	if len(streamer.pullMsgs) != 0 {
+		t.Fatalf("Suspend left %d response messages unread", len(streamer.pullMsgs))
 	}
 }
 
-// TestSuspendNonSessionlessTx verifies that regular transactions do not expose
-// the sessionless Suspend API.
-func TestSuspendNonSessionlessTx(t *testing.T) {
+// TestSessionlessTransactionSuspendFailureRestoresStartedState verifies that
+// transport and server errors restore the prior state and keep the transaction
+// registered.
+func TestSessionlessTransactionSuspendFailureRestoresStartedState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		setup func(*mockStreamer)
+	}{
+		{name: "push", setup: func(streamer *mockStreamer) { streamer.pushErr = errors.New("write failed") }},
+		{name: "flush", setup: func(streamer *mockStreamer) { streamer.flushErr = errors.New("flush failed") }},
+		{name: "pull", setup: func(streamer *mockStreamer) { streamer.pullErr = errors.New("read failed") }},
+		{name: "server rejection", setup: func(streamer *mockStreamer) {
+			streamer.pullMsgs = []driverCommon.Message[driverCommon.MessageType]{&mockOer{err: errors.New("detach rejected")}}
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			test.setup(streamer)
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("suspend-id"), 30)
+			tx.transactionState(transactionStartedClient)
+			conn.shelf.registerTransaction(tx)
+
+			err := tx.Suspend()
+			if got, want := transactionErrorCode(t, err), oracleErrors.ErrorInTransaction; got != want {
+				t.Fatalf("Suspend error code = %s, want %s", got, want)
+			}
+			if conn.shelf.getTransaction() != tx {
+				t.Fatal("failed Suspend removed the current transaction")
+			}
+			if got := tx.currentTransactionState(); got != transactionStartedClient {
+				t.Fatalf("transaction state after failed Suspend = %d, want client-started", got)
+			}
+		})
+	}
+}
+
+// TestSessionlessTransactionPrepareValidation covers active-transaction,
+// capability, and caller-supplied ID validation on both preparation paths.
+func TestSessionlessTransactionPrepareValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		resume     bool
+		active     bool
+		capability bool
+		globalID   []byte
+		want       oracleErrors.ErrorCode
+	}{
+		{name: "start active transaction", active: true, capability: true, want: oracleErrors.AlreadyInTransaction},
+		{name: "start unsupported capability", capability: false, want: oracleErrors.UnsupportedFeature},
+		{name: "resume active transaction", resume: true, active: true, capability: true, globalID: []byte("id"), want: oracleErrors.AlreadyInTransaction},
+		{name: "resume unsupported capability", resume: true, capability: false, globalID: []byte("id"), want: oracleErrors.UnsupportedFeature},
+		{name: "resume empty ID", resume: true, capability: true, want: oracleErrors.InvalidGlobalTransactionIDValue},
+		{name: "resume oversized ID", resume: true, capability: true, globalID: make([]byte, maxSessionlessGlobalTransactionIDSize+1), want: oracleErrors.InvalidGlobalTransactionIDValue},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			if !test.capability {
+				conn.shelf.RegisterCapabilities(map[string]driverCommon.Capability{})
+			}
+			if test.active {
+				conn.shelf.registerTransaction(newTransaction(conn, context.Background()))
+			}
+
+			var err error
+			if test.resume {
+				_, err = conn.PrepareForSessionlessResumeOperation(context.Background(), test.globalID, 30)
+			} else {
+				_, err = conn.PrepareForSessionlessStartOperation(context.Background(), 30)
+			}
+			if got := transactionErrorCode(t, err); got != test.want {
+				t.Fatalf("error code = %s, want %s", got, test.want)
+			}
+			if streamer.pushCalled {
+				t.Fatal("preparation validation unexpectedly pushed a message")
+			}
+		})
+	}
+}
+
+// TestSessionlessTransactionPrepareCleanup checks that failed resume startup
+// unregisters its provisional handle while clearing a successful preparation
+// leaves the active handle registered.
+func TestSessionlessTransactionPrepareCleanup(t *testing.T) {
 	t.Parallel()
 
 	conn, _ := newSessionlessTransactionTestConnection()
-	tx, err := conn.BeginTx(context.Background(), driver.TxOptions{
-		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
-	})
+	_, err := conn.PrepareForSessionlessStartOperation(context.Background(), 30)
 	if err != nil {
-		t.Fatalf("BeginTx failed: %v", err)
+		t.Fatalf("prepare start: %v", err)
+	}
+	conn.ClearPrepareForSessionlessStartOperation()
+	if conn.shelf.getTransaction() != nil {
+		t.Fatal("clearing a prepared start left a transaction registered")
 	}
 
-	if _, ok := tx.(*sessionlessTransaction); ok {
-		t.Fatalf("BeginTx returned %T, want regular transaction", tx)
+	resumeTx, err := conn.PrepareForSessionlessResumeOperation(context.Background(), []byte("resume-id"), 30)
+	if err != nil {
+		t.Fatalf("prepare resume: %v", err)
+	}
+	conn.ClearPrepareForSessionlessResumeOperation(resumeTx, errors.New("BeginTx failed"))
+	if conn.shelf.getTransaction() != nil {
+		t.Fatal("failed resume preparation left a transaction registered")
+	}
+
+	resumeTx, err = conn.PrepareForSessionlessResumeOperation(context.Background(), []byte("resume-id"), 30)
+	if err != nil {
+		t.Fatalf("prepare second resume: %v", err)
+	}
+	conn.ClearPrepareForSessionlessResumeOperation(resumeTx, nil)
+	preparedResume, ok := resumeTx.(*sessionlessTransaction)
+	if !ok {
+		t.Fatalf("prepared resume has type %T, want *sessionlessTransaction", resumeTx)
+	}
+	if conn.shelf.getTransaction() != preparedResume {
+		t.Fatal("successful resume preparation was removed from the connection")
 	}
 }
 
-// TestSuspendSessionlessTxPushFailure verifies that a write failure while
-// sending the OTXSE detach unregisters the local sessionless transaction.
-func TestSuspendSessionlessTxPushFailure(t *testing.T) {
+// TestSessionlessTransactionBuildsBoundedXID verifies that the TTC XID fields
+// truncate oversized internal identifiers to their wire limits.
+func TestSessionlessTransactionBuildsBoundedXID(t *testing.T) {
 	t.Parallel()
 
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	conn, _ := newSessionlessTransactionTestConnection()
+	globalID := bytes.Repeat([]byte{'g'}, maxSessionlessGlobalTransactionIDSize+8)
+	instanceNameValue := strings.Repeat("i", maxSessionlessBQUALSize+8)
+	conn.sessCtx.GetSessionProperties().SetProperty(instanceName, instanceNameValue)
+	tx := newSessionlessTransaction(context.Background(), conn, globalID, 30)
+
+	xid, globalTransactionIDLength, bqualLength := tx.buildSessionlessXID()
+
+	if got, want := globalTransactionIDLength, driverCommon.UB4(maxSessionlessGlobalTransactionIDSize); got != want {
+		t.Fatalf("global ID wire length = %d, want %d", got, want)
+	}
+	if got, want := bqualLength, driverCommon.UB4(maxSessionlessBQUALSize); got != want {
+		t.Fatalf("BQUAL wire length = %d, want %d", got, want)
+	}
+	if !bytes.Equal(xid[:maxSessionlessGlobalTransactionIDSize], globalID[:maxSessionlessGlobalTransactionIDSize]) {
+		t.Fatal("XID global transaction ID was not truncated at the wire limit")
+	}
+	if !bytes.Equal(xid[maxSessionlessGlobalTransactionIDSize:], []byte(instanceNameValue[:maxSessionlessBQUALSize])) {
+		t.Fatal("XID BQUAL was not truncated at the wire limit")
+	}
+}
+
+// TestSessionlessTransactionClientSyncLifecycle verifies that client sync
+// updates the server state and ID, then clears and unregisters the handle when
+// the server reports that the transaction ended.
+func TestSessionlessTransactionClientSyncLifecycle(t *testing.T) {
+	t.Parallel()
+
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("client-id"), 30)
+	tx.transactionState(transactionStartedClient)
+	conn.shelf.registerTransaction(tx)
+
+	conn.handleSessionPropertyChange(sessionlessSyncEventData(
+		t, "server-client-id", sessionlessGlobalTransactionIDSyncSet, sessionlessSyncStartSuspendClient))
+	if got := tx.currentTransactionState(); got != transactionStartedServer {
+		t.Fatalf("transaction state after client start = %d, want %d", got, transactionStartedServer)
+	}
+	if string(tx.globalTransactionID) != "server-client-id" {
+		t.Fatalf("global transaction ID = %q, want %q", tx.globalTransactionID, "server-client-id")
 	}
 
-	mockStr.pushedMsg.Init()
-	mockStr.pushErr = errors.New("push failed")
-
-	err = tx.Suspend()
-	if err == nil {
-		t.Fatal("Suspend returned nil on push failure")
+	conn.handleSessionPropertyChange(sessionlessSyncEventData(
+		t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessSyncStartSuspendClient))
+	if got := tx.currentTransactionState(); got != transactionEndedServer {
+		t.Fatalf("transaction state after client end = %d, want %d", got, transactionEndedServer)
 	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("Suspend error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.ErrorInTransaction) {
-		t.Fatalf("Suspend error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.ErrorInTransaction)
+	if conn.shelf.getTransaction() != nil {
+		t.Fatal("client end notification left the transaction registered")
 	}
 	if got := tx.GlobalTransactionID(); got != nil {
-		t.Fatalf("GlobalTransactionID after failed suspend = %q, want empty", got)
-	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("Suspend push failure should have unregistered the transaction")
+		t.Fatalf("global transaction ID after end = %q, want nil", got)
 	}
 }
 
-// TestSuspendSessionlessTxFlushFailure verifies that a flush failure while
-// sending the OTXSE detach unregisters the local sessionless transaction.
-func TestSuspendSessionlessTxFlushFailure(t *testing.T) {
+// TestSessionlessServerSyncDoesNotEndClientTransaction protects a client-owned
+// transaction from a server-initiated suspend notification.
+func TestSessionlessServerSyncDoesNotEndClientTransaction(t *testing.T) {
 	t.Parallel()
 
-	baseConn, baseMock := newSessionlessTransactionTestConnection()
-	streamer := &mockStreamerWithFlushError{
-		mockStreamer: baseMock,
-	}
-	baseConn.shelf.RegisterMessageStreamer(streamer)
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("client-id"), 30)
+	tx.transactionState(transactionStartedServer)
+	conn.shelf.registerTransaction(tx)
 
-	tx, err := baseConn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	conn.handleSessionPropertyChange(sessionlessSyncEventData(
+		t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessSyncStartSuspendServer))
+	if conn.shelf.getTransaction() != tx {
+		t.Fatal("server suspend notification unregistered a client-owned transaction")
 	}
-
-	streamer.pushedMsg.Init()
-	streamer.flushErr = errors.New("flush failed")
-
-	err = tx.Suspend()
-	if err == nil {
-		t.Fatal("Suspend returned nil on flush failure")
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("Suspend error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.ErrorInTransaction) {
-		t.Fatalf("Suspend error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.ErrorInTransaction)
-	}
-	if got := tx.GlobalTransactionID(); got != nil {
-		t.Fatalf("GlobalTransactionID after failed suspend = %q, want empty", got)
-	}
-	if baseConn.shelf.isInTransaction() {
-		t.Fatal("Suspend flush failure should have unregistered the transaction")
+	if got := tx.currentTransactionState(); got != transactionStartedServer {
+		t.Fatalf("transaction state = %d, want %d", got, transactionStartedServer)
 	}
 }
 
-// TestSuspendSessionlessTxPullFailure verifies that a read failure while waiting
-// for the detach response unregisters the local sessionless transaction.
-func TestSuspendSessionlessTxPullFailure(t *testing.T) {
+// TestSessionlessGlobalTransactionIDSyncRejectsShortPayloads covers malformed
+// SESSIONLESS_GTRID payloads that cannot contain both flags and version bytes.
+func TestSessionlessGlobalTransactionIDSyncRejectsShortPayloads(t *testing.T) {
 	t.Parallel()
 
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
-	}
-
-	mockStr.pushedMsg.Init()
-	mockStr.pullErr = errors.New("pull failed")
-
-	err = tx.Suspend()
-	if err == nil {
-		t.Fatal("Suspend returned nil on pull failure")
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("Suspend error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.ErrorInTransaction) {
-		t.Fatalf("Suspend error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.ErrorInTransaction)
-	}
-	if got := tx.GlobalTransactionID(); got != nil {
-		t.Fatalf("GlobalTransactionID after failed suspend = %q, want empty", got)
-	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("Suspend pull failure should have unregistered the transaction")
+	for _, raw := range []driverCommon.B1Array{nil, {}, {'x'}} {
+		if _, err := newSessionlessGlobalTransactionIDSync(raw); err == nil {
+			t.Fatalf("newSessionlessGlobalTransactionIDSync accepted short payload % X", raw)
+		}
 	}
 }
 
-// TestSuspendSessionlessTxOERFailure verifies that a server-side detach error is
-// surfaced and unregisters the local sessionless transaction.
-func TestSuspendSessionlessTxOERFailure(t *testing.T) {
+// TestSessionlessGlobalTransactionIDSyncRejectsUnsupportedPayloadValues checks
+// that decoding rejects identifiers above the supported limit and unknown
+// payload versions.
+func TestSessionlessGlobalTransactionIDSyncRejectsUnsupportedPayloadValues(t *testing.T) {
 	t.Parallel()
 
-	conn, mockStr := newSessionlessTransactionTestConnection()
-	tx, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{
-		Isolation: sql.LevelReadCommitted,
-	}, 300)
-	if err != nil {
-		t.Fatalf("BeginSessionlessTx failed: %v", err)
+	oversizedID := make(driverCommon.B1Array, maxSessionlessGlobalTransactionIDSize+3)
+	oversizedID[len(oversizedID)-1] = sessionlessGlobalTransactionIDSyncVersion
+	unsupportedVersion := driverCommon.B1Array{
+		'x', sessionlessGlobalTransactionIDSyncSet | byte(sessionlessSyncStartSuspendServer),
+		sessionlessGlobalTransactionIDSyncVersion + 1,
 	}
-
-	mockStr.pushedMsg.Init()
-	mockStr.pullMsg = &mockOer{err: common.NewOERMessageError("ORA-24776", "detach failed")}
-
-	err = tx.Suspend()
-	if err == nil {
-		t.Fatal("Suspend returned nil on OER failure")
-	}
-	sqlErr, ok := err.(oracleErrors.SQLError)
-	if !ok {
-		t.Fatalf("Suspend error type = %T, want common.SQLError", err)
-	}
-	if sqlErr.ErrorCode() != string(oracleErrors.ErrorInTransaction) {
-		t.Fatalf("Suspend error code = %q, want %q", sqlErr.ErrorCode(), oracleErrors.ErrorInTransaction)
-	}
-	if got := tx.GlobalTransactionID(); got != nil {
-		t.Fatalf("GlobalTransactionID after failed suspend = %q, want empty", got)
-	}
-	if conn.shelf.isInTransaction() {
-		t.Fatal("Suspend OER failure should have unregistered the transaction")
-	}
-}
-
-// TestSessionlessTransactionOperationErrors verifies that commit and rollback
-// retain or remove the local transaction according to server-side state.
-func TestSessionlessTransactionOperationErrors(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name                   string
-		operation              func(*sessionlessTransaction) error
-		serverTransactionState endOfCallStatusTransactionState
-		transactionState       transactionState
-		wantLocalTransaction   bool
-	}{
-		{
-			name:                   "commit with transaction active on server",
-			operation:              func(tx *sessionlessTransaction) error { return tx.Commit() },
-			serverTransactionState: active,
-			transactionState:       transactionStartedServer,
-			wantLocalTransaction:   true,
-		},
-		{
-			name:                   "commit with transaction ended on server",
-			operation:              func(tx *sessionlessTransaction) error { return tx.Commit() },
-			serverTransactionState: inactive,
-			transactionState:       transactionEndedServer,
-			wantLocalTransaction:   false,
-		},
-		{
-			name:                   "rollback with transaction active on server",
-			operation:              func(tx *sessionlessTransaction) error { return tx.Rollback() },
-			serverTransactionState: active,
-			transactionState:       transactionStartedServer,
-			wantLocalTransaction:   true,
-		},
-		{
-			name:                   "rollback with transaction ended on server",
-			operation:              func(tx *sessionlessTransaction) error { return tx.Rollback() },
-			serverTransactionState: inactive,
-			transactionState:       transactionEndedServer,
-			wantLocalTransaction:   false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conn, streamer := newSessionlessTransactionTestConnection()
-			streamer.pullMsg = &mockOer{err: errors.New("transaction operation failed")}
-			tx := newSessionlessTransaction(context.Background(), conn, []byte("sessionless-id"), 300)
-			conn.shelf.registerTransaction(tx)
-			conn._transactionState = tt.serverTransactionState
-			tx.transactionState = tt.transactionState
-
-			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.ErrorInTransaction {
-				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
-			}
-			if got := conn.shelf.isInTransaction(); got != tt.wantLocalTransaction {
-				t.Fatalf("local transaction registration = %v, want %v", got, tt.wantLocalTransaction)
+	for name, raw := range map[string]driverCommon.B1Array{
+		"oversized global ID": oversizedID,
+		"unsupported version": unsupportedVersion,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := newSessionlessGlobalTransactionIDSync(raw); err == nil {
+				t.Fatalf("newSessionlessGlobalTransactionIDSync accepted %s", name)
 			}
 		})
 	}
 }
 
-// TestSuspendSessionlessTxErrorRegistration verifies that a detach failure
-// retains the local transaction only while it is still active on the server
-// and has not received an end notification.
-func TestSuspendSessionlessTxErrorRegistration(t *testing.T) {
+// TestSessionlessTransactionDetachResponsePaths checks completion after an
+// optional OTXSE RPA and propagation of a terminal OER error.
+func TestSessionlessTransactionDetachResponsePaths(t *testing.T) {
 	t.Parallel()
 
+	wantErr := errors.New("detach rejected")
 	tests := []struct {
-		name                   string
-		serverTransactionState endOfCallStatusTransactionState
-		transactionState       transactionState
-		wantLocalTransaction   bool
+		name     string
+		pushErr  error
+		flushErr error
+		pull     []driverCommon.Message[driverCommon.MessageType]
+		pullErr  error
+		wantErr  error
+		wantCode oracleErrors.ErrorCode
 	}{
-		{
-			name:                   "transaction active on server",
-			serverTransactionState: active,
-			transactionState:       transactionStartedServer,
-			wantLocalTransaction:   true,
-		},
-		{
-			name:                   "transaction ended on server",
-			serverTransactionState: inactive,
-			transactionState:       transactionEndedServer,
-			wantLocalTransaction:   false,
-		},
-		{
-			name:                   "sessionless end notification received",
-			serverTransactionState: active,
-			transactionState:       transactionEndedServer,
-			wantLocalTransaction:   false,
-		},
+		{name: "RPA then terminal status", pull: []driverCommon.Message[driverCommon.MessageType]{newOTxSeRPA(), newTTISTA()}},
+		{name: "terminal OER", pull: []driverCommon.Message[driverCommon.MessageType]{&mockOer{err: wantErr}}, wantErr: wantErr},
+		{name: "push failure", pushErr: errors.New("write failed"), wantCode: oracleErrors.StreamerWriteError},
+		{name: "flush failure", flushErr: errors.New("flush failed"), wantCode: oracleErrors.StreamerWriteError},
+		{name: "pull failure", pullErr: errors.New("read failed"), wantCode: oracleErrors.StreamerReadError},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			conn, streamer := newSessionlessTransactionTestConnection()
-			streamer.pushErr = errors.New("detach failed")
-			tx := newSessionlessTransaction(context.Background(), conn, []byte("sessionless-id"), 300)
-			conn.shelf.registerTransaction(tx)
-			conn._transactionState = tt.serverTransactionState
-			tx.transactionState = tt.transactionState
+			streamer.pushErr = test.pushErr
+			streamer.flushErr = test.flushErr
+			streamer.pullMsgs = test.pull
+			streamer.pullErr = test.pullErr
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("detach-id"), 30)
 
-			if got := transactionErrorCode(t, tx.Suspend()); got != oracleErrors.ErrorInTransaction {
-				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
+			err := tx.detachTransaction(context.Background())
+			if test.wantErr == nil && test.wantCode == "" && err != nil {
+				t.Fatalf("detachTransaction returned error: %v", err)
 			}
-			if got := conn.shelf.isInTransaction(); got != tt.wantLocalTransaction {
-				t.Fatalf("local transaction registration = %v, want %v", got, tt.wantLocalTransaction)
+			if test.wantErr != nil && !errors.Is(err, test.wantErr) {
+				t.Fatalf("detachTransaction error = %v, want %v", err, test.wantErr)
 			}
-		})
-	}
-}
-
-// TestSessionlessTransactionOperationsRejectStaleTransaction verifies that
-// sessionless transaction operations do not act on a different transaction
-// registered on the connection.
-func TestSessionlessTransactionOperationsRejectStaleTransaction(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		operation func(*sessionlessTransaction) error
-	}{
-		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
-		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
-		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conn, streamer := newSessionlessTransactionTestConnection()
-			staleTransaction := newSessionlessTransaction(context.Background(), conn, []byte("stale"), 300)
-			currentTransaction := newSessionlessTransaction(context.Background(), conn, []byte("current"), 300)
-			conn.shelf.registerTransaction(currentTransaction)
-
-			if got := transactionErrorCode(t, tt.operation(staleTransaction)); got != oracleErrors.NotCurrentTransaction {
-				t.Fatalf("error code = %s, want %s", got, oracleErrors.NotCurrentTransaction)
+			if test.wantCode != "" {
+				if got := transactionErrorCode(t, err); got != test.wantCode {
+					t.Fatalf("detachTransaction error code = %s, want %s", got, test.wantCode)
+				}
 			}
-			if streamer.pushCalled {
-				t.Fatalf("stale %s should not send a transaction message", tt.name)
+			message := pushedOTxSe(t, streamer)
+			if message.operation != otxseDetach || message.flags != otxseTransSessionless || len(message.xid) != 0 {
+				t.Fatalf("detach OTXSE fields = (operation %d, flags %#x, XID length %d)",
+					message.operation, message.flags, len(message.xid))
 			}
-			if conn.shelf.getTransaction() != currentTransaction {
-				t.Fatalf("stale %s changed the current transaction", tt.name)
-			}
-		})
-	}
-}
-
-// TestSessionlessTransactionRejectsReuseAfterEndingOperation verifies that
-// commit and rollback cannot reuse a sessionless transaction handle after
-// suspend, commit, or rollback, while repeated Suspend is a no-op.
-func TestSessionlessTransactionRejectsReuseAfterEndingOperation(t *testing.T) {
-	t.Parallel()
-
-	endingOperations := []struct {
-		name      string
-		operation func(*sessionlessTransaction) error
-	}{
-		{name: "suspend", operation: func(tx *sessionlessTransaction) error { return tx.Suspend() }},
-		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
-		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
-	}
-	followUpOperations := []struct {
-		name      string
-		operation func(*sessionlessTransaction) error
-	}{
-		{name: "commit", operation: func(tx *sessionlessTransaction) error { return tx.Commit() }},
-		{name: "rollback", operation: func(tx *sessionlessTransaction) error { return tx.Rollback() }},
-	}
-
-	for _, endingOperation := range endingOperations {
-		t.Run(endingOperation.name, func(t *testing.T) {
-			conn, streamer := newSessionlessTransactionTestConnection()
-			transaction, err := conn.BeginSessionlessTx(context.Background(), sql.TxOptions{}, 300)
-			if err != nil {
-				t.Fatalf("BeginSessionlessTx failed: %v", err)
-			}
-			tx, ok := transaction.(*sessionlessTransaction)
-			if !ok {
-				t.Fatalf("BeginSessionlessTx returned %T, want *sessionlessTransaction", transaction)
-			}
-			streamer.pushedMsg.Init()
-
-			if err := endingOperation.operation(tx); err != nil {
-				t.Fatalf("%s failed: %v", endingOperation.name, err)
-			}
-			messageCount := streamer.pushedMsg.Len()
-
-			for _, followUpOperation := range followUpOperations {
-				t.Run(followUpOperation.name, func(t *testing.T) {
-					if got := transactionErrorCode(t, followUpOperation.operation(tx)); got != oracleErrors.NotInTransaction {
-						t.Fatalf("error code after %s = %s, want %s", endingOperation.name, got, oracleErrors.NotInTransaction)
-					}
-					if got := streamer.pushedMsg.Len(); got != messageCount {
-						t.Fatalf("messages pushed after reusing transaction following %s = %d, want %d", endingOperation.name, got, messageCount)
-					}
-				})
-			}
-
-			if err := tx.Suspend(); err != nil {
-				t.Fatalf("suspend after %s = %v, want no error", endingOperation.name, err)
-			}
-			if got := streamer.pushedMsg.Len(); got != messageCount {
-				t.Fatalf("messages pushed after suspend following %s = %d, want %d", endingOperation.name, got, messageCount)
+			if len(streamer.pullMsgs) != 0 && test.wantErr == nil {
+				t.Fatalf("detach left %d response messages unread", len(streamer.pullMsgs))
 			}
 		})
 	}

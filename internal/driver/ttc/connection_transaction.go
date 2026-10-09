@@ -83,16 +83,20 @@ func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		return nil, common.NewOracleError(errors.IsolationLevelNotSupported, nil, nil)
 	}
 
-	tx := newTransaction(c, ctx)
-	c.shelf.registerTransaction(tx)
+	var tx oracleTx
+	if tx = c.shelf.getTransaction(); tx == nil {
+		tx = newTransaction(c, ctx)
+		c.shelf.registerTransaction(tx)
+	}
 
 	err := c.beginTransaction(ctx, tx, opts)
 	if err != nil {
 		c.shelf.unregisterTransaction()
 		return nil, err
 	}
+	c.shelf.getTransaction().transactionState(transactionStartedClient)
 
-	return tx, nil
+	return tx.(driver.Tx), nil
 }
 
 // isSupportedIsolationLevel reports whether opts uses an isolation level
@@ -134,7 +138,7 @@ func (c *connection) beginTransaction(ctx context.Context, transaction oracleTx,
 
 	otxse, _ := msg.(*tTIOtxse)
 	// configure message for operation and transaction options
-	otxse.configureForStart(transaction, opts)
+	otxse.configureForTransaction(transaction, opts)
 
 	// push message, this is a piggyback message, it will be sent on the next
 	// round-trip
@@ -221,25 +225,6 @@ func (c *connection) runTransactionEndingOperation(ctx context.Context, operatio
 		case TTISTA:
 			return nil
 		}
-	}
-}
-
-// unregisterTransactionOnError removes the local transaction registration when
-// the server no longer reports an active transaction. A sessionless
-// transaction is also removed when its end notification has been received,
-// even if the connection status still reports an active transaction.
-func (c *connection) unregisterTransactionOnError() {
-	if c._transactionState == inactive {
-		common.Odl.Debug("An error occurred while ending the transaction, but the server reported no active transaction, the transaction is unregistered")
-		c.shelf.unregisterTransaction()
-		return
-	}
-
-	if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok &&
-		(sessionlessTx.transactionState == transactionStartedClient ||
-			sessionlessTx.transactionState == transactionEndedServer) {
-		common.Odl.Debug("An error occurred while ending the sessionless transaction, but the server transaction has either not started or has ended, the transaction is unregistered")
-		c.shelf.unregisterTransaction()
 	}
 }
 

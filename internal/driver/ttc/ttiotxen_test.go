@@ -60,11 +60,8 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	ctx := context.Background()
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID:       []byte("g1"),
-		xid:                       xid,
-		globalTransactionIDLength: 2,
-		bqualLength:               2,
-		timeout:                   30,
+		globalTransactionID: []byte("g1"),
+		timeout:             30,
 	}
 
 	msg := newOTxEn18().(*tTIOtxen)
@@ -246,11 +243,8 @@ func TestOTxEnConfigureOperations(t *testing.T) {
 	t.Parallel()
 
 	tx := &sessionlessTransaction{
-		globalTransactionID:       []byte("g1"),
-		xid:                       driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
-		globalTransactionIDLength: 2,
-		bqualLength:               2,
-		timeout:                   30,
+		globalTransactionID: []byte("g1"),
+		timeout:             30,
 	}
 	tests := []struct {
 		name      string
@@ -278,9 +272,6 @@ func TestOTxEnConfigureOperations(t *testing.T) {
 			}
 			if msg.formatID != k2gSessionless {
 				t.Fatalf("format ID = %#x, want %#x", msg.formatID, k2gSessionless)
-			}
-			if !bytes.Equal(msg.xid, tx.xid) {
-				t.Fatalf("XID = % X, want % X", msg.xid, tx.xid)
 			}
 			if msg.timeout != driverCommon.UB2(tx.timeout) {
 				t.Fatalf("timeout = %d, want %d", msg.timeout, tx.timeout)

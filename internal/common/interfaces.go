@@ -51,10 +51,14 @@ func IsSessionlessTransactionEnded(ctx context.Context) bool {
 	return ended
 }
 
+// SessionlessTransaction is a driver transaction that supports suspension and
+// exposes its global transaction identifier.
 type SessionlessTransaction interface {
 	driver.Tx
+	// Suspend detaches the transaction from its current connection so it can be
+	// resumed later on another connection.
 	Suspend() error
+	// GlobalTransactionID returns a copy of the current identifier, or nil after
+	// the transaction has ended on its current connection.
 	GlobalTransactionID() []byte
-	SetRunningFromSessionlessTx(bool)
-	IsTransactionEnded() bool
 }

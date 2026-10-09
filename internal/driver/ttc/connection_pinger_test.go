@@ -158,7 +158,8 @@ func TestConnectionPinger_IsValidWithInband(t *testing.T) {
 }
 
 // TestConnectionValidator_RollsBackActiveTransaction verifies that ResetSession
-// rolls back a transaction reported as active by the server before flushing.
+// rolls back a transaction reported as active by the server without unregistering
+// it until an end-of-call status confirms that it ended.
 func TestConnectionValidator_RollsBackActiveTransaction(t *testing.T) {
 	t.Parallel()
 
@@ -168,18 +169,17 @@ func TestConnectionValidator_RollsBackActiveTransaction(t *testing.T) {
 	connection.ns = &mockNetworkSession{
 		inband: false,
 	}
-	connection._transactionState = active
+	transaction := newTransaction(connection, context.Background())
+	transaction.transactionState(transactionStartedServer)
+	connection.shelf.registerTransaction(transaction)
 
 	if !connection.IsValid() {
 		t.Fatalf("IsValid should have returned true")
 	}
 
 	assertTransactionFunction(t, streamer, common.SB4(otxenAbort), k2cmdAbort)
-	if connection._transactionState != active {
-		t.Fatal("IsValid should not update server transaction state on the client")
-	}
-	if connection.shelf.isInTransaction() {
-		t.Fatal("IsValid should unregister the rolled back transaction")
+	if !connection.shelf.isInTransaction() {
+		t.Fatal("rollback without end-of-call status unregistered the transaction")
 	}
 }
 
@@ -194,7 +194,9 @@ func TestConnectionValidator_RollbackFailureInvalidatesConnection(t *testing.T) 
 	connection.ns = &mockNetworkSession{
 		inband: false,
 	}
-	connection._transactionState = active
+	transaction := newTransaction(connection, context.Background())
+	transaction.transactionState(transactionStartedServer)
+	connection.shelf.registerTransaction(transaction)
 
 	if connection.IsValid() {
 		t.Fatalf("IsValid should be false")

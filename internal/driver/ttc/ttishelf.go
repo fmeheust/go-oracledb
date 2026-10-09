@@ -197,7 +197,14 @@ func (s *ttiShelf[T]) RemoveStatement(statement *Statement) {
 // Returns:
 //   - bool: True if a transaction is registered; otherwise false.
 func (s *ttiShelf[T]) isInTransaction() bool {
-	return (s._currentTransaction != nil)
+	if s.getTransaction() == nil {
+		return false
+	}
+	sessionlessTx, ok := s.getTransaction().(*sessionlessTransaction)
+	if ok && sessionlessTx.currentTransactionState() == transactionPrepared {
+		return false
+	}
+	return true
 }
 
 // registerTransaction registers the current transaction.

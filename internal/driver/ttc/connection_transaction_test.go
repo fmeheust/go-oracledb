@@ -75,7 +75,7 @@ func assertDeferredTransactionStart(t *testing.T, streamer *mockStreamer, opts d
 }
 
 // TestTransactionCommitSuccess verifies that BeginTx queues a deferred OTXSE
-// start and that commit succeeds for all supported transaction options.
+// start and that commit succeeds without unregistering before end-of-call status.
 func TestTransactionCommitSuccess(t *testing.T) {
 	t.Parallel()
 	tests := []driver.TxOptions{
@@ -105,15 +105,15 @@ func TestTransactionCommitSuccess(t *testing.T) {
 				t.Fatalf("Commit returned error: %v", err)
 			}
 			assertTransactionFunction(t, streamer, common.SB4(otxenCommit), k2cmdCommit)
-			if got := transactionErrorCode(t, tx.Commit()); got != oracleErrors.NotInTransaction {
-				t.Fatalf("second Commit error code = %s, want %s", got, oracleErrors.NotInTransaction)
+			if !conn.shelf.isInTransaction() {
+				t.Fatal("Commit without end-of-call status unregistered the transaction")
 			}
 		})
 	}
 }
 
 // TestTransactionRollbackSuccess verifies that BeginTx queues a deferred OTXSE
-// start and that rollback succeeds for all supported transaction options.
+// start and that rollback succeeds without unregistering before end-of-call status.
 func TestTransactionRollbackSuccess(t *testing.T) {
 	t.Parallel()
 	tests := []driver.TxOptions{
@@ -143,8 +143,8 @@ func TestTransactionRollbackSuccess(t *testing.T) {
 				t.Fatalf("Rollback returned error: %v", err)
 			}
 			assertTransactionFunction(t, streamer, common.SB4(otxenAbort), k2cmdAbort)
-			if got := transactionErrorCode(t, tx.Rollback()); got != oracleErrors.NotInTransaction {
-				t.Fatalf("second Rollback error code = %s, want %s", got, oracleErrors.NotInTransaction)
+			if !conn.shelf.isInTransaction() {
+				t.Fatal("Rollback without end-of-call status unregistered the transaction")
 			}
 		})
 	}
@@ -319,59 +319,39 @@ func TestConnectionBeginTxReturnsPushError(t *testing.T) {
 }
 
 // TestTransactionOperationErrors verifies that commit and rollback errors are
-// wrapped as transaction errors and that the local registration follows the
-// End-of-Call transaction status reported by the server.
+// wrapped as transaction errors and do not unregister a transaction without an
+// end-of-call status from the server.
 func TestTransactionOperationErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name                   string
-		operation              func(*transaction) error
-		message                string
-		serverTransactionState endOfCallStatusTransactionState
-		wantLocalTransaction   bool
+		name      string
+		operation func(*transaction) error
+		message   string
 	}{
 		{
-			name:                   "commit with transaction ended on server",
-			operation:              (*transaction).Commit,
-			message:                "commit failed",
-			serverTransactionState: inactive,
-			wantLocalTransaction:   false,
+			name:      "commit",
+			operation: (*transaction).Commit,
+			message:   "commit failed",
 		},
 		{
-			name:                   "commit with transaction active on server",
-			operation:              (*transaction).Commit,
-			message:                "commit failed",
-			serverTransactionState: active,
-			wantLocalTransaction:   true,
-		},
-		{
-			name:                   "rollback with transaction ended on server",
-			operation:              (*transaction).Rollback,
-			message:                "rollback failed",
-			serverTransactionState: inactive,
-			wantLocalTransaction:   false,
-		},
-		{
-			name:                   "rollback with transaction active on server",
-			operation:              (*transaction).Rollback,
-			message:                "rollback failed",
-			serverTransactionState: active,
-			wantLocalTransaction:   true,
+			name:      "rollback",
+			operation: (*transaction).Rollback,
+			message:   "rollback failed",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			streamer := &mockStreamer{pullMsg: &mockOer{err: errors.New(tt.message)}}
 			conn := newTransactionTestConnection(streamer)
-			conn._transactionState = tt.serverTransactionState
 			tx := newTransaction(conn, context.Background())
+			tx.transactionState(transactionStartedServer)
 			conn.shelf.registerTransaction(tx)
 
 			if got := transactionErrorCode(t, tt.operation(tx)); got != oracleErrors.ErrorInTransaction {
 				t.Fatalf("error code = %s, want %s", got, oracleErrors.ErrorInTransaction)
 			}
-			if got := conn.shelf.isInTransaction(); got != tt.wantLocalTransaction {
-				t.Fatalf("local transaction registration = %v, want %v", got, tt.wantLocalTransaction)
+			if !conn.shelf.isInTransaction() {
+				t.Fatal("transaction operation error without end-of-call status unregistered the transaction")
 			}
 		})
 	}
@@ -433,31 +413,5 @@ func TestTransactionOperationsRejectStaleTransactions(t *testing.T) {
 				t.Fatalf("stale %s changed the current transaction", tt.name)
 			}
 		})
-	}
-}
-
-// TestPromotedTransactionPreservesIdentity verifies that a regular transaction
-// handle remains current after it is promoted to a sessionless transaction.
-func TestPromotedTransactionPreservesIdentity(t *testing.T) {
-	t.Parallel()
-
-	conn := newTransactionTestConnection(&mockStreamer{})
-	regularTransaction := newTransaction(conn, context.Background())
-	promotedTransaction := upgradeFromTransaction(regularTransaction, nil, 0)
-	conn.shelf.registerTransaction(promotedTransaction)
-
-	if !regularTransaction.isCurrentTransaction() {
-		t.Fatal("regular transaction handle is not current after promotion")
-	}
-	if !promotedTransaction.isCurrentTransaction() {
-		t.Fatal("promoted transaction handle is not current")
-	}
-	if regularTransaction.transactionIdentity() != promotedTransaction.transactionIdentity() {
-		t.Fatal("regular and promoted transaction handles do not share identity")
-	}
-
-	staleTransaction := newTransaction(conn, context.Background())
-	if staleTransaction.isCurrentTransaction() {
-		t.Fatal("unrelated transaction handle should not be current after promotion")
 	}
 }

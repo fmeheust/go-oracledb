@@ -47,7 +47,7 @@ connectionWrapper, err := oracle.NewConnectionWrapper(conn)
 if err != nil {
     return err
 }
-tx, err := connectionWrapper.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
+tx, err := connectionWrapper.BeginSessionlessTx(ctx, &sql.TxOptions{}, 300)
 ```
 
 Use another wrapper around the connection that resumes the transaction:

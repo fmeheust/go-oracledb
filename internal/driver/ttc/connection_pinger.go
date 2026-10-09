@@ -86,14 +86,15 @@ func (c *connection) IsValid() bool {
 	c.isValid()
 
 	// check for ongoing transaction and rollback
-	if c._transactionState == active {
+	transaction := c.shelf.getTransaction()
+	if transaction != nil && transaction.currentTransactionState() != transactionEndedServer {
 		ctx, cancel := context.WithTimeout(common.BackgroundContext, _rollbackTimeout)
 		defer cancel()
 		if err := c.rollbackActiveTransaction(ctx); err != nil {
 			common.Odl.Warn("Rollback of active transaction during reset has failed", "error", err)
 			// only invalidate the connection if the transaction is not closed after the call
 			// independent on whether there was an error.
-			if c._transactionState != inactive {
+			if transaction.currentTransactionState() != transactionEndedServer {
 				c._isValid = false
 			}
 		}
@@ -119,16 +120,10 @@ func (c *connection) isValid() bool {
 //   - error: Error if the rollback message cannot be sent or completed.
 func (c *connection) rollbackActiveTransaction(ctx context.Context) error {
 	transaction := c.shelf.getTransaction()
-	if transaction == nil {
-		// if the transaction was not create using the API, create it
-		transaction = newTransaction(c, ctx)
+	if transaction != nil {
+		if err := c.runTransactionEndingOperation(ctx, otxenAbort, transaction); err != nil {
+			return err
+		}
 	}
-
-	if err := c.runTransactionEndingOperation(ctx, otxenAbort, transaction); err != nil {
-		c.unregisterTransactionOnError()
-		return err
-	}
-
-	c.shelf.unregisterTransaction()
 	return nil
 }

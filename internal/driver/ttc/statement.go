@@ -184,10 +184,6 @@ func newStatement(
 		execStatementExecutor:  execExecutor,
 		_rows:                  nil,
 	}
-	sessionlessTx, ok := shelf.getTransaction().(*sessionlessTransaction)
-	if ok {
-		stmt.fromSessionlessTx = sessionlessTx.fromSessionlessTx
-	}
 	// register myself to the shelf so connection close can garbage me.
 	stmt.shelf.AddStatement(stmt)
 	return stmt, nil
@@ -209,9 +205,6 @@ Implementation details:
 Callers must fully consume and Close the returned Rows.
 */
 func (s *Statement) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if err := s.checkSessionlessTransactionAccess(); err != nil {
-		return nil, err
-	}
 	subContext, cancelSubContext, cleanup := s.createSubContextWithCancelAfterfunction(ctx)
 	defer cleanup()
 
@@ -315,9 +308,6 @@ Implementation details:
 The returned Result may expose rows-affected metadata when the server provides it.
 */
 func (s *Statement) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	if err := s.checkSessionlessTransactionAccess(); err != nil {
-		return nil, err
-	}
 	subContext, cancelSubContext, cleanup := s.createSubContextWithCancelAfterfunction(ctx)
 	defer cleanup()
 
@@ -420,24 +410,4 @@ func (s *Statement) createSubContextWithCancelAfterfunction(ctx context.Context)
 	}
 	// return the subcontext, its cancel function, and after-function cleanup
 	return subContext, cancelSubContext, cleanup
-}
-
-// checkSessionlessTransactionAccess rejects SQL operations that bypass the
-// public sessionless transaction wrapper while a client-owned sessionless
-// transaction is active.
-//
-// Server-originated sessionless transactions are intentionally excluded: SQL
-// executed by the PL/SQL call that started them must continue normally.
-func (stmt *Statement) checkSessionlessTransactionAccess() error {
-	if stmt.shelf.getTransaction() == nil {
-		return nil
-	}
-	sessionlessTx, ok := stmt.shelf.getTransaction().(*sessionlessTransaction)
-	if !ok || sessionlessTx.isServerOriginated {
-		return nil
-	}
-	if sessionlessTx.fromSessionlessTx || stmt.fromSessionlessTx {
-		return nil
-	}
-	return stmt.shelf.LocalizeError(common.NewOracleError(oracleErrors.AlreadyInTransaction, nil, nil))
 }

@@ -75,13 +75,11 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	msg := newOTxSe18().(*tTIOtxse)
 	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
 	tx := &sessionlessTransaction{
-		globalTransactionID:       []byte("g1"),
-		xid:                       xid,
-		timeout:                   30,
-		bqualLength:               2,
-		globalTransactionIDLength: 2,
+		transaction:         transaction{},
+		globalTransactionID: []byte("g1"),
+		timeout:             30,
 	}
-	msg.configureForStart(tx, driver.TxOptions{
+	msg.configureForTransaction(tx, driver.TxOptions{
 		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
 	})
 
@@ -167,11 +165,9 @@ func TestOTxSeMarshalToErrors(t *testing.T) {
 
 	newStartMessage := func() *tTIOtxse {
 		msg := newOTxSe18().(*tTIOtxse)
-		msg.configureForStart(&sessionlessTransaction{
-			xid:                       driverCommon.B1Array{0x11, 0x22, 0x33, 0x44},
-			globalTransactionIDLength: 2,
-			bqualLength:               2,
-			timeout:                   30,
+		msg.configureForTransaction(&sessionlessTransaction{
+			transaction: transaction{},
+			timeout:     30,
 		}, driver.TxOptions{Isolation: driver.IsolationLevel(sql.LevelReadCommitted)})
 		return msg
 	}
@@ -292,7 +288,7 @@ func TestValidateSessionlessGlobalTransactionID(t *testing.T) {
 func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	t.Parallel()
 
-	sync, err := newSessionlessGlobalTransactionIDSync(driverCommon.B1Array{'a', 'b', sessionlessGlobalTransactionIDSyncSet | byte(sessionlessGlobalTransactionIDSyncServer), sessionlessGlobalTransactionIDSyncVersion})
+	sync, err := newSessionlessGlobalTransactionIDSync(driverCommon.B1Array{'a', 'b', sessionlessGlobalTransactionIDSyncSet | byte(sessionlessSyncStartSuspendServer), sessionlessGlobalTransactionIDSyncVersion})
 	if err != nil {
 		t.Fatalf("NewSessionlessGlobalTransactionIDSync failed: %v", err)
 	}
@@ -310,11 +306,11 @@ func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	if !slices.Equal(sync.GlobalTransactionID(), []byte("ab")) {
 		t.Fatalf("GlobalTransactionID changed through returned slice: %q", sync.GlobalTransactionID())
 	}
-	if sync.Version() != 2 {
-		t.Fatalf("Version = %d, want 2", sync.Version())
+	if sync.Version() != sessionlessGlobalTransactionIDSyncVersion {
+		t.Fatalf("Version = %d, want %d", sync.Version(), sessionlessGlobalTransactionIDSyncVersion)
 	}
-	if sync.Reason() != sessionlessGlobalTransactionIDSyncServer {
-		t.Fatalf("Reason = %d, want %d", sync.Reason(), sessionlessGlobalTransactionIDSyncServer)
+	if sync.Reason() != sessionlessSyncStartSuspendServer {
+		t.Fatalf("Reason = %d, want %d", sync.Reason(), sessionlessSyncStartSuspendServer)
 	}
 }
 

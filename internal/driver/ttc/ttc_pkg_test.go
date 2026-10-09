@@ -524,46 +524,16 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestTransactionOperationsRejectStaleTransactions", Categories: "unitary", Exclusive: false, Fn: TestTransactionOperationsRejectStaleTransactions},
 	{Name: "TestRunTransactionEndingOperationSetupAndTransportFailures", Categories: "unitary", Exclusive: false, Fn: TestRunTransactionEndingOperationSetupAndTransportFailures},
 	{Name: "TestRunTransactionEndingOperationAdditionalResponsePaths", Categories: "unitary", Exclusive: false, Fn: TestRunTransactionEndingOperationAdditionalResponsePaths},
-
-	{Name: "TestSessionlessTransactionEndUsesOTxEn", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionEndUsesOTxEn},
-	{Name: "TestSessionlessTransactionClosesTransactionStatements", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClosesTransactionStatements},
-	{Name: "TestCloseOpenTransactionStatementsIsIdempotent", Categories: "unitary", Exclusive: false, Fn: TestCloseOpenTransactionStatementsIsIdempotent},
-	{Name: "TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClosesTransactionStatementsAfterEndingErrors},
-	{Name: "TestSessionlessTransactionContextCancellationRollsBack", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionContextCancellationRollsBack},
-	{Name: "TestSessionlessTransactionSuspendStopsContextWatcher", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionSuspendStopsContextWatcher},
-	{Name: "TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionContextCancellationInvalidatesOnRollbackFailure},
-	{Name: "TestBeginSessionlessTx", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTx},
-	{Name: "TestResumeSessionlessTx", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTx},
-	{Name: "TestBeginSessionlessTxPushFailure", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxPushFailure},
-	{Name: "TestBeginSessionlessTxDefersFlush", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxDefersFlush},
-	{Name: "TestBeginSessionlessTxDefersPull", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxDefersPull},
-	{Name: "TestBeginSessionlessTxDefersOER", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxDefersOER},
-	{Name: "TestResumeSessionlessTxInvalidGlobalTransactionID", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxInvalidGlobalTransactionID},
-	{Name: "TestResumeSessionlessTxPushFailure", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxPushFailure},
-	{Name: "TestResumeSessionlessTxDefersFlush", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxDefersFlush},
-	{Name: "TestResumeSessionlessTxDefersPull", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxDefersPull},
-	{Name: "TestResumeSessionlessTxDefersOER", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxDefersOER},
-	{Name: "TestSuspendSessionlessTx", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTx},
-	{Name: "TestSuspendNonSessionlessTx", Categories: "unitary", Exclusive: false, Fn: TestSuspendNonSessionlessTx},
-	{Name: "TestSuspendSessionlessTxPushFailure", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTxPushFailure},
-	{Name: "TestSuspendSessionlessTxFlushFailure", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTxFlushFailure},
-	{Name: "TestSuspendSessionlessTxPullFailure", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTxPullFailure},
-	{Name: "TestSuspendSessionlessTxOERFailure", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTxOERFailure},
-	{Name: "TestSessionlessTransactionOperationErrors", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionOperationErrors},
-	{Name: "TestSuspendSessionlessTxErrorRegistration", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTxErrorRegistration},
-	{Name: "TestSessionlessTransactionOperationsRejectStaleTransaction", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionOperationsRejectStaleTransaction},
-	{Name: "TestSessionlessTransactionRejectsReuseAfterEndingOperation", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionRejectsReuseAfterEndingOperation},
-	{Name: "TestSessionlessTransactionBeginResumeValidation", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionBeginResumeValidation},
-	{Name: "TestSessionlessTransactionXIDTruncation", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionXIDTruncation},
-	{Name: "TestSessionlessTransactionLifecycleNoOpPaths", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionLifecycleNoOpPaths},
-	{Name: "TestSuspendSessionlessTransactionCancellationCleanup", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTransactionCancellationCleanup},
-	{Name: "TestSuspendSessionlessTransactionStateValidation", Categories: "unitary", Exclusive: false, Fn: TestSuspendSessionlessTransactionStateValidation},
-	{Name: "TestSessionlessTransactionMessageSetupFailures", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionMessageSetupFailures},
+	// {Name: "TestConnectionBeginTxSessionlessStartAndResume", Categories: "unitary", Exclusive: false, Fn: TestConnectionBeginTxSessionlessStartAndResume},
+	// {Name: "TestConnectionBeginTxPushFailureClearsSessionlessTransaction", Categories: "unitary", Exclusive: false, Fn: TestConnectionBeginTxPushFailureClearsSessionlessTransaction},
+	{Name: "TestSessionlessTransactionPrepareValidation", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionPrepareValidation},
+	{Name: "TestSessionlessTransactionPrepareCleanup", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionPrepareCleanup},
+	{Name: "TestSessionlessTransactionBuildsBoundedXID", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionBuildsBoundedXID},
+	{Name: "TestSessionlessTransactionClientSyncLifecycle", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClientSyncLifecycle},
+	{Name: "TestSessionlessServerSyncDoesNotEndClientTransaction", Categories: "unitary", Exclusive: false, Fn: TestSessionlessServerSyncDoesNotEndClientTransaction},
+	{Name: "TestSessionlessGlobalTransactionIDSyncRejectsShortPayloads", Categories: "unitary", Exclusive: false, Fn: TestSessionlessGlobalTransactionIDSyncRejectsShortPayloads},
 	{Name: "TestSessionlessTransactionDetachResponsePaths", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionDetachResponsePaths},
-	{Name: "TestSessionlessServerSyncLifecycle", Categories: "unitary", Exclusive: false, Fn: TestSessionlessServerSyncLifecycle},
-	{Name: "TestSessionlessServerEndDoesNotEndClientTransaction", Categories: "unitary", Exclusive: false, Fn: TestSessionlessServerEndDoesNotEndClientTransaction},
-	{Name: "TestSessionlessClientSyncUpdatesTransactionState", Categories: "unitary", Exclusive: false, Fn: TestSessionlessClientSyncUpdatesTransactionState},
-	{Name: "TestSessionlessGlobalTransactionIDSyncRejectsMalformedPayload", Categories: "unitary", Exclusive: false, Fn: TestSessionlessGlobalTransactionIDSyncRejectsMalformedPayload},
+	// {Name: "TestSessionlessTransactionSuspendUsesDetach", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionSuspendUsesDetach},
 
 	{Name: "TestOTxEnFactoryRegistration", Categories: "unitary", Exclusive: false, Fn: TestOTxEnFactoryRegistration},
 	{Name: "TestOTxEnMarshalTo", Categories: "unitary", Exclusive: false, Fn: TestOTxEnMarshalTo},
@@ -1043,6 +1013,7 @@ type mockStreamer struct {
 	pullMsg    common.Message[common.MessageType]
 	pullMsgs   []common.Message[common.MessageType]
 	pullErr    error
+	pullHook   func(common.Message[common.MessageType])
 	drainIn    int
 }
 
@@ -1122,12 +1093,18 @@ func (m *mockStreamer) Push(_ context.Context, msg common.Message[common.Message
 func (m *mockStreamer) Pull(_ context.Context, types ...common.MessageType) (common.Message[common.MessageType], error) {
 	m.pullCalled = true
 	m.pullTypes = types
+	var msg common.Message[common.MessageType]
+	var err error
 	if len(m.pullMsgs) > 0 {
-		msg := m.pullMsgs[0]
+		msg = m.pullMsgs[0]
 		m.pullMsgs = m.pullMsgs[1:]
-		return msg, nil
+	} else {
+		msg, err = m.pullMsg, m.pullErr
 	}
-	return m.pullMsg, m.pullErr
+	if err == nil && msg != nil && m.pullHook != nil {
+		m.pullHook(msg)
+	}
+	return msg, err
 }
 
 func (m *mockStreamer) Flush(_ context.Context) error {

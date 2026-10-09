@@ -148,9 +148,10 @@ func (m *tTIOtxen) _configureForOperation(transaction oracleTx, operation txStat
 
 	if sessionlessTx, ok := transaction.(*sessionlessTransaction); ok {
 		m.formatID = k2gSessionless
-		m.xid = sessionlessTx.xid
-		m.globalTransactionIDLength = sessionlessTx.globalTransactionIDLength
-		m.bqualLength = sessionlessTx.bqualLength
+		xid, globalTransactionIDLength, bqualLength := sessionlessTx.buildSessionlessXID()
+		m.xid = xid
+		m.globalTransactionIDLength = globalTransactionIDLength
+		m.bqualLength = bqualLength
 		m.timeout = driverCommon.UB2(sessionlessTx.timeout)
 	}
 }

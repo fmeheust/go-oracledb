@@ -62,7 +62,7 @@ func main() {
 
 	tx, err := connection.BeginSessionlessTx(
 		ctx,
-		sql.TxOptions{Isolation: sql.LevelReadCommitted},
+		&sql.TxOptions{Isolation: sql.LevelReadCommitted},
 		300,
 	)
 	if err != nil {
@@ -114,7 +114,7 @@ if err != nil {
 	return err
 }
 
-tx, err := connection1.BeginSessionlessTx(ctx, sql.TxOptions{}, 300)
+tx, err := connection1.BeginSessionlessTx(ctx, &sql.TxOptions{}, 300)
 if err != nil {
 	conn1.Close()
 	return err
