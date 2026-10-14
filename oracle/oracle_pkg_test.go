@@ -186,13 +186,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 
 	{Name: "TestReadOnlyTransaction", Categories: "functional", Exclusive: false, Fn: TestReadOnlyTransaction},
 	{Name: "TestConnectionTransactionPoolIsolation", Categories: "functional", Exclusive: false, Fn: TestConnectionTransactionPoolIsolation},
-	// {Name: "TestBeginSessionlessTxDelegates", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxDelegates},
-	// {Name: "TestSessionlessTransactionStmtMethods", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionStmtMethods},
-	// {Name: "TestBeginSessionlessTxPropagatesError", Categories: "unitary", Exclusive: false, Fn: TestBeginSessionlessTxPropagatesError},
-	// {Name: "TestResumeSessionlessTxDelegates", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxDelegates},
 	{Name: "TestResumeSessionlessTxPropagatesError", Categories: "unitary", Exclusive: false, Fn: TestResumeSessionlessTxPropagatesError},
-	// {Name: "TestSessionlessTransactionBeginTxFailureClearsPreparation", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionBeginTxFailureClearsPreparation},
-	// {Name: "TestSessionlessTransactionEnds", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionEnds},
 	{Name: "TestSessionlessTransactionWrappersRejectUnsupportedConnection", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionWrappersRejectUnsupportedConnection},
 	{Name: "TestGlobalTransactionIDString", Categories: "unitary", Exclusive: false, Fn: TestGlobalTransactionIDString},
 

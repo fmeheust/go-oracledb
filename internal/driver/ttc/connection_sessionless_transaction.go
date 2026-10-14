@@ -277,8 +277,15 @@ func (t *sessionlessTransaction) Suspend() error {
 	if t._transactionState == transactionEndedServer {
 		return sql.ErrTxDone
 	}
+	// This is a workaround for a bug that causes suspend not to reset the state
+	// Suspend is now sent as a piggyback message followed by a rollback that
+	// will reset the state. This should be removed and suspend should be sent
+	// as a TTIFUN as soon as the bug is fixed.
 	err := endTransaction(t, t._transactionContext, t.detachTransaction)
-	return err
+	if err != nil {
+		return err
+	}
+	return endTransaction(t, t._transactionContext, t.rollback)
 }
 
 // endTransaction clears the transaction identifier, marks the transaction as
@@ -307,7 +314,7 @@ func (t *transaction) detachTransaction(ctx context.Context) error {
 	}
 
 	// create the message
-	msg, err := t.underlyingConnection().shelf.GetMessageFactory().GetMessageForFunction(TTIFUN, oTxSe)
+	msg, err := t.underlyingConnection().shelf.GetMessageFactory().GetMessageForFunction(TTIPFN, oTxSe)
 	if err != nil {
 		common.Odl.Warn("Error creating OTXSE message", "error", err)
 		return common.NewOracleError(oracleErrors.InternalError, err)
@@ -323,46 +330,12 @@ func (t *transaction) detachTransaction(ctx context.Context) error {
 	otxse.configureForSuspend()
 
 	// push the message
-	err = t.underlyingConnection().shelf.GetMessageStreamer().Push(ctx, msg)
+	err = stmr.Push(ctx, msg)
 	if err != nil {
 		common.Odl.Warn("Error pushing OTXSE message", "error", err)
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
 	}
-
-	// flush
-	err = stmr.Flush(ctx)
-	if err != nil {
-		common.Odl.Warn("Error flushing OTXSE message", "error", err)
-		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
-	}
-
-	// register OTXSE RPA
-	stmr.RegisterPreUnmarshallCallback(TTIRPA, func(*messageHeader) (driverCommon.Message[driverCommon.MessageType], error) {
-		return t.underlyingConnection().shelf.GetMessageFactory().GetMessageForFunction(TTIRPA, oTxSe)
-	})
-	defer stmr.UnRegisterPreUnmarshallCallback(TTIRPA)
-
-	for {
-		retMsg, err := stmr.Pull(ctx, TTIRPA, TTIOER, TTISTA)
-		if err != nil {
-			common.Odl.Warn("Error pulling OTXSE response", "error", err)
-			return common.NewOracleError(oracleErrors.StreamerReadError, err)
-		}
-		switch retMsg.GetMsgCode() {
-		case TTIRPA:
-			// OTXSE returns context/application return values in TTIRPA, but the
-			// transaction operation completes only when terminal status follows.
-			continue
-		case TTIOER:
-			err = retMsg.(tTIOerIface).getError()
-			if err != nil {
-				return err
-			}
-			return nil
-		case TTISTA:
-			return nil
-		}
-	}
+	return nil
 }
 
 // GlobalTransactionID returns a copy of the identifier currently stored on

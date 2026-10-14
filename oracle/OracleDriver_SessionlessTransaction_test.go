@@ -878,8 +878,6 @@ func TestSessionlessTransactionStartAfterSuspendSameConnection(t *testing.T) {
 		t.Fatalf("Ping error %v", err)
 	}
 
-	fmt.Println("After first ping")
-
 	secondTx, err := connectionWrapper.BeginSessionlessTx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelSerializable, ReadOnly: false,
 	}, 300)
@@ -892,8 +890,6 @@ func TestSessionlessTransactionStartAfterSuspendSameConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Ping error %v", err)
 	}
-	fmt.Println("After second ping")
-
 	if err := secondTx.QueryRowContext(ctx, "SELECT 1 FROM DUAL").Scan(&value); err != nil {
 		t.Fatalf("run SELECT 1 FROM DUAL on second sessionless transaction: %v", err)
 	}
