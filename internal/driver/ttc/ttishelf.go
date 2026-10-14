@@ -174,12 +174,13 @@ func (s *ttiShelf[T]) isInTransaction() bool {
 // Parameters:
 //   - t: Transaction to register.
 func (s *ttiShelf[T]) registerTransaction(t oracleTx) {
+	internalCommon.Odl.Fine("Transaction registered")
 	s._currentTransaction = t
 }
 
 // unregisterTransaction unregisters the current transaction.
 func (s *ttiShelf[T]) unregisterTransaction() {
-	internalCommon.Odl.Debug("Transaction unregistered")
+	internalCommon.Odl.Fine("Transaction unregistered")
 	s._currentTransaction = nil
 }
 

@@ -49,6 +49,8 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
+// assertDeferredTransactionStart verifies BeginTx queues one OTXSE start as a
+// TTIPFN piggyback, encodes opts in its flags, and does not read a response yet.
 func assertDeferredTransactionStart(t *testing.T, streamer *mockStreamer, opts driver.TxOptions) {
 	t.Helper()
 	if streamer.pushedMsg.Len() != 1 {
@@ -175,6 +177,8 @@ func TestTransactionEndConsumesOTxEnRPA(t *testing.T) {
 	}
 }
 
+// assertTransactionFunction verifies that one OTXEN transaction-end message
+// was queued with the expected operation, input state, and zero flags.
 func assertTransactionFunction(t *testing.T, streamer *mockStreamer, operation common.SB4, inState common.UB4) {
 	t.Helper()
 	if streamer.pushedMsg.Len() != 1 {
@@ -237,6 +241,8 @@ func TestCallBeginTxTwice(t *testing.T) {
 
 }
 
+// newTransactionTestConnection creates a connection with the message handlers
+// needed by the transaction tests and the supplied streamer.
 func newTransactionTestConnection(streamer *mockStreamer) *connection {
 	messageRegistry := NewRegistry[common.MessageType]()
 	messageRegistry.Register(TTIOER, 1, newTTIoer)
@@ -251,6 +257,8 @@ func newTransactionTestConnection(streamer *mockStreamer) *connection {
 	return newTestConnection(shelf, nil, nil)
 }
 
+// transactionErrorCode verifies err is a transaction SQL error and returns its
+// Oracle error code.
 func transactionErrorCode(t *testing.T, err error) oracleErrors.ErrorCode {
 	t.Helper()
 	if err == nil {

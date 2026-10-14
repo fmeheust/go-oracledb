@@ -170,6 +170,7 @@ func commitTransaction(t oracleTx) error {
 	// check for errors during the commit round-trip
 	if readFuncError != nil {
 		if t.currentTransactionState() != transactionEndedServer {
+			common.Odl.Fine("An error occurred during transaction commit, changing transaction state back to previous state", "transaction state", previousState)
 			t.transactionState(previousState)
 		}
 		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, readFuncError, "Commit"))
@@ -204,6 +205,7 @@ func endTransaction(t oracleTx, ctx context.Context, transactionEndingFunc func(
 	// check for errors during the rollback round-trip
 	if runFuncErr != nil {
 		if t.currentTransactionState() != transactionEndedServer {
+			common.Odl.Fine("An error occurred during transaction commit, changing transaction state back to previous state", "transaction state", previousState)
 			t.transactionState(previousState)
 		}
 		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, runFuncErr, "Rollback"))

@@ -90,8 +90,8 @@ func (sessionUpdater serverToClientPiggybackUpdater) handleServerToClientPiggyba
 
 }
 
-// updateSessionProperties handles an OCSSYNC message and updates session
-// properties.
+// updateSessionProperties handles an OCSSYNC message, updates
+// session properties and raises session properties update event.
 //
 // Parameters:
 //   - msg: OCSSYNC message containing session properties.

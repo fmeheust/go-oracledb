@@ -436,10 +436,13 @@ func getKeyValueFromKeyword(nlsKeys [64]string, keyword keywordValuePair) (strin
 			return al8kwEnabledRoleNamesStr, roleNames
 		}
 	} else if intValue == al8kwSessionlessGlobalTransactionID {
+		// GTRID sync session property
 		if binaryValue.value != nil {
 			sessionlessGlobalTransactionIDSync, err := newSessionlessGlobalTransactionIDSync(binaryValue.value)
 			if err == nil {
 				return sessionlessGlobalTransactionIDProperty, sessionlessGlobalTransactionIDSync
+			} else {
+				common.Odl.Debug("An error occured while decoding GTRID sync property", "error", err)
 			}
 		}
 	}
@@ -500,6 +503,7 @@ type sessionlessGlobalTransactionIDSync struct {
 //   - error: Error if the payload is too short, the identifier exceeds the
 //     supported limit, or the version is unsupported.
 func newSessionlessGlobalTransactionIDSync(raw driverCommon.B1Array) (*sessionlessGlobalTransactionIDSync, error) {
+	common.Odl.Finest("Decoding GTRID sync session property", "raw value", raw)
 	if len(raw) < 2 {
 		return nil, common.NewOracleError(oracleErrors.FailUnmarshal, nil, "GlobalTransactionID")
 	}

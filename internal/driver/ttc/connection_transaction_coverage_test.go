@@ -112,8 +112,9 @@ func TestRunTransactionEndingOperationSetupAndTransportFailures(t *testing.T) {
 	}
 }
 
-// TestRunTransactionEndingOperationAdditionalResponsePaths verifies that RunTransactionEndingOperation continues after
-// an unexpected TTIRPA type and completes when TTISTA is the terminal response.
+// TestRunTransactionEndingOperationAdditionalResponsePaths verifies that
+// runTransactionEndingOperation ignores TTIRPA response payload and succeeds
+// when TTISTA is the terminal response.
 func TestRunTransactionEndingOperationAdditionalResponsePaths(t *testing.T) {
 	t.Parallel()
 

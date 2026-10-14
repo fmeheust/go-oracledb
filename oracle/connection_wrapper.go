@@ -107,6 +107,7 @@ func (wrapper *connectionWrapper) BeginSessionlessTx(ctx context.Context, opts *
 	var internalTx common.SessionlessTransaction
 	var err error
 	err = wrapper.connection.Raw(func(c any) error {
+		// register the transaction with status prepare and start function start
 		internalTx, err = c.(canBeWrapped).PrepareForSessionlessStartOperation(ctx, timeout)
 		return err
 	})
@@ -116,6 +117,7 @@ func (wrapper *connectionWrapper) BeginSessionlessTx(ctx context.Context, opts *
 	sqlTx, err := wrapper.connection.BeginTx(ctx, opts)
 	if err != nil {
 		_ = wrapper.connection.Raw(func(c any) error {
+			// unregister the transaction if an error occurred on begin transaction
 			c.(canBeWrapped).ClearPrepareForSessionlessStartOperation()
 			return nil
 		})
@@ -144,6 +146,7 @@ func (wrapper *connectionWrapper) ResumeSessionlessTx(ctx context.Context, globa
 	var internalTx common.SessionlessTransaction
 	var err error
 	err = wrapper.connection.Raw(func(c any) error {
+		// register the transaction with status prepare and start function resume
 		internalTx, err = c.(canBeWrapped).PrepareForSessionlessResumeOperation(ctx, globalTransactionID, timeout)
 		return err
 	})
@@ -152,6 +155,7 @@ func (wrapper *connectionWrapper) ResumeSessionlessTx(ctx context.Context, globa
 	}
 	sqlTx, err := wrapper.connection.BeginTx(ctx, &sql.TxOptions{})
 	_ = wrapper.connection.Raw(func(c any) error {
+		// unregister the transaction if an error occurred on resume transaction
 		c.(canBeWrapped).ClearPrepareForSessionlessResumeOperation(internalTx, err)
 		return nil
 	})
