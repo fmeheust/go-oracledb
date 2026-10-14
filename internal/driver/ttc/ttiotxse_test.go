@@ -104,7 +104,7 @@ func TestOTxSe_FactoryRegistration_MessageCodes(t *testing.T) {
 func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	t.Parallel()
 
-	msg := newOTxSe18().(*tTIOtxse)
+	msg := newOTxSePfn18().(*tTIOtxse)
 	conn, _ := newSessionlessTransactionTestConnection()
 	tx := newSessionlessTransaction(context.Background(), conn, []byte("g1"), 30)
 	xid, globalTransactionIDLength, bqualLength := tx.buildSessionlessXID()
@@ -120,6 +120,9 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	got := buf.bytes[:buf.currentWritePosition]
 	if len(got) == 0 {
 		t.Fatal("expected non-empty OTXSE payload")
+	}
+	if msg.GetMsgCode() != TTIPFN || msg.GetFuncCode() != oTxSe {
+		t.Fatalf("message code/function = (%d, %d), want (TTIPFN, OTXSE)", msg.GetMsgCode(), msg.GetFuncCode())
 	}
 	if got[0] != byte(oTxSe) {
 		t.Fatalf("first byte = %d, want function code %d", got[0], oTxSe)
@@ -167,7 +170,7 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 func TestOTxSe_MarshalTo_Suspend(t *testing.T) {
 	t.Parallel()
 
-	msg := newOTxSe().(*tTIOtxse)
+	msg := newOTxSePfn18().(*tTIOtxse)
 	msg.configureForSuspend()
 
 	buf, engine := newOTxSeEngine(256)
@@ -178,6 +181,9 @@ func TestOTxSe_MarshalTo_Suspend(t *testing.T) {
 	got := buf.bytes[:buf.currentWritePosition]
 	if len(got) == 0 {
 		t.Fatal("expected non-empty OTXSE detach payload")
+	}
+	if msg.GetMsgCode() != TTIPFN || msg.GetFuncCode() != oTxSe {
+		t.Fatalf("message code/function = (%d, %d), want (TTIPFN, OTXSE)", msg.GetMsgCode(), msg.GetFuncCode())
 	}
 	if msg.operation != otxseDetach {
 		t.Fatalf("operation = %d, want %d", msg.operation, otxseDetach)

@@ -90,11 +90,9 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
-	tx := &sessionlessTransaction{
-		globalTransactionID: []byte("g1"),
-		timeout:             30,
-	}
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(ctx, conn, []byte("g1"), 30)
+	xid, globalTransactionIDLength, bqualLength := tx.buildSessionlessXID()
 
 	msg := newOTxEn18().(*tTIOtxen)
 	msg.configureForCommit(tx)
@@ -135,8 +133,8 @@ func TestOTxEnMarshalTo(t *testing.T) {
 	assertPointer("transaction context pointer", 0)
 	assertUniversal("transaction context length", 0)
 	assertUniversal("format ID", int(k2gSessionless))
-	assertUniversal("global transaction ID length", 2)
-	assertUniversal("BQUAL length", 2)
+	assertUniversal("global transaction ID length", int(globalTransactionIDLength))
+	assertUniversal("BQUAL length", int(bqualLength))
 	assertPointer("XID pointer", 1)
 	assertUniversal("XID length", len(xid))
 	assertUniversal("timeout", 30)

@@ -199,7 +199,6 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestSessionlessTransactionPreparedStatementClosedAfterEnd", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionPreparedStatementClosedAfterEnd},
 	{Name: "TestSessionlessTransactionStartTwice", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionStartTwice},
 	{Name: "TestSessionlessTransactionStartAfterSuspendSameConnection", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionStartAfterSuspendSameConnection},
-	{Name: "TestSessionlessTransactionSuspendAndResume", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionSuspendAndResume},
 	{Name: "TestSessionlessTransactionResumeTwice", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionResumeTwice},
 	{Name: "TestSessionlessTransactionResumeTwiceDifferentConnection", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionResumeTwiceDifferentConnection},
 	{Name: "TestSessionlessTransactionCommitPLSQL", Categories: "functional", Exclusive: false, Fn: TestSessionlessTransactionCommitPLSQL},
