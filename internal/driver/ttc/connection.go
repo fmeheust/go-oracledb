@@ -443,7 +443,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 	switch {
 	case sync.IsSet() && sync.IsStartSuspendClient():
 		// the client transaction has started on the server
-		common.Osl.Debug("Client transaction started", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Debug("Client transaction started", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 			if !slices.Equal(sessionlessTx.globalTransactionID, sync.GlobalTransactionID()) {
 				sessionlessTx.globalTransactionID = sync.GlobalTransactionID()
@@ -457,7 +457,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		}
 	case sync.IsUnset() && sync.IsStartSuspendClient():
 		// the client transaction has ended on the server
-		common.Osl.Debug("Client transaction suspended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Debug("Client transaction suspended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 			sessionlessTx.endTransaction()
 		} else {
@@ -467,15 +467,15 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		}
 	case sync.IsUnset() && sync.IsEnded():
 		// the client transaction has ended on the server
-		common.Osl.Debug("Transaction ended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Debug("Transaction ended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 			sessionlessTx.endTransaction()
 		} else {
-			common.Odl.Debug("Server initiated sessionless transaction ended on server.")
+			common.Odl.Finest("Server initiated sessionless transaction ended on server.")
 		}
 	case sync.IsSet() && sync.IsStartSuspendServer():
-		common.Osl.Debug("Server transaction started, starting implicit transaction", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Finest("Server transaction started, starting implicit transaction", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 	case sync.IsUnset() && sync.IsStartSuspendServer():
-		common.Osl.Debug("Server transaction suspended, ending implicit transaction", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Finest("Server transaction suspended, ending implicit transaction", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 	}
 }
