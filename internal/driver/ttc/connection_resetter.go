@@ -55,7 +55,6 @@ func (c *connection) ResetSession(ctx context.Context) error {
 	if c._isClosed || !c._isValid {
 		return driver.ErrBadConn
 	}
-
 	statements := c.shelf.GetStatements(true)
 	for _, statement := range statements {
 		if err := statement.Close(); err != nil {

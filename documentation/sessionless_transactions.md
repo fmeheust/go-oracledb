@@ -226,6 +226,7 @@ operation does not replace an explicit transaction-ending operation.
 - Statements owned by the transaction are closed by the driver during each
   ending operation.
 
-After suspending, do not use the old transaction handle. Resume the transaction
-with its global transaction ID and a new dedicated connection instead.
+After suspending, do not use the old transaction handle. Resuming the 
+transaction with its global transaction ID will return a new transaction
+handle.
 

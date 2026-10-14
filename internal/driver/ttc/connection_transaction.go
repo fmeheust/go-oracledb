@@ -73,7 +73,7 @@ func (c *connection) Begin() (driver.Tx, error) {
 //   - driver.Tx: Started transaction.
 //   - error: Error if the transaction cannot be started.
 func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	common.Odl.Debug("Starting transaction")
+	common.Odl.Fine("Starting transaction")
 
 	if c.shelf.isInTransaction() {
 		return nil, c.shelf.LocalizeError(common.NewOracleError(errors.AlreadyInTransaction, nil, nil))
@@ -84,6 +84,8 @@ func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 	}
 
 	var tx oracleTx
+	// if there is a prepared transaction use it (start/resumt sessionless TXN), otherwise
+	// create a new one
 	if tx = c.shelf.getTransaction(); tx == nil {
 		tx = newTransaction(c, ctx)
 		c.shelf.registerTransaction(tx)

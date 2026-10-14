@@ -185,6 +185,7 @@ func commitTransaction(t oracleTx) error {
 // Returns:
 //   - error: Error if no transaction is active or the rollback fails.
 func (t *transaction) Rollback() error {
+	common.Odl.Fine("Transaction rollback")
 	return endTransaction(t, common.BackgroundContext, t.rollback)
 }
 
@@ -196,8 +197,6 @@ func (t *transaction) rollback(ctx context.Context) error {
 // endTransaction runs a transaction-ending operation and reconciles local
 // state with the server response.
 func endTransaction(t oracleTx, ctx context.Context, transactionEndingFunc func(context.Context) error) error {
-	common.Odl.Fine("Transaction rollback")
-
 	// get the current transaction and execute rollback
 	previousState := t.transactionState(transactionEndedClient)
 	runFuncErr := transactionEndingFunc(ctx)

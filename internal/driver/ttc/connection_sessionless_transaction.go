@@ -188,6 +188,7 @@ func (c *connection) PrepareForSessionlessStartOperation(ctx context.Context, ti
 		return nil, c.shelf.LocalizeError(err)
 	}
 
+	common.Odl.With("GTRID", globalTransactionID).Fine("Prepare start sessionless transaction")
 	// create and register the sessionless transaction object
 	tx := newSessionlessTransaction(ctx, c, globalTransactionID, timeout)
 	tx.startOperation = SessionlessStart
@@ -198,7 +199,11 @@ func (c *connection) PrepareForSessionlessStartOperation(ctx context.Context, ti
 // ClearPrepareForSessionlessStartOperation removes a prepared start after
 // database/sql fails to begin the transaction.
 func (c *connection) ClearPrepareForSessionlessStartOperation() {
-	c.shelf.unregisterTransaction()
+	currentTx, currentOk := c.shelf.getTransaction().(*sessionlessTransaction)
+	if currentOk {
+		common.Odl.With("GTRID", currentTx.globalTransactionID).Fine("An error occurred, unregister transaciton")
+		c.shelf.unregisterTransaction()
+	}
 }
 
 // PrepareForSessionlessResumeOperation validates the identifier and registers
@@ -220,6 +225,7 @@ func (c *connection) PrepareForSessionlessResumeOperation(ctx context.Context, g
 		return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.UnsupportedFeature, nil, "Sessionless Transactions"))
 	}
 
+	common.Odl.With("GTRID", globalTransactionID).Fine("Prepare resume sessionless transaction")
 	// create and register the sessionless transaction object
 	tx := newSessionlessTransaction(ctx, c, globalTransactionID, timeout)
 	tx.startOperation = SessionlessResume
@@ -236,6 +242,7 @@ func (c *connection) ClearPrepareForSessionlessResumeOperation(tx common.Session
 		currentTx, currentOk := c.shelf.getTransaction().(*sessionlessTransaction)
 		thisTx, thisOk := tx.(*sessionlessTransaction)
 		if currentOk && thisOk && thisTx == currentTx {
+			common.Odl.With("GTRID", thisTx.globalTransactionID).Fine("An error occurred, unregister transaciton")
 			c.shelf.unregisterTransaction()
 			return
 		}
@@ -256,12 +263,15 @@ func (t *sessionlessTransaction) Commit() error {
 // a bounded background context. It returns sql.ErrTxDone when the server has
 // already reported that the transaction ended.
 func (t *sessionlessTransaction) Rollback() error {
+	common.Odl.Fine("Transaction rollback")
 	t.endOperationMutex.Lock()
 	defer t.endOperationMutex.Unlock()
 	// transaction already ended
 	if t._transactionState == transactionEndedServer {
 		return sql.ErrTxDone
 	}
+	// Rollback should be allowed to complete even if the transaction context
+	// has ended, use another context to execute the rollback operation.
 	rollbackCtx, cancel := context.WithTimeout(common.BackgroundContext, _rollbackTimeout)
 	defer cancel()
 	return endTransaction(t, rollbackCtx, t.rollback)
@@ -272,6 +282,7 @@ func (t *sessionlessTransaction) Rollback() error {
 // unregistered locally; its identifier should be saved before suspension. It
 // returns sql.ErrTxDone when the server has already reported that it ended.
 func (t *sessionlessTransaction) Suspend() error {
+	common.Odl.With("GTRID", t.globalTransactionID).Fine("Transaction suspend")
 	t.endOperationMutex.Lock()
 	defer t.endOperationMutex.Unlock()
 	if t._transactionState == transactionEndedServer {
@@ -281,7 +292,8 @@ func (t *sessionlessTransaction) Suspend() error {
 }
 
 // endTransaction clears the transaction identifier, marks the transaction as
-// ended on the server, and unregisters it from the connection.
+// ended on the server, and unregisters it from the connection. This method
+// should be called when the server reports that the transaction has ended.
 func (t *sessionlessTransaction) endTransaction() {
 	t.globalTransactionID = nil
 	t.transaction.endTransaction()
@@ -290,14 +302,16 @@ func (t *sessionlessTransaction) endTransaction() {
 // detachTransaction executes an OTXSE request and waits for the
 // terminal TTIOER or TTISTA response.
 //
+// Because of a bug, detachTransaction send OTXSE as a piggyback
+// operation of a ROLLBACK. This is not the expected behavior, but
+// a workaround.
+//
 // Parameters:
 //   - ctx: Context used for the detach operation.
 //
 // Returns:
 //   - error: Error if the message cannot be sent or the server returns an error.
 func (t *transaction) detachTransaction(ctx context.Context) error {
-	common.Odl.Debug("Running sessionless transaction detach")
-
 	// get the streamer
 	stmr, ok := t.underlyingConnection().shelf.GetMessageStreamer().(MessageStreamerInterface)
 	if !ok {

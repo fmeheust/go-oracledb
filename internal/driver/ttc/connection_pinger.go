@@ -50,11 +50,9 @@ import (
 
 // *** Pinger ***
 
-// Ping pings the database to check if the connection is in a valid state
-//
-// Returns: driver.ErrBadConn if the connection is not in a valid state
-//
-//	otherwise nil
+// Ping sends a ping request to the database. It returns driver.ErrBadConn if
+// the connection is invalid before or after the request, the ping error if the
+// request fails, or nil if it succeeds.
 func (c *connection) Ping(ctx context.Context) error {
 	if !c.isValid() {
 		return driver.ErrBadConn
@@ -72,7 +70,9 @@ func (c *connection) Ping(ctx context.Context) error {
 // *** Validator ***
 
 const (
-	// timeout duration to prevent the IsValid function from blocking indefinitely
+	// timeout duration to prevent the IsValid function from blocking indefinitely. If
+	// there is an active transaction, IsValid will rollback the transaction before
+	// returning it to the pool.
 	_rollbackTimeout time.Duration = 10000000000 // 10s
 )
 

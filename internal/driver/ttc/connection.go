@@ -257,7 +257,7 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 			// we only change the state if the state is still started on
 			// client
 			if currentTransaction.currentTransactionState() == transactionStartedClient {
-				common.Odl.Debug("Transaction started on server")
+				common.Odl.Fine("Transaction started on server")
 				// Standard transactions are acknowledged through End-of-Call
 				// status. Sessionless transactions use the SESSIONLESS_GTRID
 				// session-property event instead.
@@ -266,7 +266,7 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 		}
 	case inactive:
 		if currentTransaction != nil {
-			common.Odl.Debug("Transaction ended on server")
+			common.Odl.Fine("Transaction ended on server")
 			// The server no longer has a standard transaction that was
 			// registered locally.
 			currentTransaction.endTransaction()
@@ -274,7 +274,7 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 			// If this is a sessionless transaction, this happens if the
 			// transaction is a sessionless transaction. The GTRID update
 			// message is received before and unregisters the transaction
-			common.Odl.Debug("The server has reported the end of a transaction")
+			common.Odl.Fine("The server has reported the end of a transaction")
 		}
 	}
 	// return always true, the incoming message should be kept
@@ -440,7 +440,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 	switch {
 	case sync.IsSet() && sync.IsStartSuspendClient():
 		// the client transaction has started on the server
-		common.Odl.Debug("Client transaction started", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Fine("Client transaction started", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 			if !slices.Equal(sessionlessTx.globalTransactionID, sync.GlobalTransactionID()) {
 				sessionlessTx.globalTransactionID = sync.GlobalTransactionID()
@@ -454,7 +454,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		}
 	case sync.IsUnset() && sync.IsStartSuspendClient():
 		// the client transaction has ended on the server
-		common.Odl.Debug("Client transaction suspended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Fine("Client transaction suspended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 			sessionlessTx.endTransaction()
 		} else {
@@ -464,7 +464,7 @@ func (c *connection) handleSessionPropertyChange(eventData eventData) {
 		}
 	case sync.IsUnset() && sync.IsEnded():
 		// the client transaction has ended on the server
-		common.Odl.Debug("Transaction ended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
+		common.Odl.Fine("Transaction ended", "global transaction ID", hex.EncodeToString(sync.globalTransactionID))
 		if sessionlessTx, ok := c.shelf.getTransaction().(*sessionlessTransaction); ok {
 			sessionlessTx.endTransaction()
 		} else {

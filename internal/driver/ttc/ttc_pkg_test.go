@@ -538,7 +538,9 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnectionBeginTxPushFailureClearsSessionlessPreparation", Categories: "unitary", Exclusive: false, Fn: TestConnectionBeginTxPushFailureClearsSessionlessPreparation},
 	{Name: "TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction},
 	{Name: "TestSessionlessTransactionSuspendFailureRestoresStartedState", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionSuspendFailureRestoresStartedState},
+	{Name: "TestSessionlessTransactionEndOperations", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionEndOperations},
 	{Name: "TestSessionlessTransactionPrepareValidation", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionPrepareValidation},
+	{Name: "TestPrepareForSessionlessStartOperationRandomFailure", Categories: "unitary", Exclusive: false, Fn: TestPrepareForSessionlessStartOperationRandomFailure},
 	{Name: "TestSessionlessTransactionPrepareCleanup", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionPrepareCleanup},
 	{Name: "TestSessionlessTransactionBuildsBoundedXID", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionBuildsBoundedXID},
 	{Name: "TestSessionlessTransactionClientSyncLifecycle", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionClientSyncLifecycle},
@@ -546,6 +548,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestSessionlessGlobalTransactionIDSyncRejectsShortPayloads", Categories: "unitary", Exclusive: false, Fn: TestSessionlessGlobalTransactionIDSyncRejectsShortPayloads},
 	{Name: "TestSessionlessGlobalTransactionIDSyncRejectsUnsupportedPayloadValues", Categories: "unitary", Exclusive: false, Fn: TestSessionlessGlobalTransactionIDSyncRejectsUnsupportedPayloadValues},
 	{Name: "TestSessionlessTransactionDetachResponsePaths", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionDetachResponsePaths},
+	{Name: "TestSessionlessTransactionDetachSetupFailures", Categories: "unitary", Exclusive: false, Fn: TestSessionlessTransactionDetachSetupFailures},
 
 	{Name: "TestOTxEnFactoryRegistration", Categories: "unitary", Exclusive: false, Fn: TestOTxEnFactoryRegistration},
 	{Name: "TestOTxEnMarshalTo", Categories: "unitary", Exclusive: false, Fn: TestOTxEnMarshalTo},

@@ -41,6 +41,8 @@ package ttc
 import (
 	"bytes"
 	"context"
+	cryptoRand "crypto/rand"
+	"database/sql"
 	"database/sql/driver"
 
 	"errors"
@@ -340,6 +342,98 @@ func TestSessionlessTransactionSuspendFailureRestoresStartedState(t *testing.T) 
 	}
 }
 
+// TestSessionlessTransactionEndOperations covers successful and failed commit
+// and rollback operations, plus repeated end calls after server confirmation.
+func TestSessionlessTransactionEndOperations(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		end       func(*sessionlessTransaction) error
+		operation driverCommon.SB4
+	}{
+		{name: "commit", end: (*sessionlessTransaction).Commit, operation: driverCommon.SB4(otxenCommit)},
+		{name: "rollback", end: (*sessionlessTransaction).Rollback, operation: driverCommon.SB4(otxenAbort)},
+	} {
+		t.Run(test.name+" succeeds", func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			streamer.pullMsgs = []driverCommon.Message[driverCommon.MessageType]{newTTISTA()}
+			streamer.pullHook = func(driverCommon.Message[driverCommon.MessageType]) {
+				conn.handleSessionPropertyChange(sessionlessSyncEventData(
+					t, "", sessionlessGlobalTransactionIDSyncUnset, sessionlessSyncStartSuspendClient))
+			}
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("end-id"), 30)
+			tx.transactionState(transactionStartedClient)
+			conn.shelf.registerTransaction(tx)
+
+			if err := test.end(tx); err != nil {
+				t.Fatalf("%s returned error: %v", test.name, err)
+			}
+			if conn.shelf.getTransaction() != nil {
+				t.Fatal("server end notification left the transaction registered")
+			}
+			if got := tx.currentTransactionState(); got != transactionEndedServer {
+				t.Fatalf("transaction state = %d, want server-ended", got)
+			}
+			if got := tx.GlobalTransactionID(); got != nil {
+				t.Fatalf("global transaction ID = %q, want nil", got)
+			}
+			if got := streamer.pushedMsg.Len(); got != 1 {
+				t.Fatalf("end operation pushed %d messages, want 1", got)
+			}
+			message := streamer.pushedMsg.Front().Value.(*driverCommon.Message[driverCommon.MessageType])
+			otxen, ok := (*message).(*tTIOtxen)
+			if !ok {
+				t.Fatalf("end message = %T, want *tTIOtxen", *message)
+			}
+			if got := otxen.operation; got != test.operation {
+				t.Fatalf("OTXEN operation = %d, want %d", got, test.operation)
+			}
+		})
+
+		t.Run(test.name+" transport failure restores state", func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			streamer.pushErr = errors.New("write failed")
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("end-id"), 30)
+			tx.transactionState(transactionStartedClient)
+			conn.shelf.registerTransaction(tx)
+
+			err := test.end(tx)
+			if got, want := transactionErrorCode(t, err), oracleErrors.ErrorInTransaction; got != want {
+				t.Fatalf("end operation error code = %s, want %s", got, want)
+			}
+			if got := tx.currentTransactionState(); got != transactionStartedClient {
+				t.Fatalf("transaction state after failed end = %d, want client-started", got)
+			}
+			if conn.shelf.getTransaction() != tx {
+				t.Fatal("failed end operation unregistered the transaction")
+			}
+		})
+	}
+
+	for _, test := range []struct {
+		name string
+		end  func(*sessionlessTransaction) error
+	}{
+		{name: "commit", end: (*sessionlessTransaction).Commit},
+		{name: "rollback", end: (*sessionlessTransaction).Rollback},
+		{name: "suspend", end: (*sessionlessTransaction).Suspend},
+	} {
+		t.Run(test.name+" already ended", func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("end-id"), 30)
+			tx.transactionState(transactionEndedServer)
+
+			if err := test.end(tx); err != sql.ErrTxDone {
+				t.Fatalf("%s after server end error = %v, want %v", test.name, err, sql.ErrTxDone)
+			}
+			if streamer.pushCalled {
+				t.Fatalf("%s sent a message after the server ended the transaction", test.name)
+			}
+		})
+	}
+}
+
 // TestSessionlessTransactionPrepareValidation covers active-transaction,
 // capability, and caller-supplied ID validation on both preparation paths.
 func TestSessionlessTransactionPrepareValidation(t *testing.T) {
@@ -384,6 +478,30 @@ func TestSessionlessTransactionPrepareValidation(t *testing.T) {
 				t.Fatal("preparation validation unexpectedly pushed a message")
 			}
 		})
+	}
+}
+
+// TestPrepareForSessionlessStartOperationRandomFailure verifies that an entropy
+// source failure is returned without registering a prepared transaction. This
+// test replaces crypto/rand.Reader and must not run in parallel.
+func TestPrepareForSessionlessStartOperationRandomFailure(t *testing.T) {
+	originalReader := cryptoRand.Reader
+	cryptoRand.Reader = bytes.NewReader(nil)
+	defer func() { cryptoRand.Reader = originalReader }()
+
+	conn, streamer := newSessionlessTransactionTestConnection()
+	tx, err := conn.PrepareForSessionlessStartOperation(context.Background(), 30)
+	if err == nil {
+		t.Fatal("PrepareForSessionlessStartOperation returned nil error for entropy failure")
+	}
+	if tx != nil {
+		t.Fatalf("PrepareForSessionlessStartOperation returned transaction %p on error", tx)
+	}
+	if conn.shelf.getTransaction() != nil {
+		t.Fatal("entropy failure left a transaction registered")
+	}
+	if streamer.pushCalled {
+		t.Fatal("entropy failure unexpectedly pushed a message")
 	}
 }
 
@@ -633,4 +751,59 @@ func TestSessionlessTransactionDetachResponsePaths(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSessionlessTransactionDetachSetupFailures covers errors before the
+// suspend piggyback can be queued.
+func TestSessionlessTransactionDetachSetupFailures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		setup     func(*connection, *mockStreamer)
+		wantCause string
+	}{
+		{
+			name: "streamer lacks callback support",
+			setup: func(conn *connection, streamer *mockStreamer) {
+				conn.shelf.RegisterMessageStreamer(streamerWithoutCallbacks{Streamer: streamer})
+			},
+		},
+		{
+			name: "factory error",
+			setup: func(conn *connection, _ *mockStreamer) {
+				conn.shelf.RegisterMessageFactory(&mockFactory{returnErr: errors.New("factory failed")})
+			},
+			wantCause: "factory failed",
+		},
+		{
+			name: "unexpected message type",
+			setup: func(conn *connection, _ *mockStreamer) {
+				conn.shelf.RegisterMessageFactory(&mockFactory{returnMsg: &mockOer{}})
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn, streamer := newSessionlessTransactionTestConnection()
+			test.setup(conn, streamer)
+			tx := newSessionlessTransaction(context.Background(), conn, []byte("detach-id"), 30)
+
+			err := tx.detachTransaction(context.Background())
+			if got, want := transactionErrorCode(t, err), oracleErrors.InternalError; got != want {
+				t.Fatalf("detach error code = %s, want %s", got, want)
+			}
+			if test.wantCause != "" && !strings.Contains(err.Error(), test.wantCause) {
+				t.Fatalf("detach error = %v, want it to include %q", err, test.wantCause)
+			}
+			if streamer.pushCalled {
+				t.Fatal("detach queued a message after setup failed")
+			}
+		})
+	}
+}
+
+type streamerWithoutCallbacks struct {
+	driverCommon.Streamer[driverCommon.MessageType]
 }
