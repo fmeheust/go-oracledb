@@ -130,7 +130,6 @@ type Statement struct {
 	queryStatementExecutor QueryWithContext
 	execStatementExecutor  ExecWithContext
 	_rows                  *ttcRows // reference on created Rows.
-	fromSessionlessTx      bool
 }
 
 /*

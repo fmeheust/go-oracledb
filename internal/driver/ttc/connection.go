@@ -143,7 +143,7 @@ Returns:
 - driver.Stmt: Prepared statement bound to this connection and query.
 - error: Non-nil if the connection is closed/invalid.
 */
-func (c *connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (c *connection) PrepareContext(_ context.Context, query string) (driver.Stmt, error) {
 	common.Odl.Fine("Connection.PrepareContext: creating statement...")
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
@@ -168,9 +168,6 @@ func (c *connection) ExecContext(ctx context.Context, query string, args []drive
 // QueryContext implements driver.QueryerContext.
 // It creates a TTC Statement and delegates the query.
 func (c *connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)
