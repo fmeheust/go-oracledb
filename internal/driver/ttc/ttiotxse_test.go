@@ -352,9 +352,9 @@ func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	}
 }
 
-// TestOTxSeRPA_UnMarshalFrom_Success verifies the OTXSE RPA unmarshals
+// TestOTxSeRPA_UnmarshalFrom_Success verifies the OTXSE RPA unmarshals
 // correctly: UB4 application value, UB2 context length, then raw bytes.
-func TestOTxSeRPA_UnMarshalFrom_Success(t *testing.T) {
+func TestOTxSeRPA_UnmarshalFrom_Success(t *testing.T) {
 	t.Parallel()
 
 	buf := NewTestDataBuffer()
@@ -373,8 +373,8 @@ func TestOTxSeRPA_UnMarshalFrom_Success(t *testing.T) {
 	if msg.GetMsgCode() != TTIRPA {
 		t.Fatalf("GetMsgCode = %v, want %v", msg.GetMsgCode(), TTIRPA)
 	}
-	if err := msg.UnMarshalFrom(context.Background(), mar); err != nil {
-		t.Fatalf("UnMarshalFrom failed: %v", err)
+	if err := msg.UnmarshalFrom(context.Background(), mar); err != nil {
+		t.Fatalf("UnmarshalFrom failed: %v", err)
 	}
 	if got := msg.GetApplicationValue(); got != 42 {
 		t.Fatalf("GetApplicationValue = %d, want 42", got)
@@ -384,9 +384,9 @@ func TestOTxSeRPA_UnMarshalFrom_Success(t *testing.T) {
 	}
 }
 
-// TestOTxSeRPA_UnMarshalFrom_EmptyContext verifies that zero-length contexts
+// TestOTxSeRPA_UnmarshalFrom_EmptyContext verifies that zero-length contexts
 // are accepted and normalized to a nil context slice.
-func TestOTxSeRPA_UnMarshalFrom_EmptyContext(t *testing.T) {
+func TestOTxSeRPA_UnmarshalFrom_EmptyContext(t *testing.T) {
 	t.Parallel()
 
 	buf := NewTestDataBuffer()
@@ -399,8 +399,8 @@ func TestOTxSeRPA_UnMarshalFrom_EmptyContext(t *testing.T) {
 	}
 
 	msg := newOTxSeRPA().(*ttiOTxSeRPA)
-	if err := msg.UnMarshalFrom(context.Background(), mar); err != nil {
-		t.Fatalf("UnMarshalFrom failed: %v", err)
+	if err := msg.UnmarshalFrom(context.Background(), mar); err != nil {
+		t.Fatalf("UnmarshalFrom failed: %v", err)
 	}
 	if got := msg.GetApplicationValue(); got != 7 {
 		t.Fatalf("GetApplicationValue = %d, want 7", got)
@@ -410,9 +410,9 @@ func TestOTxSeRPA_UnMarshalFrom_EmptyContext(t *testing.T) {
 	}
 }
 
-// TestOTxSeRPA_UnMarshalFrom_Failure verifies TTC read errors are surfaced
+// TestOTxSeRPA_UnmarshalFrom_Failure verifies TTC read errors are surfaced
 // while decoding the OTXSE reply payload.
-func TestOTxSeRPA_UnMarshalFrom_Failure(t *testing.T) {
+func TestOTxSeRPA_UnmarshalFrom_Failure(t *testing.T) {
 	t.Parallel()
 
 	payload := []byte{
@@ -423,7 +423,7 @@ func TestOTxSeRPA_UnMarshalFrom_Failure(t *testing.T) {
 	mar := createMarshaller(payload, failOnReadByte, 1)
 
 	msg := newOTxSeRPA().(*ttiOTxSeRPA)
-	err := msg.UnMarshalFrom(context.Background(), mar)
+	err := msg.UnmarshalFrom(context.Background(), mar)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -432,9 +432,9 @@ func TestOTxSeRPA_UnMarshalFrom_Failure(t *testing.T) {
 	}
 }
 
-// TestOTxSeRPA_UnMarshalFrom_FieldFailures verifies errors reading each field
+// TestOTxSeRPA_UnmarshalFrom_FieldFailures verifies errors reading each field
 // of an OTXSE return-parameter message.
-func TestOTxSeRPA_UnMarshalFrom_FieldFailures(t *testing.T) {
+func TestOTxSeRPA_UnmarshalFrom_FieldFailures(t *testing.T) {
 	t.Parallel()
 
 	buf, engine := newOTxSeEngine(128)
@@ -461,7 +461,7 @@ func TestOTxSeRPA_UnMarshalFrom_FieldFailures(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			msg := newOTxSeRPA().(*ttiOTxSeRPA)
-			err := msg.UnMarshalFrom(context.Background(), createMarshaller(payload, test.failOn, test.failCount))
+			err := msg.UnmarshalFrom(context.Background(), createMarshaller(payload, test.failOn, test.failCount))
 			assertOracleErrorCode(t, err, oracleErrors.FailUnmarshal)
 		})
 	}

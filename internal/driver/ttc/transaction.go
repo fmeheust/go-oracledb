@@ -82,10 +82,6 @@ const (
 	transactionEndedServer
 )
 
-func (state transactionState) isStarted() bool {
-	return state == transactionStartedClient || state == transactionStartedServer
-}
-
 type transaction struct {
 	// _underlyingConnection is the connection that owns this transaction.
 	_underlyingConnection *connection

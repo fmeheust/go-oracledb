@@ -553,8 +553,8 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestOTxEnMarshalToErrors", Categories: "unitary", Exclusive: false, Fn: TestOTxEnMarshalToErrors},
 	{Name: "TestOTxEnConfigureOperations", Categories: "unitary", Exclusive: false, Fn: TestOTxEnConfigureOperations},
 	{Name: "TestOTxEnRPAFactoryRegistration", Categories: "unitary", Exclusive: false, Fn: TestOTxEnRPAFactoryRegistration},
-	{Name: "TestOTxEnRPAUnMarshalFrom", Categories: "unitary", Exclusive: false, Fn: TestOTxEnRPAUnMarshalFrom},
-	{Name: "TestOTxEnRPAUnMarshalFromFailure", Categories: "unitary", Exclusive: false, Fn: TestOTxEnRPAUnMarshalFromFailure},
+	{Name: "TestOTxEnRPAUnmarshalFrom", Categories: "unitary", Exclusive: false, Fn: TestOTxEnRPAUnmarshalFrom},
+	{Name: "TestOTxEnRPAUnmarshalFromFailure", Categories: "unitary", Exclusive: false, Fn: TestOTxEnRPAUnmarshalFromFailure},
 
 	{Name: "TestOTxSe_FactoryRegistration_MessageCodes", Categories: "unitary", Exclusive: false, Fn: TestOTxSe_FactoryRegistration_MessageCodes},
 	{Name: "TestOTxSe_MarshalTo_StartSessionless", Categories: "unitary", Exclusive: false, Fn: TestOTxSe_MarshalTo_StartSessionless},
@@ -563,10 +563,10 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestGenerateSessionlessGlobalTransactionID", Categories: "unitary", Exclusive: false, Fn: TestGenerateSessionlessGlobalTransactionID},
 	{Name: "TestValidateSessionlessGlobalTransactionID", Categories: "unitary", Exclusive: false, Fn: TestValidateSessionlessGlobalTransactionID},
 	{Name: "TestNewSessionlessGlobalTransactionIDSync", Categories: "unitary", Exclusive: false, Fn: TestNewSessionlessGlobalTransactionIDSync},
-	{Name: "TestOTxSeRPA_UnMarshalFrom_Success", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_Success},
-	{Name: "TestOTxSeRPA_UnMarshalFrom_EmptyContext", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_EmptyContext},
-	{Name: "TestOTxSeRPA_UnMarshalFrom_Failure", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_Failure},
-	{Name: "TestOTxSeRPA_UnMarshalFrom_FieldFailures", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnMarshalFrom_FieldFailures},
+	{Name: "TestOTxSeRPA_UnmarshalFrom_Success", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnmarshalFrom_Success},
+	{Name: "TestOTxSeRPA_UnmarshalFrom_EmptyContext", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnmarshalFrom_EmptyContext},
+	{Name: "TestOTxSeRPA_UnmarshalFrom_Failure", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnmarshalFrom_Failure},
+	{Name: "TestOTxSeRPA_UnmarshalFrom_FieldFailures", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPA_UnmarshalFrom_FieldFailures},
 	{Name: "TestOTxSeRPAFactoryRegistration", Categories: "unitary", Exclusive: false, Fn: TestOTxSeRPAFactoryRegistration},
 
 	{Name: "TestStatementExecutorExec_HandleRXDRow_UsesScannerDestination", Categories: "unitary", Exclusive: false, Fn: TestStatementExecutorExec_HandleRXDRow_UsesScannerDestination},
@@ -1016,17 +1016,18 @@ func (t *TestDataBuffer) ReadBytesWithContext(ctx context.Context, n int32) (*[]
 
 // mockStreamer implements common.Streamer[common.MessageType] for testing
 type mockStreamer struct {
-	pushCalled bool
-	pushedMsg  list.List
-	pushErr    error
-	flushErr   error
-	pullCalled bool
-	pullTypes  []common.MessageType
-	pullMsg    common.Message[common.MessageType]
-	pullMsgs   []common.Message[common.MessageType]
-	pullErr    error
-	pullHook   func(common.Message[common.MessageType])
-	drainIn    int
+	pushCalled  bool
+	pushedMsg   list.List
+	pushErr     error
+	flushErr    error
+	flushCalled bool
+	pullCalled  bool
+	pullTypes   []common.MessageType
+	pullMsg     common.Message[common.MessageType]
+	pullMsgs    []common.Message[common.MessageType]
+	pullErr     error
+	pullHook    func(common.Message[common.MessageType])
+	drainIn     int
 }
 
 // wrapped mock stream combines both a pre-filled message incoming queue
@@ -1120,6 +1121,7 @@ func (m *mockStreamer) Pull(_ context.Context, types ...common.MessageType) (com
 }
 
 func (m *mockStreamer) Flush(_ context.Context) error {
+	m.flushCalled = true
 	return m.flushErr
 }
 

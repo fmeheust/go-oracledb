@@ -240,9 +240,9 @@ func TestConnectionBeginTxPushFailureClearsSessionlessPreparation(t *testing.T) 
 	}
 }
 
-// TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction verifies that a
-// GTRID update returned with a successful detach marks the transaction ended and
-// unregisters it before Suspend returns.
+// TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction verifies that
+// Suspend queues a detach followed by a rollback, and that a GTRID update
+// returned with the rollback marks the transaction ended and unregisters it.
 func TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction(t *testing.T) {
 	t.Parallel()
 
@@ -268,10 +268,32 @@ func TestSessionlessTransactionSuspendGTRIDSyncEndsTransaction(t *testing.T) {
 	if got := tx.GlobalTransactionID(); got != nil {
 		t.Fatalf("global transaction ID after successful Suspend = %q, want nil", got)
 	}
-	message := pushedOTxSe(t, streamer)
-	if message.operation != otxseDetach || message.flags != otxseTransSessionless || len(message.xid) != 0 {
-		t.Fatalf("suspend OTXSE fields = (operation %d, flags %#x, XID length %d)",
-			message.operation, message.flags, len(message.xid))
+	if got, want := streamer.pushedMsg.Len(), 2; got != want {
+		t.Fatalf("Suspend pushed %d messages, want detach and rollback (%d)", got, want)
+	}
+	pushedMessages := make([]driverCommon.Message[driverCommon.MessageType], 0, 2)
+	for element := streamer.pushedMsg.Front(); element != nil; element = element.Next() {
+		message, ok := element.Value.(*driverCommon.Message[driverCommon.MessageType])
+		if !ok || message == nil {
+			t.Fatalf("pushed message value = %T, want TTC message pointer", element.Value)
+		}
+		pushedMessages = append(pushedMessages, *message)
+	}
+	suspendMessage, ok := pushedMessages[0].(*tTIOtxse)
+	if !ok {
+		t.Fatalf("first pushed message = %T, want *tTIOtxse suspend piggyback", pushedMessages[0])
+	}
+	if suspendMessage.GetMsgCode() != TTIPFN || suspendMessage.operation != otxseDetach || suspendMessage.flags != otxseTransSessionless || len(suspendMessage.xid) != 0 {
+		t.Fatalf("suspend OTXSE fields = (message code %d, operation %d, flags %#x, XID length %d)",
+			suspendMessage.GetMsgCode(), suspendMessage.operation, suspendMessage.flags, len(suspendMessage.xid))
+	}
+	rollbackMessage, ok := pushedMessages[1].(*tTIOtxen)
+	if !ok {
+		t.Fatalf("second pushed message = %T, want *tTIOtxen rollback", pushedMessages[1])
+	}
+	if rollbackMessage.GetMsgCode() != TTIFUN || rollbackMessage.GetFuncCode() != oTxEn || rollbackMessage.operation != driverCommon.SB4(otxenAbort) {
+		t.Fatalf("rollback OTXEN fields = (message code %d, function code %d, operation %d), want TTIFUN/%d/abort",
+			rollbackMessage.GetMsgCode(), rollbackMessage.GetFuncCode(), rollbackMessage.operation, oTxEn)
 	}
 	if len(streamer.pullMsgs) != 0 {
 		t.Fatalf("Suspend left %d response messages unread", len(streamer.pullMsgs))
@@ -520,8 +542,8 @@ func TestSessionlessGlobalTransactionIDSyncRejectsUnsupportedPayloadValues(t *te
 	}
 }
 
-// TestSessionlessTransactionDetachResponsePaths checks completion after an
-// optional OTXSE RPA and propagation of a terminal OER error.
+// TestSessionlessTransactionDetachResponsePaths verifies that detach queues a
+// suspend piggyback and handles the rollback response paths.
 func TestSessionlessTransactionDetachResponsePaths(t *testing.T) {
 	t.Parallel()
 
@@ -535,7 +557,7 @@ func TestSessionlessTransactionDetachResponsePaths(t *testing.T) {
 		wantErr  error
 		wantCode oracleErrors.ErrorCode
 	}{
-		{name: "RPA then terminal status", pull: []driverCommon.Message[driverCommon.MessageType]{newOTxSeRPA(), newTTISTA()}},
+		{name: "OTXEN RPA then terminal status", pull: []driverCommon.Message[driverCommon.MessageType]{newOTxEnRPA(), newTTISTA()}},
 		{name: "terminal OER", pull: []driverCommon.Message[driverCommon.MessageType]{&mockOer{err: wantErr}}, wantErr: wantErr},
 		{name: "push failure", pushErr: errors.New("write failed"), wantCode: oracleErrors.StreamerWriteError},
 		{name: "flush failure", flushErr: errors.New("flush failed"), wantCode: oracleErrors.StreamerWriteError},
@@ -552,9 +574,6 @@ func TestSessionlessTransactionDetachResponsePaths(t *testing.T) {
 			tx := newSessionlessTransaction(context.Background(), conn, []byte("detach-id"), 30)
 
 			err := tx.detachTransaction(context.Background())
-			if test.wantErr == nil && test.wantCode == "" && err != nil {
-				t.Fatalf("detachTransaction returned error: %v", err)
-			}
 			if test.wantErr != nil && !errors.Is(err, test.wantErr) {
 				t.Fatalf("detachTransaction error = %v, want %v", err, test.wantErr)
 			}
@@ -562,14 +581,55 @@ func TestSessionlessTransactionDetachResponsePaths(t *testing.T) {
 				if got := transactionErrorCode(t, err); got != test.wantCode {
 					t.Fatalf("detachTransaction error code = %s, want %s", got, test.wantCode)
 				}
+			} else if test.wantErr == nil && err != nil {
+				t.Fatalf("detachTransaction returned error: %v", err)
 			}
-			message := pushedOTxSe(t, streamer)
-			if message.operation != otxseDetach || message.flags != otxseTransSessionless || len(message.xid) != 0 {
-				t.Fatalf("detach OTXSE fields = (operation %d, flags %#x, XID length %d)",
-					message.operation, message.flags, len(message.xid))
+			if !streamer.pushCalled {
+				t.Fatal("detach did not push the suspend piggyback")
 			}
-			if len(streamer.pullMsgs) != 0 && test.wantErr == nil {
-				t.Fatalf("detach left %d response messages unread", len(streamer.pullMsgs))
+			if streamer.flushCalled != (test.pushErr == nil) {
+				t.Fatalf("Flush called = %t, want %t", streamer.flushCalled, test.pushErr == nil)
+			}
+			if streamer.pullCalled != (test.pushErr == nil && test.flushErr == nil) {
+				t.Fatalf("Pull called = %t, want %t", streamer.pullCalled, test.pushErr == nil && test.flushErr == nil)
+			}
+			if len(streamer.pullMsgs) != 0 {
+				t.Fatalf("detach left %d server response messages unread", len(streamer.pullMsgs))
+			}
+
+			wantPushed := 2
+			if test.pushErr != nil {
+				wantPushed = 1
+			}
+			if got := streamer.pushedMsg.Len(); got != wantPushed {
+				t.Fatalf("detach pushed %d messages, want %d", got, wantPushed)
+			}
+			messages := make([]driverCommon.Message[driverCommon.MessageType], 0, wantPushed)
+			for element := streamer.pushedMsg.Front(); element != nil; element = element.Next() {
+				message, ok := element.Value.(*driverCommon.Message[driverCommon.MessageType])
+				if !ok || message == nil {
+					t.Fatalf("pushed message value = %T, want TTC message pointer", element.Value)
+				}
+				messages = append(messages, *message)
+			}
+			suspend, ok := messages[0].(*tTIOtxse)
+			if !ok {
+				t.Fatalf("first pushed message = %T, want *tTIOtxse suspend piggyback", messages[0])
+			}
+			if suspend.GetMsgCode() != TTIPFN || suspend.GetFuncCode() != oTxSe ||
+				suspend.operation != otxseDetach || suspend.flags != otxseTransSessionless || len(suspend.xid) != 0 {
+				t.Fatalf("suspend OTXSE fields = (message code %d, function code %d, operation %d, flags %#x, XID length %d)",
+					suspend.GetMsgCode(), suspend.GetFuncCode(), suspend.operation, suspend.flags, len(suspend.xid))
+			}
+			if test.pushErr == nil {
+				rollback, ok := messages[1].(*tTIOtxen)
+				if !ok {
+					t.Fatalf("second pushed message = %T, want *tTIOtxen rollback", messages[1])
+				}
+				if rollback.GetMsgCode() != TTIFUN || rollback.GetFuncCode() != oTxEn || rollback.operation != driverCommon.SB4(otxenAbort) {
+					t.Fatalf("rollback OTXEN fields = (message code %d, function code %d, operation %d), want TTIFUN/%d/abort",
+						rollback.GetMsgCode(), rollback.GetFuncCode(), rollback.operation, oTxEn)
+				}
 			}
 		})
 	}

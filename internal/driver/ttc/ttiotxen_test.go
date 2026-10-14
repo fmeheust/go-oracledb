@@ -336,9 +336,9 @@ func TestOTxEnRPAFactoryRegistration(t *testing.T) {
 	}
 }
 
-// TestOTxEnRPAUnMarshalFrom verifies that an OTXEN return-state value is
+// TestOTxEnRPAUnmarshalFrom verifies that an OTXEN return-state value is
 // decoded from a TTIRPA payload.
-func TestOTxEnRPAUnMarshalFrom(t *testing.T) {
+func TestOTxEnRPAUnmarshalFrom(t *testing.T) {
 	t.Parallel()
 
 	buf := NewTestDataBuffer()
@@ -348,21 +348,21 @@ func TestOTxEnRPAUnMarshalFrom(t *testing.T) {
 	}
 
 	msg := newOTxEnRPA().(*ttiOTxEnRPA)
-	if err := msg.UnMarshalFrom(context.Background(), engine); err != nil {
-		t.Fatalf("UnMarshalFrom failed: %v", err)
+	if err := msg.UnmarshalFrom(context.Background(), engine); err != nil {
+		t.Fatalf("UnmarshalFrom failed: %v", err)
 	}
 	if got := msg.GetOutState(); got != 0x12345678 {
 		t.Fatalf("GetOutState = %#x, want %#x", got, 0x12345678)
 	}
 }
 
-// TestOTxEnRPAUnMarshalFromFailure verifies that malformed OTXEN return
+// TestOTxEnRPAUnmarshalFromFailure verifies that malformed OTXEN return
 // parameters are reported as unmarshalling errors.
-func TestOTxEnRPAUnMarshalFromFailure(t *testing.T) {
+func TestOTxEnRPAUnmarshalFromFailure(t *testing.T) {
 	t.Parallel()
 
 	msg := newOTxEnRPA().(*ttiOTxEnRPA)
-	err := msg.UnMarshalFrom(context.Background(), createMarshaller([]byte{0x01}, failOnReadByte, 1))
+	err := msg.UnmarshalFrom(context.Background(), createMarshaller([]byte{0x01}, failOnReadByte, 1))
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

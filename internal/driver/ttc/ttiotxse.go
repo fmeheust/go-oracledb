@@ -387,7 +387,7 @@ func (m *ttiOTxSeRPA) GetContext() driverCommon.B1Array {
 	return m.context
 }
 
-// UnMarshalFrom decodes the OTXSE reply payload returned in TTIRPA.
+// UnmarshalFrom decodes the OTXSE reply payload returned in TTIRPA.
 //
 // Parameters:
 //   - ctx: Context used during deserialization.
@@ -395,7 +395,7 @@ func (m *ttiOTxSeRPA) GetContext() driverCommon.B1Array {
 //
 // Returns:
 //   - error: Error if the reply payload cannot be deserialized.
-func (m *ttiOTxSeRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
+func (m *ttiOTxSeRPA) UnmarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
 	applicationValue, err := engine.UnmarshalUB4(ctx)
 	if err != nil {
 		common.Odl.Warn("Error unmarshalling OTXSE RPA application value", "error", err)

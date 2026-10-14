@@ -277,15 +277,7 @@ func (t *sessionlessTransaction) Suspend() error {
 	if t._transactionState == transactionEndedServer {
 		return sql.ErrTxDone
 	}
-	// This is a workaround for a bug that causes suspend not to reset the state
-	// Suspend is now sent as a piggyback message followed by a rollback that
-	// will reset the state. This should be removed and suspend should be sent
-	// as a TTIFUN as soon as the bug is fixed.
-	err := endTransaction(t, t._transactionContext, t.detachTransaction)
-	if err != nil {
-		return err
-	}
-	return endTransaction(t, t._transactionContext, t.rollback)
+	return endTransaction(t, t._transactionContext, t.detachTransaction)
 }
 
 // endTransaction clears the transaction identifier, marks the transaction as
@@ -335,7 +327,11 @@ func (t *transaction) detachTransaction(ctx context.Context) error {
 		common.Odl.Warn("Error pushing OTXSE message", "error", err)
 		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
 	}
-	return nil
+	// This is a workaround for a bug that causes suspend not to reset the state
+	// Suspend is now sent as a piggyback message followed by a rollback that
+	// will reset the state. This should be removed and suspend should be sent
+	// as a TTIFUN as soon as the bug is fixed.
+	return t.rollback(t.transactionContext())
 }
 
 // GlobalTransactionID returns a copy of the identifier currently stored on

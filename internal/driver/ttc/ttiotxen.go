@@ -280,7 +280,7 @@ func (m *ttiOTxEnRPA) GetMsgCode() driverCommon.MessageType { return TTIRPA }
 //   - driverCommon.UB4: Transaction state returned by the server.
 func (m *ttiOTxEnRPA) GetOutState() driverCommon.UB4 { return m.outState }
 
-// UnMarshalFrom decodes the OTXEN TTIRPA payload, which contains one UB4 out
+// UnmarshalFrom decodes the OTXEN TTIRPA payload, which contains one UB4 out
 // state value.
 //
 // Parameters:
@@ -289,7 +289,7 @@ func (m *ttiOTxEnRPA) GetOutState() driverCommon.UB4 { return m.outState }
 //
 // Returns:
 //   - error: Error if the out-state value cannot be deserialized.
-func (m *ttiOTxEnRPA) UnMarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
+func (m *ttiOTxEnRPA) UnmarshalFrom(ctx context.Context, engine driverCommon.Marshaller) error {
 	outState, err := engine.UnmarshalUB4(ctx)
 	if err != nil {
 		common.Odl.Warn("Error unmarshalling OTXEN RPA out state", "error", err)
