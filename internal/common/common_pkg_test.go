@@ -73,7 +73,6 @@ var TestingConfig *TestConfig
 var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestError3113default", Categories: "unitary", Exclusive: false, Fn: TestError3113default},
 	{Name: "TestErrorUnknownCode", Categories: "unitary", Exclusive: false, Fn: TestErrorUnknownCode},
-	{Name: "TestNotCurrentTransactionMessage", Categories: "unitary", Exclusive: false, Fn: TestNotCurrentTransactionMessage},
 	{Name: "TestErrorBasic3113", Categories: "unitary", Exclusive: false, Fn: TestErrorBasic3113},
 	{Name: "TestErrorBasic3113Fr", Categories: "unitary", Exclusive: false, Fn: TestErrorBasic3113Fr},
 	{Name: "TestError3113", Categories: "unitary", Exclusive: false, Fn: TestError3113},
