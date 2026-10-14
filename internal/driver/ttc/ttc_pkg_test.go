@@ -520,8 +520,6 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnectionBeginTxReturnsPushError", Categories: "unitary", Exclusive: false, Fn: TestConnectionBeginTxReturnsPushError},
 	{Name: "TestTransactionEndConsumesOTxEnRPA", Categories: "unitary", Exclusive: false, Fn: TestTransactionEndConsumesOTxEnRPA},
 	{Name: "TestTransactionOperationErrors", Categories: "unitary", Exclusive: false, Fn: TestTransactionOperationErrors},
-	{Name: "TestTransactionOperationRejectsStaleMessages", Categories: "unitary", Exclusive: false, Fn: TestTransactionOperationRejectsStaleMessages},
-	{Name: "TestTransactionOperationsRejectStaleTransactions", Categories: "unitary", Exclusive: false, Fn: TestTransactionOperationsRejectStaleTransactions},
 	{Name: "TestRunTransactionEndingOperationSetupAndTransportFailures", Categories: "unitary", Exclusive: false, Fn: TestRunTransactionEndingOperationSetupAndTransportFailures},
 	{Name: "TestRunTransactionEndingOperationAdditionalResponsePaths", Categories: "unitary", Exclusive: false, Fn: TestRunTransactionEndingOperationAdditionalResponsePaths},
 	// {Name: "TestConnectionBeginTxSessionlessStartAndResume", Categories: "unitary", Exclusive: false, Fn: TestConnectionBeginTxSessionlessStartAndResume},

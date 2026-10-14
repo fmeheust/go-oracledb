@@ -173,7 +173,9 @@ func commitTransaction(t oracleTx) error {
 
 	// check for errors during the commit round-trip
 	if readFuncError != nil {
-		t.transactionState(previousState)
+		if t.currentTransactionState() != transactionEndedServer {
+			t.transactionState(previousState)
+		}
 		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, readFuncError, "Commit"))
 	}
 
@@ -181,8 +183,8 @@ func commitTransaction(t oracleTx) error {
 }
 
 // Rollback rolls back the transaction. The client-ended state is set before
-// the TTC operation begins; a failed operation restores the previous state,
-// while the server acknowledgment path records the server-ended state.
+// the TTC operation begins; a failed operation restores the previous state
+// unless the server has already acknowledged that the transaction ended.
 //
 // Returns:
 //   - error: Error if no transaction is active or the rollback fails.
@@ -206,7 +208,9 @@ func endTransaction(t oracleTx, ctx context.Context, transactionEndingFunc func(
 
 	// check for errors during the rollback round-trip
 	if runFuncErr != nil {
-		t.transactionState(previousState)
+		if t.currentTransactionState() != transactionEndedServer {
+			t.transactionState(previousState)
+		}
 		return t.underlyingConnection().shelf.LocalizeError(common.NewOracleError(oracleErrors.ErrorInTransaction, runFuncErr, "Rollback"))
 	}
 

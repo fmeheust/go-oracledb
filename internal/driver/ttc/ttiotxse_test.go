@@ -105,12 +105,9 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	t.Parallel()
 
 	msg := newOTxSe18().(*tTIOtxse)
-	xid := driverCommon.B1Array{0x11, 0x22, 0x33, 0x44}
-	tx := &sessionlessTransaction{
-		transaction:         transaction{},
-		globalTransactionID: []byte("g1"),
-		timeout:             30,
-	}
+	conn, _ := newSessionlessTransactionTestConnection()
+	tx := newSessionlessTransaction(context.Background(), conn, []byte("g1"), 30)
+	xid, globalTransactionIDLength, bqualLength := tx.buildSessionlessXID()
 	msg.configureForTransaction(tx, driver.TxOptions{
 		Isolation: driver.IsolationLevel(sql.LevelReadCommitted),
 	})
@@ -129,9 +126,13 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	}
 	// The test engine uses universal UB4 encoding, where UB4(0) is one byte.
 	const applicationValueSize = 1
-	if len(got) < len(xid)+applicationValueSize ||
-		!bytes.Equal(got[len(got)-applicationValueSize-len(xid):len(got)-applicationValueSize], xid) {
-		t.Fatalf("expected XID payload before application value, got % X", got[len(got)-applicationValueSize-len(xid):])
+	xidEnd := len(got) - applicationValueSize
+	xidStart := xidEnd - len(xid)
+	if xidStart < 0 {
+		t.Fatalf("payload length = %d, too short for XID length %d and application value", len(got), len(xid))
+	}
+	if !bytes.Equal(got[xidStart:xidEnd], xid) {
+		t.Fatalf("expected XID payload before application value, got % X", got[xidStart:])
 	}
 	if !bytes.Equal(got[len(got)-applicationValueSize:], []byte{0}) {
 		t.Fatalf("expected trailing application value UB4(0), got % X", got[len(got)-applicationValueSize:])
@@ -145,8 +146,13 @@ func TestOTxSe_MarshalTo_StartSessionless(t *testing.T) {
 	if msg.formatID != k2gSessionless {
 		t.Fatalf("format ID = %#x, want %#x", msg.formatID, k2gSessionless)
 	}
-	if msg.globalTransactionIDLength != 2 || msg.bqualLength != 2 {
-		t.Fatalf("XID lengths = (%d, %d), want (2, 2)", msg.globalTransactionIDLength, msg.bqualLength)
+	if globalTransactionIDLength != 2 || bqualLength != driverCommon.UB4(len("test-instance")) {
+		t.Fatalf("configured XID lengths = (%d, %d), want (2, %d)",
+			globalTransactionIDLength, bqualLength, len("test-instance"))
+	}
+	if msg.globalTransactionIDLength != globalTransactionIDLength || msg.bqualLength != bqualLength {
+		t.Fatalf("XID lengths = (%d, %d), want (%d, %d)", msg.globalTransactionIDLength, msg.bqualLength,
+			globalTransactionIDLength, bqualLength)
 	}
 	if msg.flags != otxseTransSessionless|otxseTransNew|otxseTransReadWrite {
 		t.Fatalf("flags = %#x, want %#x", msg.flags, otxseTransSessionless|otxseTransNew|otxseTransReadWrite)

@@ -440,10 +440,11 @@ func TestSessionlessTransactionContextCancellationRollsBack(t *testing.T) {
 	}
 }
 
-// TestSessionlessTransactionOperationsAfterEnd verifies that every operation
-// on a transaction handle returns sql.ErrTxDone after commit, rollback, or
-// suspend.
-func TestSessionlessTransactionOperationsAfterEnd(t *testing.T) {
+// TestTransactionOperationsRejectStaleTransactions verifies that an ended
+// sessionless transaction handle cannot affect a newer transaction on the same
+// connection. Commit, rollback, and suspend are each covered as the operation
+// that makes the old handle stale.
+func TestTransactionOperationsRejectStaleTransactions(t *testing.T) {
 	t.Parallel()
 
 	endingOperations := []struct {
@@ -477,11 +478,38 @@ func TestSessionlessTransactionOperationsAfterEnd(t *testing.T) {
 			if err != nil {
 				t.Fatalf("begin transaction before %s: %v", endingOperation.name, err)
 			}
+			defer tx.Rollback()
+			globalTransactionID := tx.GlobalTransactionID()
+			if globalTransactionID == nil {
+				t.Fatal("begin sessionless transaction returned an empty global transaction ID")
+			}
 			if err := endingOperation.end(tx); err != nil {
 				t.Fatalf("%s transaction: %v", endingOperation.name, err)
 			}
+			suspendedTransaction := endingOperation.name == "suspend"
+			defer func() {
+				if !suspendedTransaction {
+					return
+				}
+				resumedTx, err := connectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID, 300)
+				if err != nil {
+					t.Errorf("resume suspended transaction during cleanup: %v", err)
+					return
+				}
+				defer resumedTx.Rollback()
+				if err := resumedTx.Rollback(); err != nil {
+					t.Errorf("rollback suspended transaction during cleanup: %v", err)
+				}
+			}()
 
-			// These subtests cover every SQL operation exposed by sessionlessTx.
+			currentTx, err := connectionWrapper.BeginSessionlessTx(ctx, &sql.TxOptions{}, 300)
+			if err != nil {
+				t.Fatalf("begin current transaction after %s: %v", endingOperation.name, err)
+			}
+			defer currentTx.Rollback()
+
+			// These subtests ensure the stale handle cannot act on the transaction
+			// that is now active on the same connection.
 			tests := []struct {
 				name string
 				call func() error
@@ -541,9 +569,6 @@ func TestSessionlessTransactionOperationsAfterEnd(t *testing.T) {
 				})
 			}
 
-			// if tx.GlobalTransactionID() != nil {
-			// 	t.Fatalf("GlobalTransactionID after %s returned a value", endingOperation.name)
-			// }
 			if err := tx.Commit(); !errors.Is(err, sql.ErrTxDone) {
 				t.Fatalf("second Commit after %s error = %v, want %v", endingOperation.name, err, sql.ErrTxDone)
 			}
@@ -552,6 +577,20 @@ func TestSessionlessTransactionOperationsAfterEnd(t *testing.T) {
 			}
 			if err := tx.Suspend(); !errors.Is(err, sql.ErrTxDone) {
 				t.Fatalf("Suspend after %s error = %v, want %v", endingOperation.name, err, sql.ErrTxDone)
+			}
+
+			var value int
+			if err := conn.PingContext(context.Background()); err != nil {
+				t.Fatalf("ping database after stale %s operations: %v", endingOperation.name, err)
+			}
+			if err := currentTx.QueryRowContext(ctx, "SELECT 1 FROM DUAL").Scan(&value); err != nil {
+				t.Fatalf("query current transaction after stale %s operations: %v", endingOperation.name, err)
+			}
+			if value != 1 {
+				t.Fatalf("query current transaction returned %d, want 1", value)
+			}
+			if err := currentTx.Rollback(); err != nil {
+				t.Fatalf("rollback current transaction after stale %s operations: %v", endingOperation.name, err)
 			}
 		})
 	}
@@ -782,6 +821,104 @@ func TestSessionlessTransactionStartTwice(t *testing.T) {
 	}
 	tx.Rollback()
 
+}
+
+// TestSessionlessTransactionStartAfterSuspendSameConnection verifies that a
+// connection can start a new sessionless transaction after suspending the
+// transaction that was active on it.
+func TestSessionlessTransactionStartAfterSuspendSameConnection(t *testing.T) {
+	t.Parallel()
+	if TestingConfig == nil {
+		t.Skip("No configuration available")
+	}
+
+	db, err := openTestDBWithConfig(TestingConfig)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(5)
+
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("acquire dedicated connection: %v", err)
+	}
+	defer conn.Close()
+
+	connectionWrapper, err := NewConnectionWrapper(conn)
+	if err != nil {
+		t.Fatalf("create connection wrapper: %v", err)
+	}
+	firstTx, err := connectionWrapper.BeginSessionlessTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable, ReadOnly: false,
+	}, 300)
+	if err != nil {
+		t.Fatalf("begin first sessionless transaction: %v", err)
+	}
+	defer func() { _ = firstTx.Rollback() }()
+	globalTransactionID := firstTx.GlobalTransactionID()
+	if globalTransactionID == nil {
+		t.Fatal("first sessionless transaction returned an empty global transaction ID")
+	}
+	var value int
+	if err := firstTx.QueryRowContext(ctx, "SELECT 1 FROM DUAL").Scan(&value); err != nil {
+		t.Fatalf("run SELECT 1 FROM DUAL on first sessionless transaction: %v", err)
+	}
+	if value != 1 {
+		t.Fatalf("first sessionless transaction SELECT 1 FROM DUAL returned %d, want 1", value)
+	}
+
+	if err := firstTx.Suspend(); err != nil {
+		t.Fatalf("suspend first sessionless transaction: %v", err)
+	}
+
+	err = conn.PingContext(context.Background())
+	if err != nil {
+		t.Fatalf("Ping error %v", err)
+	}
+
+	fmt.Println("After first ping")
+
+	secondTx, err := connectionWrapper.BeginSessionlessTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable, ReadOnly: false,
+	}, 300)
+	if err != nil {
+		t.Fatalf("begin second sessionless transaction after suspend: %v", err)
+	}
+	defer func() { _ = secondTx.Rollback() }()
+
+	err = conn.PingContext(context.Background())
+	if err != nil {
+		t.Fatalf("Ping error %v", err)
+	}
+	fmt.Println("After second ping")
+
+	if err := secondTx.QueryRowContext(ctx, "SELECT 1 FROM DUAL").Scan(&value); err != nil {
+		t.Fatalf("run SELECT 1 FROM DUAL on second sessionless transaction: %v", err)
+	}
+	if value != 1 {
+		t.Fatalf("second sessionless transaction SELECT 1 FROM DUAL returned %d, want 1", value)
+	}
+
+	if err := secondTx.Rollback(); err != nil {
+		t.Fatalf("rollback second sessionless transaction: %v", err)
+	}
+
+	resumedTx, err := connectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID, 300)
+	if err != nil {
+		t.Fatalf("resume first sessionless transaction after rolling back second: %v", err)
+	}
+	defer func() { _ = resumedTx.Rollback() }()
+	if err := resumedTx.QueryRowContext(ctx, "SELECT 1 FROM DUAL").Scan(&value); err != nil {
+		t.Fatalf("run SELECT 1 FROM DUAL on resumed first sessionless transaction: %v", err)
+	}
+	if value != 1 {
+		t.Fatalf("resumed first sessionless transaction SELECT 1 FROM DUAL returned %d, want 1", value)
+	}
+	if err := resumedTx.Rollback(); err != nil {
+		t.Fatalf("rollback resumed first sessionless transaction: %v", err)
+	}
 }
 
 // TestSessionlessTransactionSuspendAndResume verifies that Suspend ends the

@@ -257,6 +257,7 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 	currentTransaction := c.shelf.getTransaction()
 	switch transactionState {
 	case active:
+		fmt.Println("In transaction")
 		if currentTransaction == nil {
 			// This should never happen, by default the driver is in auto-commit mode
 			// so no transaction is created.
@@ -274,6 +275,7 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 			}
 		}
 	case inactive:
+		fmt.Println("Not in transaction")
 		if currentTransaction != nil {
 			common.Odl.Debug("Transaction ended on server")
 			// The server no longer has a standard transaction that was
