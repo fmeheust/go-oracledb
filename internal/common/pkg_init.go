@@ -79,9 +79,7 @@ func initSystemInformation() {
 	ProcessID = strconv.Itoa(os.Getpid())
 }
 
-// init initializes shared system information and error-message dictionaries.
+// init initializes shared system information.
 func init() {
 	initSystemInformation()
-	initMessagesEn()
-	initMessagesFr()
 }

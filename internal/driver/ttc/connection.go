@@ -144,10 +144,7 @@ Returns:
 - error: Non-nil if the connection is closed/invalid.
 */
 func (c *connection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	common.Odl.Debug("Connection.PrepareContext: creating statement...")
+	common.Odl.Fine("Connection.PrepareContext: creating statement...")
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)
@@ -158,10 +155,7 @@ func (c *connection) PrepareContext(ctx context.Context, query string) (driver.S
 // ExecContext implements driver.ExecerContext.
 // It creates a TTC Statement and delegates the execution.
 func (c *connection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	common.Odl.Debug("Connection.ExecContext: creating statement...")
+	common.Odl.Fine("Connection.ExecContext: creating statement...")
 	stmt, err := newStatement(c.shelf, c.sessCtx, query)
 	if err != nil {
 		return nil, c.shelf.LocalizeError(err)
@@ -323,16 +317,16 @@ func (c *connection) notify(event eventType, e eventData) {
 	var wasValid = c._isValid == true
 	switch event {
 	case streamerStaleEvent:
-		common.Odl.Debug("Connection.notify: streamer stale received")
+		common.Odl.Fine("Connection.notify: streamer stale received")
 		c._isValid = false
 	case streamerOverFlowEvent:
-		common.Odl.Debug("Connection.notify: streamer overflow received")
+		common.Odl.Fine("Connection.notify: streamer overflow received")
 		c._isValid = false
 	case sessionPropertiesUpdateEvent:
 		common.Odl.Debug("Connection.notify: session properties changed")
 		c.handleSessionPropertyChange(e)
 	default:
-		common.Odl.Debug("Connection.notify: received", "evt", event)
+		common.Odl.Fine("Connection.notify: received", "evt", event)
 	}
 	if wasValid == true && c._isValid == false {
 		c.shelf.getEventService().post(connectionInvalidatedEvent, nil)

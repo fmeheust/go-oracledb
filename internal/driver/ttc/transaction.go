@@ -163,7 +163,7 @@ func (t *transaction) Commit() error {
 // commitTransaction commits the current transaction and updates local state
 // from the server response.
 func commitTransaction(t oracleTx) error {
-	common.Odl.Debug("Transaction commit")
+	common.Odl.Fine("Transaction commit")
 
 	// get the current transaction, its context and execute commit
 	currentTransaction := t.underlyingConnection().shelf.getTransaction()
@@ -200,7 +200,7 @@ func (t *transaction) rollback(ctx context.Context) error {
 // endTransaction runs a transaction-ending operation and reconciles local
 // state with the server response.
 func endTransaction(t oracleTx, ctx context.Context, transactionEndingFunc func(context.Context) error) error {
-	common.Odl.Debug("Transaction rollback")
+	common.Odl.Fine("Transaction rollback")
 
 	// get the current transaction and execute rollback
 	previousState := t.transactionState(transactionEndedClient)
