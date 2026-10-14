@@ -19,9 +19,12 @@ Sessionless transactions require:
 The transaction can use the standard `sql.TxOptions` values supported by the
 driver. Timeout arguments are in seconds. For `BeginSessionlessTx`, the timeout
 controls how long the server keeps a suspended transaction available before
-rolling it back. For `ResumeSessionlessTx`, the timeout controls how long the
-server attempts to resume the transaction; it does not extend the original
-suspension lifetime.
+rolling it back. For `ResumeSessionlessTx`, the timeout controls how long this
+connection waits for another session on the same instance to suspend the
+transaction if that session still has it active. If no other session has the
+transaction active, it resumes immediately; a timeout of zero fails immediately
+when another session still has it active. The resume timeout does not extend the
+original suspension lifetime.
 
 ## Begin and commit a transaction
 
@@ -42,22 +45,28 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	ctx := context.Background()
 	db, err := sql.Open("oracledb", os.Getenv("ORACLE_DSN"))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer db.Close()
 
 	conn, err := db.Conn(ctx)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer conn.Close()
 
 	connection, err := oracle.NewConnectionWrapper(conn)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	tx, err := connection.BeginSessionlessTx(
@@ -66,19 +75,17 @@ func main() {
 		300,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer tx.Rollback() // Safe cleanup if a later operation fails.
 
 	if _, err := tx.ExecContext(ctx,
 		"UPDATE accounts SET balance = balance - 10 WHERE id = 1",
 	); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	if err := tx.Commit(); err != nil {
-		log.Fatal(err)
-	}
+	return tx.Commit()
 }
 ```
 
@@ -108,21 +115,19 @@ conn1, err := db.Conn(ctx)
 if err != nil {
 	return err
 }
+defer conn1.Close()
 connection1, err := oracle.NewConnectionWrapper(conn1)
 if err != nil {
-	conn1.Close()
 	return err
 }
 
 tx, err := connection1.BeginSessionlessTx(ctx, &sql.TxOptions{}, 300)
 if err != nil {
-	conn1.Close()
 	return err
 }
+defer tx.Rollback()
 
 if _, err := tx.ExecContext(ctx, "INSERT INTO work_items (id) VALUES (1)"); err != nil {
-	tx.Rollback()
-	conn1.Close()
 	return err
 }
 
@@ -152,11 +157,11 @@ resumedTx, err := connection2.ResumeSessionlessTx(ctx, globalTransactionID, 300)
 if err != nil {
 	return err
 }
+defer resumedTx.Rollback()
 
 if _, err := resumedTx.ExecContext(ctx,
 	"UPDATE work_items SET processed = 1 WHERE id = 1",
 ); err != nil {
-	resumedTx.Rollback()
 	return err
 }
 

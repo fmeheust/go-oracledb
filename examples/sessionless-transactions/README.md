@@ -39,8 +39,9 @@ project [README](../../README.md) for supported DSN formats.
 
 `BeginSessionlessTx` and `ResumeSessionlessTx` are methods on the connection
 wrapper returned by `oracle.NewConnectionWrapper`. The wrapper is created from
-a dedicated `*sql.Conn`, not directly from `*sql.DB`, and validates that the
-underlying driver connection supports sessionless transactions. For example:
+a dedicated `*sql.Conn`, not directly from `*sql.DB`. It checks that the
+connection comes from this driver; the begin and resume calls check whether the
+database connection supports sessionless transactions. For example:
 
 ```go
 connectionWrapper, err := oracle.NewConnectionWrapper(conn)
@@ -60,10 +61,15 @@ if err != nil {
 resumedTx, err := resumeConnectionWrapper.ResumeSessionlessTx(ctx, globalTransactionID, 300)
 ```
 
-The timeout argument is in seconds. The example passes `300`, or five minutes,
-to both begin and resume. The context used by the example has a 30-second
-deadline, so context cancellation can stop an operation before that timeout
-expires.
+The timeout argument is in seconds, but its meaning differs between the two
+calls. On begin, it is the maximum time the server keeps a suspended transaction
+available before rolling it back. On resume, it is how long this connection
+waits for another session on the same instance to suspend the transaction if
+that session still has it active; if the transaction is already suspended, it
+resumes immediately. A resume timeout of zero fails immediately if another
+session still has the transaction active. The resume timeout does not extend
+the original suspension lifetime. The example passes `300` to both calls, while
+its 30-second context deadline can stop an operation sooner.
 
 The global transaction ID identifies the server-side transaction and should be
 read after the first SQL round trip following `BeginSessionlessTx`. Begin is a

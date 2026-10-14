@@ -78,7 +78,7 @@ func run() error {
 
 	// This setup is outside the sessionless transaction so that the table can
 	// be dropped after the example finishes.
-	tableName := "notes"
+	tableName := fmt.Sprintf("notes_%d", time.Now().UnixNano())
 	if _, err := db.ExecContext(ctx, "CREATE TABLE "+tableName+" (id NUMBER PRIMARY KEY, note VARCHAR2(100))"); err != nil {
 		return fmt.Errorf("create example table: %w", err)
 	}
