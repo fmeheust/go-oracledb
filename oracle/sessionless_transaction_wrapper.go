@@ -86,13 +86,13 @@ func (tx *sessionlessTx) Rollback() error {
 	return tx.transaction.Rollback()
 }
 
-// Suspend detaches the transaction from its current connection and then rolls
-// back the database/sql transaction handle to release that connection. The
-// handle is rolled back even if detaching returns an error.
+// Suspend detaches the transaction from its session.
 //
 // Returns:
 //   - error: Error if the transaction cannot be detached.
 func (tx *sessionlessTx) Suspend() error {
+	// run rollback on the sql.Tx object so that the sql package will know that
+	// the transaction is is ended.
 	defer tx.transaction.Rollback()
 	return tx.underlyingTx.Suspend()
 }
