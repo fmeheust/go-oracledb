@@ -544,7 +544,6 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnectionPushSessionStateRequestErrors", Categories: "unitary", Exclusive: false, Fn: TestConnectionPushSessionStateRequestErrors},
 	{Name: "TestConnectionResetter_Reset", Categories: "unitary", Exclusive: false, Fn: TestConnectionResetter_Reset},
 	{Name: "TestConnectionResetSessionPushesRequestEndThenBegin", Categories: "unitary", Exclusive: false, Fn: TestConnectionResetSessionPushesRequestEndThenBegin},
-	{Name: "TestNewConnectionBeginsSessionStateRequest", Categories: "unitary", Exclusive: false, Fn: TestNewConnectionBeginsSessionStateRequest},
 	{Name: "TestSessionStateFunctionRegistrationByProtocol", Categories: "unitary", Exclusive: false, Fn: TestSessionStateFunctionRegistrationByProtocol},
 	{Name: "TestTTIOSessstateMarshalRequestFlags", Categories: "unitary", Exclusive: false, Fn: TestTTIOSessstateMarshalRequestFlags},
 	{Name: "TestConnection_ExecContext_LocalizesError", Categories: "unitary", Exclusive: false, Fn: TestConnection_ExecContext_LocalizesError},

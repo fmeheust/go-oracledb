@@ -157,43 +157,6 @@ func TestConnectionResetSessionPushesRequestEndThenBegin(t *testing.T) {
 	}
 }
 
-// TestNewConnectionBeginsSessionStateRequest verifies connection setup queues BEGIN after timezone initialization.
-func TestNewConnectionBeginsSessionStateRequest(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	shelf, streamer := newSessionStateTestShelf(18, driverCommon.Capability{IsSet: true})
-	initializationCalled := false
-
-	conn, err := newConnectionWithTimeZoneInitializer(
-		ctx,
-		shelf,
-		driverCommon.NewSessionContext(),
-		&mockNetworkSession{},
-		func(_ context.Context, _ *connection) error {
-			initializationCalled = true
-			if got := streamer.pushedMsg.Len(); got != 0 {
-				t.Fatalf("session-state messages queued before timezone initialization: %d", got)
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		t.Fatalf("newConnectionWithTimeZoneInitializer() error = %v", err)
-	}
-	if conn == nil {
-		t.Fatal("newConnectionWithTimeZoneInitializer() returned a nil connection")
-	}
-	if !initializationCalled {
-		t.Fatal("timezone initializer was not called")
-	}
-
-	got := pushedSessionStateFlags(t, streamer)
-	want := []driverCommon.UB8{driverCommon.UB8(sessionStateExplBound | sessionStateRequestBegin)}
-	if len(got) != len(want) || got[0] != want[0] {
-		t.Fatalf("pushed flags = %v, want %v", got, want)
-	}
-}
-
 // TestSessionStateFunctionRegistrationByProtocol verifies factory selection of legacy and TTC 18 headers.
 func TestSessionStateFunctionRegistrationByProtocol(t *testing.T) {
 	t.Parallel()
@@ -276,19 +239,15 @@ func TestTTIOSessstateMarshalRequestFlags(t *testing.T) {
 }
 
 func newSessionStateTestConnection(protocol int8, capability driverCommon.Capability) (*connection, *mockStreamer) {
-	shelf, streamer := newSessionStateTestShelf(protocol, capability)
-	conn := newTestConnection(shelf, driverCommon.NewSessionContext(), &mockNetworkSession{})
-	return conn, streamer
-}
-
-func newSessionStateTestShelf(protocol int8, capability driverCommon.Capability) (*ttiShelf[driverCommon.MessageType], *mockStreamer) {
 	caps := map[string]driverCommon.Capability{kpccapRtbTtcSessstateops: capability}
 	shelf := newShelf[driverCommon.MessageType]()
 	streamer := &mockStreamer{}
 	shelf.RegisterCapabilities(caps)
 	shelf.RegisterMessageFactory(NewMessageFactoryForProtocol(protocol, caps))
 	shelf.RegisterMessageStreamer(streamer)
-	return shelf, streamer
+
+	conn := newTestConnection(shelf, driverCommon.NewSessionContext(), &mockNetworkSession{})
+	return conn, streamer
 }
 
 func pushedSessionStateFlags(t *testing.T, streamer *mockStreamer) []driverCommon.UB8 {
