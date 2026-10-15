@@ -336,10 +336,10 @@ func TestNewSessionlessGlobalTransactionIDSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSessionlessGlobalTransactionIDSync failed: %v", err)
 	}
-	if !sync.IsSet() {
+	if !sync.isSet() {
 		t.Fatal("expected decoded sync payload to be set")
 	}
-	if sync.IsUnset() {
+	if sync.isUnset() {
 		t.Fatal("did not expect decoded sync payload to be unset")
 	}
 	globalTransactionID := sync.GlobalTransactionID()

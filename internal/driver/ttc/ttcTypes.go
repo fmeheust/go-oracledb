@@ -567,40 +567,40 @@ func (s *sessionlessGlobalTransactionIDSync) Reason() sessionlessTxSyncReason {
 	return sessionlessTxSyncReason(s.flags & sessionlessGlobalTransactionIDSyncReason)
 }
 
-// IsSet reports whether the server indicates a sessionless transaction is active.
+// isSet reports whether the server indicates a sessionless transaction is active.
 //
 // Returns:
 //   - bool: True when the synchronization mode indicates an active transaction.
-func (s *sessionlessGlobalTransactionIDSync) IsSet() bool {
+func (s *sessionlessGlobalTransactionIDSync) isSet() bool {
 	return s.Mode() == sessionlessGlobalTransactionIDSyncSet
 }
 
-// IsUnset reports whether the server indicates no sessionless transaction is active.
+// isUnset reports whether the server indicates no sessionless transaction is active.
 //
 // Returns:
 //   - bool: True when the synchronization mode indicates no active transaction.
-func (s *sessionlessGlobalTransactionIDSync) IsUnset() bool {
+func (s *sessionlessGlobalTransactionIDSync) isUnset() bool {
 	return s.Mode() == sessionlessGlobalTransactionIDSyncUnset
 }
 
-// IsStartSuspendServer indicates that the sessionless transaction start/suspend happened on the server.
+// isStartSuspendServer indicates that the sessionless transaction start/suspend happened on the server.
 //
 // Returns:
 //   - bool: True when the server caused the synchronization event.
-func (s *sessionlessGlobalTransactionIDSync) IsStartSuspendServer() bool {
+func (s *sessionlessGlobalTransactionIDSync) isStartSuspendServer() bool {
 	return s.Reason() == sessionlessSyncStartSuspendServer
 }
 
-// IsStartSuspendClient indicates that the sessionless transaction start/suspend happened on the client.
+// isStartSuspendClient indicates that the sessionless transaction start/suspend happened on the client.
 //
 // Returns:
 //   - bool: True when the client caused the synchronization event.
-func (s *sessionlessGlobalTransactionIDSync) IsStartSuspendClient() bool {
+func (s *sessionlessGlobalTransactionIDSync) isStartSuspendClient() bool {
 	return s.Reason() == sessionlessSyncStartSuspendClient
 }
 
-// IsEnded reports whether the synchronization reason indicates a completed
+// isEnded reports whether the synchronization reason indicates a completed
 // commit or rollback.
-func (s *sessionlessGlobalTransactionIDSync) IsEnded() bool {
+func (s *sessionlessGlobalTransactionIDSync) isEnded() bool {
 	return s.Reason() == sessionlessSyncEnded
 }
