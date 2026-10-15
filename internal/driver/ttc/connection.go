@@ -79,6 +79,19 @@ func newConnection(
 	sessCtx *driverCommon.SessionContext,
 	ns driverCommon.NetworkSession,
 ) (*connection, error) {
+	return newConnectionWithTimeZoneInitializer(ctx, shelf, sessCtx, ns, func(ctx context.Context, c *connection) error {
+		return c._registerServerTimezoneOffset(ctx)
+	})
+}
+
+// newConnectionWithTimeZoneInitializer shares connection setup while allowing the timezone lookup to be supplied.
+func newConnectionWithTimeZoneInitializer(
+	ctx context.Context,
+	shelf *ttiShelf[driverCommon.MessageType],
+	sessCtx *driverCommon.SessionContext,
+	ns driverCommon.NetworkSession,
+	initializeTimeZone func(context.Context, *connection) error,
+) (*connection, error) {
 	conn := &connection{
 		shelf:     shelf,
 		sessCtx:   sessCtx,
@@ -89,9 +102,14 @@ func newConnection(
 	conn.registerEventListeners(conn.shelf.getEventService())
 	_registerHandleConnectionShouldBeDropped(shelf, conn)
 	shelf.registerCancelExecution(conn.cancelCurrentExecution)
-	if err := conn._registerServerTimezoneOffset(ctx); err != nil {
+	if err := initializeTimeZone(ctx, conn); err != nil {
 		return nil, err
 	}
+	// push begin request when the connection is created
+	if err := conn.pushSessionStateRequest(ctx, sessionStateExplBound|sessionStateRequestBegin); err != nil {
+		return nil, err
+	}
+
 	return conn, nil
 }
 
