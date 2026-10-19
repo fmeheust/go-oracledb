@@ -67,11 +67,11 @@ func (c *connection) ResetSession(ctx context.Context) error {
 	}
 
 	// push end-request for previous request and begin request for current request
-	if err := c.pushSessionStateRequest(ctx, sessionStateExplBound|sessionStateRequestEnd); err != nil {
+	if err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestEnd)); err != nil {
 		common.Odl.Warn("An error occurred when pushing end request", "error", err)
 		return driver.ErrBadConn
 	}
-	if err := c.pushSessionStateRequest(ctx, sessionStateExplBound|sessionStateRequestBegin); err != nil {
+	if err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestBegin)); err != nil {
 		common.Odl.Warn("An error occurred when pushing begin request", "error", err)
 		return driver.ErrBadConn
 	}
@@ -83,6 +83,16 @@ func (c *connection) ResetSession(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// addExplicitFlagIfSupported adds explicit bound flag if the server is able to
+// handle it
+func (c *connection) addExplicitFlagIfSupported(flags sessionState) sessionState {
+	capability, ok := c.shelf.GetCapabilities()[kpccapCtbTtc4ExplBound]
+	if ok && capability.IsSet {
+		flags |= sessionStateExplBound
+	}
+	return flags
 }
 
 // pushSessionStateRequest queues an OSESSSTATE request-boundary piggyback when

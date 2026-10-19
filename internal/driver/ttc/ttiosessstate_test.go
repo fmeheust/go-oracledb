@@ -47,7 +47,7 @@ func TestConnectionPushSessionStateRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			connection, streamer := newSessionStateTestConnection(18, tt.capability)
+			connection, streamer := newSessionStateTestConnection(18, tt.capability, false)
 
 			if err := connection.pushSessionStateRequest(context.Background(), tt.flags); err != nil {
 				t.Fatalf("pushSessionStateRequest() error = %v", err)
@@ -136,24 +136,47 @@ func TestConnectionPushSessionStateRequestErrors(t *testing.T) {
 // TestConnectionResetSessionPushesRequestEndThenBegin verifies ResetSession queues end before begin.
 func TestConnectionResetSessionPushesRequestEndThenBegin(t *testing.T) {
 	t.Parallel()
-	connection, streamer := newSessionStateTestConnection(18, driverCommon.Capability{IsSet: true})
-
-	if err := connection.ResetSession(context.Background()); err != nil {
-		t.Fatalf("ResetSession() error = %v", err)
+	tests := []struct {
+		name                   string
+		explicitBoundSupported bool
+		want                   []driverCommon.UB8
+	}{
+		{
+			name:                   "explicit bound supported",
+			explicitBoundSupported: true,
+			want: []driverCommon.UB8{
+				driverCommon.UB8(sessionStateExplBound | sessionStateRequestEnd),
+				driverCommon.UB8(sessionStateExplBound | sessionStateRequestBegin),
+			},
+		},
+		{
+			name: "explicit bound unsupported",
+			want: []driverCommon.UB8{
+				driverCommon.UB8(sessionStateRequestEnd),
+				driverCommon.UB8(sessionStateRequestBegin),
+			},
+		},
 	}
 
-	got := pushedSessionStateFlags(t, streamer)
-	want := []driverCommon.UB8{
-		driverCommon.UB8(sessionStateExplBound | sessionStateRequestEnd),
-		driverCommon.UB8(sessionStateExplBound | sessionStateRequestBegin),
-	}
-	if len(got) != len(want) {
-		t.Fatalf("pushed flags = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("pushed flags[%d] = %d, want %d", i, got[i], want[i])
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			connection, streamer := newSessionStateTestConnection(18, driverCommon.Capability{IsSet: true}, tt.explicitBoundSupported)
+
+			if err := connection.ResetSession(context.Background()); err != nil {
+				t.Fatalf("ResetSession() error = %v", err)
+			}
+
+			got := pushedSessionStateFlags(t, streamer)
+			if len(got) != len(tt.want) {
+				t.Fatalf("pushed flags = %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Errorf("pushed flags[%d] = %d, want %d", i, got[i], tt.want[i])
+				}
+			}
+		})
 	}
 }
 
@@ -238,8 +261,11 @@ func TestTTIOSessstateMarshalRequestFlags(t *testing.T) {
 	}
 }
 
-func newSessionStateTestConnection(protocol int8, capability driverCommon.Capability) (*connection, *mockStreamer) {
-	caps := map[string]driverCommon.Capability{kpccapRtbTtcSessstateops: capability}
+func newSessionStateTestConnection(protocol int8, capability driverCommon.Capability, explicitBoundSupported bool) (*connection, *mockStreamer) {
+	caps := map[string]driverCommon.Capability{
+		kpccapRtbTtcSessstateops: capability,
+		kpccapCtbTtc4ExplBound:   {IsSet: explicitBoundSupported},
+	}
 	shelf := newShelf[driverCommon.MessageType]()
 	streamer := &mockStreamer{}
 	shelf.RegisterCapabilities(caps)

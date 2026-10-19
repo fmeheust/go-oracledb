@@ -93,7 +93,7 @@ func newConnection(
 		return nil, err
 	}
 	// push begin request when the connection is created
-	if err := conn.pushSessionStateRequest(ctx, sessionStateExplBound|sessionStateRequestBegin); err != nil {
+	if err := conn.pushSessionStateRequest(ctx, conn.addExplicitFlagIfSupported(sessionStateRequestBegin)); err != nil {
 		return nil, err
 	}
 
