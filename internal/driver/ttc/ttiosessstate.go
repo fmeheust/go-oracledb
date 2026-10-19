@@ -53,7 +53,7 @@ const (
 	sessionStateRequestBegin sessionState = 0x04
 	// sessionStateRequestEnd marks the end of a transaction request.
 	sessionStateRequestEnd sessionState = 0x08
-	// marks the current request boundary as being explicit
+	// sessionStateExplBound marks the current request boundary as being explicit
 	sessionStateExplBound sessionState = 0x40
 )
 
