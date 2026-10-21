@@ -54,12 +54,12 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-// SessionStartEndFunction is a list of callbacks run when a connection is
-// borrowed from or returned to the pool.
+// SessionStartEndFunction is a callback run when a connection is borrowed from
+// or returned to the pool.
 //
 // A callback should return driver.ErrBadConn when the connection must be
 // discarded. Other errors are logged.
-type SessionStartEndFunction []func(context.Context) error
+type SessionStartEndFunction func(context.Context) error
 
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
@@ -69,10 +69,10 @@ type connection struct {
 	ns      driverCommon.NetworkSession
 	// _sessionStartFunctions contains callbacks run when the connection is
 	// borrowed from the pool (ResetSession).
-	_sessionStartFunctions SessionStartEndFunction
+	_sessionStartFunctions []SessionStartEndFunction
 	// _sessionEndFunctions contains callbacks run when the connection is
 	// returned to the pool (IsValid).
-	_sessionEndFunctions SessionStartEndFunction
+	_sessionEndFunctions []SessionStartEndFunction
 	// _isClosed is used to know if the connection has been closed. If _isClosed
 	// is set to true the connection cannot be used.
 	_isClosed bool
@@ -96,8 +96,8 @@ func newConnection(
 		shelf:                  shelf,
 		sessCtx:                sessCtx,
 		ns:                     ns,
-		_sessionStartFunctions: make([]func(context.Context) error, 0),
-		_sessionEndFunctions:   make([]func(context.Context) error, 0),
+		_sessionStartFunctions: make([]SessionStartEndFunction, 0),
+		_sessionEndFunctions:   make([]SessionStartEndFunction, 0),
 		_isClosed:              false,
 		_isValid:               true,
 	}
