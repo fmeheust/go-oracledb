@@ -181,6 +181,7 @@ func initMessagesEs() {
 		{oracleErrors.IsolationLevelNotSupported, "nivel de aislamiento no compatible"},
 		{oracleErrors.AlreadyInTransaction, "nivel de aislamiento no compatible"},
 		{oracleErrors.ErrorInTransaction, "se produjo un error al realizar la operación de transacción %s"},
+		{oracleErrors.ConfigureTransactionError, "no se pudo configurar la transacción"},
 		{oracleErrors.StartResumeTransactionFailure, "no se pudo iniciar o reanudar la transacción"},
 		{oracleErrors.AuthenticatorError, "se produjo un error durante la autenticación"},
 		{oracleErrors.NegotiatorError, "se produjo un error al negociar la conexión"},
@@ -200,6 +201,7 @@ func initMessagesEs() {
 		{oracleErrors.ExpiredToken, "el token de acceso ha caducado"},
 		{oracleErrors.ProviderNotFound, "no se encontró ningún proveedor del tipo solicitado"},
 		{oracleErrors.InvalidGlobalTransactionIDValue, "valor no válido del identificador global de transacción"},
+		{oracleErrors.InvalidSessionlessTransactionTimeout, "el tiempo de espera para iniciar la transacción sin sesión debe ser mayor que cero"},
 	}
 
 	for _, translation := range translations {

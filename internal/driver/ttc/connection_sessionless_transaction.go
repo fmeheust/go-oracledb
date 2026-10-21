@@ -171,6 +171,10 @@ func (t *sessionlessTransaction) buildSessionlessXID() (driverCommon.B1Array, dr
 // PrepareForSessionlessStartOperation validates the connection and registers a
 // prepared sessionless transaction for the following database/sql BeginTx.
 func (c *connection) PrepareForSessionlessStartOperation(ctx context.Context, timeout uint16) (common.SessionlessTransaction, error) {
+	if timeout == 0 {
+		return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.InvalidSessionlessTransactionTimeout, nil))
+	}
+
 	// check that there is no active transaction in the connection
 	if c.shelf.isInTransaction() {
 		return nil, c.shelf.LocalizeError(common.NewOracleError(oracleErrors.AlreadyInTransaction, nil, nil))
@@ -201,7 +205,7 @@ func (c *connection) PrepareForSessionlessStartOperation(ctx context.Context, ti
 func (c *connection) ClearPrepareForSessionlessStartOperation() {
 	currentTx, currentOk := c.shelf.getTransaction().(*sessionlessTransaction)
 	if currentOk {
-		common.Odl.With("GTRID", currentTx.globalTransactionID).Fine("An error occurred, unregister transaciton")
+		common.Odl.With("GTRID", currentTx.globalTransactionID).Fine("An error occurred, unregister transaction")
 		c.shelf.unregisterTransaction()
 	}
 }
@@ -242,7 +246,7 @@ func (c *connection) ClearPrepareForSessionlessResumeOperation(tx common.Session
 		currentTx, currentOk := c.shelf.getTransaction().(*sessionlessTransaction)
 		thisTx, thisOk := tx.(*sessionlessTransaction)
 		if currentOk && thisOk && thisTx == currentTx {
-			common.Odl.With("GTRID", thisTx.globalTransactionID).Fine("An error occurred, unregister transaciton")
+			common.Odl.With("GTRID", thisTx.globalTransactionID).Fine("An error occurred, unregister transaction")
 			c.shelf.unregisterTransaction()
 			return
 		}
@@ -302,9 +306,9 @@ func (t *sessionlessTransaction) endTransaction() {
 // detachTransaction executes an OTXSE request and waits for the
 // terminal TTIOER or TTISTA response.
 //
-// Because of a bug, detachTransaction send OTXSE as a piggyback
+// Because of a bug, detachTransaction sends OTXSE as a piggyback
 // operation of a ROLLBACK. This is not the expected behavior, but
-// a workaround.
+// it is a workaround.
 //
 // Parameters:
 //   - ctx: Context used for the detach operation.

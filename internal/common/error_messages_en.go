@@ -516,12 +516,18 @@ func initMessagesEn() {
 	// Action:   Commit or rollback the current transaction before starting a new
 	//           one.
 	// Comment:  N/A
-	message.SetString(language.English, string(oracleErrors.AlreadyInTransaction), "a transaction is current active in this connection")
+	message.SetString(language.English, string(oracleErrors.AlreadyInTransaction), "a transaction is currently active in this connection")
 	// Document: No
 	// Cause:    An error occurred while committing or rolling back the transaction.
 	// Action:   Try again.
 	// Comment:  N/A
 	message.SetString(language.English, string(oracleErrors.ErrorInTransaction), "an error occurred while performing transaction operation %s")
+	// Document: No
+	// Cause:    An error occurred while executing the ALTER SESSION statement to
+	//           set the transaction ISOLATION LEVEL.
+	// Action:   Verify the cause of the error, and try again.
+	// Comment:  N/A
+	message.SetString(language.English, string(oracleErrors.ConfigureTransactionError), "failed to configure transaction")
 	// Document: No
 	// Cause:    An error occurred while starting or resuming a transaction.
 	// Action:   Verify the cause of the error, and try again.
@@ -615,5 +621,10 @@ func initMessagesEn() {
 	// Action:   Provide a non-empty global transaction ID up to 64 bytes.
 	// Comment:  N/A
 	message.SetString(language.English, string(oracleErrors.InvalidGlobalTransactionIDValue), "invalid global transaction ID value")
+	// Document: No
+	// Cause:    The sessionless transaction start timeout is zero.
+	// Action:   Provide a timeout greater than zero.
+	// Comment:  N/A
+	message.SetString(language.English, string(oracleErrors.InvalidSessionlessTransactionTimeout), "sessionless transaction timeout must be greater than zero")
 
 }

@@ -181,6 +181,7 @@ func initMessagesPt() {
 		{oracleErrors.IsolationLevelNotSupported, "nível de isolamento não compatível"},
 		{oracleErrors.AlreadyInTransaction, "a transação já foi iniciada"},
 		{oracleErrors.ErrorInTransaction, "ocorreu um erro durante a operação de transação %s"},
+		{oracleErrors.ConfigureTransactionError, "falha ao configurar a transação"},
 		{oracleErrors.StartResumeTransactionFailure, "falha ao iniciar ou retomar a transação"},
 		{oracleErrors.AuthenticatorError, "ocorreu um erro durante a autenticação"},
 		{oracleErrors.NegotiatorError, "ocorreu um erro durante a negociação da conexão"},
@@ -200,6 +201,7 @@ func initMessagesPt() {
 		{oracleErrors.ExpiredToken, "o token de acesso expirou"},
 		{oracleErrors.ProviderNotFound, "nenhum provedor do tipo solicitado foi encontrado"},
 		{oracleErrors.InvalidGlobalTransactionIDValue, "valor inválido do identificador global de transação"},
+		{oracleErrors.InvalidSessionlessTransactionTimeout, "o tempo limite para iniciar a transação sem sessão deve ser maior que zero"},
 	}
 
 	for _, translation := range translations {

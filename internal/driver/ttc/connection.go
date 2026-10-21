@@ -193,10 +193,10 @@ func (c *connection) cancelCurrentExecution(ctx context.Context) error {
 // connectionStatusProvider is implemented by messages that may receive
 // end-of-call status, such as TTIOER and TTISTA.
 //
-// End-of-call status message contains information about the current
-// connection such as: the connection is being drained or there is an
-// active transaction in the connection. Messages that implement this
-// interface are handled by the connection to update its status.
+// An end-of-call status message contains information about the current
+// connection, such as whether it is being drained or has an active
+// transaction. Messages that implement this interface are handled by the
+// connection to update its status.
 type connectionStatusProvider interface {
 	// isBeingDrained returns true if the connection should be dropped due to a
 	// planned-down; otherwise, it returns false.
@@ -212,7 +212,7 @@ type connectionStatusProvider interface {
 }
 
 // _registerHandleEndOfCallStatus registers post-unmarshal callbacks that
-// handles end-of-call status messages.
+// handle end-of-call status messages.
 //
 // Parameters:
 //   - shelf: TTC shelf whose message streamer receives the callbacks.
@@ -249,13 +249,12 @@ func (c *connection) _handleEndOfCallStatus(msg driverCommon.Message[driverCommo
 	switch transactionState {
 	case active:
 		if currentTransaction == nil {
-			// This should never happen, by default the driver is in auto-commit mode
+			// This should never happen. By default the driver is in auto-commit mode
 			// so no transaction is created.
 			common.Odl.Debug("The server has reported an active transaction and there is no active transaction in the client")
 		} else {
-			// The state is received in all round-trips of the transaction
-			// we only change the state if the state is still started on
-			// client
+			// The state is received on all round-trips, the state is only
+			// updated if it is still at transactionStartedClient.
 			if currentTransaction.currentTransactionState() == transactionStartedClient {
 				common.Odl.Fine("Transaction started on server")
 				// Standard transactions are acknowledged through End-of-Call

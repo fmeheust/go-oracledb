@@ -97,7 +97,8 @@ func NewConnectionWrapper(connection *sql.Conn) (*connectionWrapper, error) {
 //   - ctx: Context used for the transaction start operation.
 //   - opts: Standard transaction options.
 //   - timeout: Maximum number of seconds the server retains a suspended
-//     transaction before rolling it back to release database resources.
+//     transaction before rolling it back to release database resources. Must
+//     be greater than zero.
 //
 // Returns:
 //   - *sessionlessTx: Started sessionless transaction.
@@ -127,7 +128,7 @@ func (wrapper *connectionWrapper) BeginSessionlessTx(ctx context.Context, opts *
 	return publicSessionlessTransaction, err
 }
 
-// ResumeSessionlessTx resumes a sessionless transaction on connection.
+// ResumeSessionlessTx resumes a sessionless transaction on the wrapped connection.
 //
 // Parameters:
 //   - ctx: Context used for the transaction resume operation.

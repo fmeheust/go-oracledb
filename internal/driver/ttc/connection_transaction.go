@@ -84,7 +84,7 @@ func (c *connection) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 	}
 
 	var tx oracleTx
-	// if there is a prepared transaction use it (start/resumt sessionless TXN), otherwise
+	// if there is a prepared transaction use it (start/resume sessionless TXN), otherwise
 	// create a new one
 	if tx = c.shelf.getTransaction(); tx == nil {
 		tx = newTransaction(c, ctx)

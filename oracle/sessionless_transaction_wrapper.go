@@ -92,7 +92,7 @@ func (tx *sessionlessTx) Rollback() error {
 //   - error: Error if the transaction cannot be detached.
 func (tx *sessionlessTx) Suspend() error {
 	// run rollback on the sql.Tx object so that the sql package will know that
-	// the transaction is is ended.
+	// the transaction has ended.
 	defer tx.transaction.Rollback()
 	return tx.underlyingTx.Suspend()
 }

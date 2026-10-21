@@ -219,6 +219,9 @@ const (
 	// InvalidGlobalTransactionIDValue indicates a provided global transaction identifier is empty
 	// or exceeds the server-supported size limit.
 	InvalidGlobalTransactionIDValue ErrorCode = "OGD-00164"
+	// InvalidSessionlessTransactionTimeout indicates the timeout for starting a
+	// sessionless transaction is zero.
+	InvalidSessionlessTransactionTimeout ErrorCode = "OGD-00165"
 
 	// Driver Internal Error
 	InternalError ErrorCode = "OGD-00062"
@@ -247,11 +250,14 @@ const (
 	AlreadyInTransaction ErrorCode = "OGD-00082"
 	// Error in Transaction operation
 	ErrorInTransaction ErrorCode = "OGD-00083"
-	// Error when creating a transaction, ALTER SESSION to set isolation level
-	StartResumeTransactionFailure ErrorCode = "OGD-00084"
+	// Error when creating a transaction, ALTER SESSION to set isolation level.
+	ConfigureTransactionError ErrorCode = "OGD-00084"
 	// NotCurrentTransaction indicates that a transaction handle is not the
 	// transaction currently registered on its connection.
 	NotCurrentTransaction ErrorCode = "OGD-00085"
+	// StartResumeTransactionFailure indicates an error while starting or
+	// resuming a transaction.
+	StartResumeTransactionFailure ErrorCode = "OGD-00086"
 
 	AuthenticatorError      ErrorCode = "OGD-00091"
 	NegotiatorError         ErrorCode = "OGD-00092"

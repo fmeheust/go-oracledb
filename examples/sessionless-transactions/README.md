@@ -63,13 +63,14 @@ resumedTx, err := resumeConnectionWrapper.ResumeSessionlessTx(ctx, globalTransac
 
 The timeout argument is in seconds, but its meaning differs between the two
 calls. On begin, it is the maximum time the server keeps a suspended transaction
-available before rolling it back. On resume, it is how long this connection
-waits for another session on the same instance to suspend the transaction if
-that session still has it active; if the transaction is already suspended, it
-resumes immediately. A resume timeout of zero fails immediately if another
-session still has the transaction active. The resume timeout does not extend
-the original suspension lifetime. The example passes `300` to both calls, while
-its 30-second context deadline can stop an operation sooner.
+available before rolling it back, and it must be greater than zero. On resume,
+it is how long this connection waits for another session on the same instance
+to suspend the transaction if that session still has it active; if the
+transaction is already suspended, it resumes immediately. A resume timeout of
+zero fails immediately if another session still has the transaction active.
+The resume timeout does not extend the original suspension lifetime. The
+example passes `300` to both calls, while its 30-second context deadline can
+stop an operation sooner.
 
 The global transaction ID identifies the server-side transaction and should be
 read after the first SQL round trip following `BeginSessionlessTx`. Begin is a

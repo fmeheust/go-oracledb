@@ -19,12 +19,13 @@ Sessionless transactions require:
 The transaction can use the standard `sql.TxOptions` values supported by the
 driver. Timeout arguments are in seconds. For `BeginSessionlessTx`, the timeout
 controls how long the server keeps a suspended transaction available before
-rolling it back. For `ResumeSessionlessTx`, the timeout controls how long this
-connection waits for another session on the same instance to suspend the
-transaction if that session still has it active. If no other session has the
-transaction active, it resumes immediately; a timeout of zero fails immediately
-when another session still has it active. The resume timeout does not extend the
-original suspension lifetime.
+rolling it back. The begin timeout must be greater than zero; zero is invalid.
+For `ResumeSessionlessTx`, the timeout controls how long this connection waits
+for another session on the same instance to suspend the transaction if that
+session still has it active. If no other session has the transaction active, it
+resumes immediately; a timeout of zero fails immediately when another session
+still has it active. The resume timeout does not extend the original suspension
+lifetime.
 
 ## Begin and commit a transaction
 
