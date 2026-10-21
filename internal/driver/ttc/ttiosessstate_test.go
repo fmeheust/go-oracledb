@@ -133,8 +133,8 @@ func TestConnectionPushSessionStateRequestErrors(t *testing.T) {
 	}
 }
 
-// TestConnectionResetSessionPushesRequestEndThenBegin verifies ResetSession queues end before begin.
-func TestConnectionResetSessionPushesRequestEndThenBegin(t *testing.T) {
+// TestConnectionResetSessionPushesRequestBegin verifies ResetSession queues only the begin request.
+func TestConnectionResetSessionPushesRequestBegin(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name                   string
@@ -145,14 +145,12 @@ func TestConnectionResetSessionPushesRequestEndThenBegin(t *testing.T) {
 			name:                   "explicit bound supported",
 			explicitBoundSupported: true,
 			want: []driverCommon.UB8{
-				driverCommon.UB8(sessionStateExplBound | sessionStateRequestEnd),
 				driverCommon.UB8(sessionStateExplBound | sessionStateRequestBegin),
 			},
 		},
 		{
 			name: "explicit bound unsupported",
 			want: []driverCommon.UB8{
-				driverCommon.UB8(sessionStateRequestEnd),
 				driverCommon.UB8(sessionStateRequestBegin),
 			},
 		},
@@ -273,6 +271,7 @@ func newSessionStateTestConnection(protocol int8, capability driverCommon.Capabi
 	shelf.RegisterMessageStreamer(streamer)
 
 	conn := newTestConnection(shelf, driverCommon.NewSessionContext(), &mockNetworkSession{})
+	conn.registerSessionBoundaries()
 	return conn, streamer
 }
 

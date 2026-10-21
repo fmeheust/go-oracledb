@@ -49,6 +49,7 @@ import (
 
 // ResetSession implements driver.SessionResetter.
 // - Closes statements that have been left open
+// - Runs session-start callbacks when the connection is borrowed from the pool
 // - Resets session properties
 // - Flushes piggyback messages
 func (c *connection) ResetSession(ctx context.Context) error {
@@ -66,15 +67,15 @@ func (c *connection) ResetSession(ctx context.Context) error {
 		}
 	}
 
-	// push end-request for previous request and begin request for current request
-	if err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestEnd)); err != nil {
-		common.Odl.Warn("An error occurred when pushing end request", "error", err)
-		return driver.ErrBadConn
+	// Run session-start callbacks when the connection is borrowed from the pool.
+	for _, function := range c._sessionStartFunctions {
+		if err := function(ctx); err == driver.ErrBadConn {
+			return err
+		} else if err != nil {
+			common.Odl.Warn("An error occurred processing session starting functions", "error", err)
+		}
 	}
-	if err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestBegin)); err != nil {
-		common.Odl.Warn("An error occurred when pushing begin request", "error", err)
-		return driver.ErrBadConn
-	}
+
 	c.sessCtx.GetSessionProperties().Reset()
 	err := c.shelf.GetMessageStreamer().Flush(ctx)
 	if err != nil {
@@ -93,6 +94,27 @@ func (c *connection) addExplicitFlagIfSupported(flags sessionState) sessionState
 		flags |= sessionStateExplBound
 	}
 	return flags
+}
+
+// registerSessionBoundaries registers callbacks that queue begin and end request
+// boundaries when the connection is borrowed from or returned to the pool.
+func (c *connection) registerSessionBoundaries() {
+	c.appendSessionStartFunction(func(ctx context.Context) error {
+		// Queue the begin-request boundary when the connection is borrowed.
+		err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestBegin))
+		if err != nil {
+			return driver.ErrBadConn
+		}
+		return nil
+	})
+	c.appendSessionEndFunction(func(ctx context.Context) error {
+		// Queue the end-request boundary when the connection is returned.
+		err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestEnd))
+		if err != nil {
+			return driver.ErrBadConn
+		}
+		return nil
+	})
 }
 
 // pushSessionStateRequest queues an OSESSSTATE request-boundary piggyback when

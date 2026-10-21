@@ -108,6 +108,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestGetConnection", Categories: "unitary", Exclusive: false, Fn: TestGetConnection},
 	{Name: "TestConnectionPinger_Ping", Categories: "unitary", Exclusive: false, Fn: TestConnectionPinger_Ping},
 	{Name: "TestConnectionPinger_IsValid", Categories: "unitary", Exclusive: false, Fn: TestConnectionPinger_IsValid},
+	{Name: "TestConnectionPinger_IsValidPushesRequestEnd", Categories: "unitary", Exclusive: false, Fn: TestConnectionPinger_IsValidPushesRequestEnd},
 	{Name: "TestConnectionPinger_IsValidWithInband", Categories: "unitary", Exclusive: false, Fn: TestConnectionPinger_IsValidWithInband},
 	{Name: "TestFactoryCodecInjection", Categories: "unitary", Exclusive: false, Fn: TestFactoryCodecInjection},
 	{Name: "TestFactoryRegistries", Categories: "unitary", Exclusive: false, Fn: TestFactoryRegistries},
@@ -543,7 +544,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnectionPushSessionStateRequest", Categories: "unitary", Exclusive: false, Fn: TestConnectionPushSessionStateRequest},
 	{Name: "TestConnectionPushSessionStateRequestErrors", Categories: "unitary", Exclusive: false, Fn: TestConnectionPushSessionStateRequestErrors},
 	{Name: "TestConnectionResetter_Reset", Categories: "unitary", Exclusive: false, Fn: TestConnectionResetter_Reset},
-	{Name: "TestConnectionResetSessionPushesRequestEndThenBegin", Categories: "unitary", Exclusive: false, Fn: TestConnectionResetSessionPushesRequestEndThenBegin},
+	{Name: "TestConnectionResetSessionPushesRequestBegin", Categories: "unitary", Exclusive: false, Fn: TestConnectionResetSessionPushesRequestBegin},
 	{Name: "TestSessionStateFunctionRegistrationByProtocol", Categories: "unitary", Exclusive: false, Fn: TestSessionStateFunctionRegistrationByProtocol},
 	{Name: "TestTTIOSessstateMarshalRequestFlags", Categories: "unitary", Exclusive: false, Fn: TestTTIOSessstateMarshalRequestFlags},
 	{Name: "TestConnection_ExecContext_LocalizesError", Categories: "unitary", Exclusive: false, Fn: TestConnection_ExecContext_LocalizesError},
@@ -1137,7 +1138,7 @@ func newTestConnection(
 		_isClosed: false,
 	}
 	conn.registerEventListeners(conn.shelf.getEventService())
-	_registerHandleConnectionShouldBeDropped(shelf, conn)
+	conn._registerHandleConnectionShouldBeDropped()
 	shelf.registerCancelExecution(conn.cancelCurrentExecution)
 	return conn
 }

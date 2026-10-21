@@ -54,12 +54,25 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
+// SessionStartEndFunction is a list of callbacks run when a connection is
+// borrowed from or returned to the pool.
+//
+// A callback should return driver.ErrBadConn when the connection must be
+// discarded. Other errors are logged.
+type SessionStartEndFunction []func(context.Context) error
+
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
 type connection struct {
 	shelf   *ttiShelf[driverCommon.MessageType]
 	sessCtx *driverCommon.SessionContext
 	ns      driverCommon.NetworkSession
+	// _sessionStartFunctions contains callbacks run when the connection is
+	// borrowed from the pool (ResetSession).
+	_sessionStartFunctions SessionStartEndFunction
+	// _sessionEndFunctions contains callbacks run when the connection is
+	// returned to the pool (IsValid).
+	_sessionEndFunctions SessionStartEndFunction
 	// _isClosed is used to know if the connection has been closed. If _isClosed
 	// is set to true the connection cannot be used.
 	_isClosed bool
@@ -80,19 +93,22 @@ func newConnection(
 	ns driverCommon.NetworkSession,
 ) (*connection, error) {
 	conn := &connection{
-		shelf:     shelf,
-		sessCtx:   sessCtx,
-		ns:        ns,
-		_isClosed: false,
-		_isValid:  true,
+		shelf:                  shelf,
+		sessCtx:                sessCtx,
+		ns:                     ns,
+		_sessionStartFunctions: make([]func(context.Context) error, 0),
+		_sessionEndFunctions:   make([]func(context.Context) error, 0),
+		_isClosed:              false,
+		_isValid:               true,
 	}
 	conn.registerEventListeners(conn.shelf.getEventService())
-	_registerHandleConnectionShouldBeDropped(shelf, conn)
-	shelf.registerCancelExecution(conn.cancelCurrentExecution)
+	conn._registerHandleConnectionShouldBeDropped()
+	conn.shelf.registerCancelExecution(conn.cancelCurrentExecution)
+	conn.registerSessionBoundaries()
 	if err := conn._registerServerTimezoneOffset(ctx); err != nil {
 		return nil, err
 	}
-	// push begin request when the connection is created
+	// Queue the begin-request boundary when the connection is created.
 	if err := conn.pushSessionStateRequest(ctx, conn.addExplicitFlagIfSupported(sessionStateRequestBegin)); err != nil {
 		return nil, err
 	}
@@ -194,12 +210,12 @@ type connectionStatusProvider interface {
 	isBeingDrainned() bool
 }
 
-// _registerHandleConnectionShouldBeDropped registers post unmarshal callbacks
-// that invalidates connections that should be dropped due to a planned-down
-func _registerHandleConnectionShouldBeDropped(shelf *ttiShelf[driverCommon.MessageType], connection *connection) {
-	messageStreamer := shelf.GetMessageStreamer().(MessageStreamerInterface)
-	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, connection._handleConnectionShouldBeDropped)
-	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, connection._handleConnectionShouldBeDropped)
+// _registerHandleConnectionShouldBeDropped registers post-unmarshal callbacks
+// that invalidate the connection when the server marks it for a planned shutdown.
+func (c *connection) _registerHandleConnectionShouldBeDropped() {
+	messageStreamer := c.shelf.GetMessageStreamer().(MessageStreamerInterface)
+	messageStreamer.RegisterPostUnmarshallCallback(TTIOER, c._handleConnectionShouldBeDropped)
+	messageStreamer.RegisterPostUnmarshallCallback(TTISTA, c._handleConnectionShouldBeDropped)
 }
 
 // _handleConnectionShouldBeDropped post unmarshal callback that invalidates
@@ -301,6 +317,18 @@ func (c *connection) _registerServerTimezoneOffset(ctx context.Context) error {
 	}
 	c.shelf.registerServerTimeZoneOffset(int16(TZH*3600 + TZM*60))
 	return nil
+}
+
+// appendSessionStartFunction adds a callback to run when the connection is
+// borrowed from the pool.
+func (c *connection) appendSessionStartFunction(startFunction func(context.Context) error) {
+	c._sessionStartFunctions = append(c._sessionStartFunctions, startFunction)
+}
+
+// appendSessionEndFunction adds a callback to run when the connection is
+// returned to the pool.
+func (c *connection) appendSessionEndFunction(endFunction func(context.Context) error) {
+	c._sessionEndFunctions = append(c._sessionEndFunctions, endFunction)
 }
 
 // parseTimeZone parses an Oracle-style timezone string such as "+05:30" or "-08:15".
