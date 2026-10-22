@@ -83,12 +83,10 @@ func (c *connection) IsValid() bool {
 	// Use one timeout context for all session-end callbacks.
 	ctx, cancel := context.WithTimeout(common.BackgroundContext, _pingTimeout)
 	defer cancel()
-	for _, function := range c._sessionEndFunctions {
-		if err := function(ctx); err == driver.ErrBadConn {
-			return false
-		} else if err != nil {
-			common.Odl.Warn("An error occurred processing session ending functions", "error", err)
-		}
+	// Run session-start callbacks when the connection is borrowed from the pool.
+	common.Odl.Finest("Running session reset callbacks on IsValid")
+	if err := c.runSessionResetCallbacks(ctx, c._sessionEndFunctions); err != nil {
+		return false
 	}
 
 	return c._isValid
