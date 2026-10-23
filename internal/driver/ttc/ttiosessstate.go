@@ -46,18 +46,21 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-type sessionState driverCommon.UB8
+// sessionStateOperationFlags contains the operation flags carried by an
+// OSESSSTATE message.
+type sessionStateOperationFlags driverCommon.UB8
 
 const (
-	// sessionStateRequestBegin marks the start of a transaction request.
-	sessionStateRequestBegin sessionState = 0x04
-	// sessionStateRequestEnd marks the end of a transaction request.
-	sessionStateRequestEnd sessionState = 0x08
+	// sessionStateRequestBegin marks the start of an application request.
+	sessionStateRequestBegin sessionStateOperationFlags = 0x04
+	// sessionStateRequestEnd marks the end of an application request.
+	sessionStateRequestEnd sessionStateOperationFlags = 0x08
 	// sessionStateExplBound marks the current request boundary as being explicit
-	sessionStateExplBound sessionState = 0x40
+	sessionStateExplBound sessionStateOperationFlags = 0x40
 )
 
-// tTIOsessstate represents an OSESSSTATE piggyback carrying request-boundary flags.
+// tTIOsessstate represents an OSESSSTATE piggyback carrying session-state
+// operation flags.
 type tTIOsessstate struct {
 	// headerMarshaller writes the OSESSSTATE TTIPFN function header.
 	headerMarshaller driverCommon.Marshallable

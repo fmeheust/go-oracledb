@@ -43,13 +43,11 @@ import (
 	"database/sql/driver"
 
 	"github.com/oracle/go-oracledb/v26/internal/common"
-	driverCommon "github.com/oracle/go-oracledb/v26/internal/driver/common"
-	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
 // ResetSession implements driver.SessionResetter.
 // - Closes statements that have been left open
-// - Runs session-start callbacks when the connection is borrowed from the pool
+// - Runs request-start callbacks when the connection is borrowed from the pool
 // - Resets session properties
 // - Flushes piggyback messages
 func (c *connection) ResetSession(ctx context.Context) error {
@@ -67,9 +65,9 @@ func (c *connection) ResetSession(ctx context.Context) error {
 		}
 	}
 
-	// Run session-start callbacks when the connection is borrowed from the pool.
-	common.Odl.Finest("Running session reset callbacks on ResetSession")
-	if err := c.runSessionResetCallbacks(ctx, c._sessionStartFunctions); err != nil {
+	// Run request-start callbacks. Return if a callback marks the connection bad.
+	common.Odl.Finest("Running request-start callbacks on ResetSession")
+	if err := runRequestBoundaryCallbacks(ctx, c._requestStartCallbacks); err != nil {
 		return err
 	}
 
@@ -80,66 +78,5 @@ func (c *connection) ResetSession(ctx context.Context) error {
 		return driver.ErrBadConn
 	}
 
-	return nil
-}
-
-// addExplicitFlagIfSupported adds explicit bound flag if the server is able to
-// handle it
-func (c *connection) addExplicitFlagIfSupported(flags sessionState) sessionState {
-	capability, ok := c.shelf.GetCapabilities()[kpccapCtbTtc4ExplBound]
-	if ok && capability.IsSet {
-		flags |= sessionStateExplBound
-	}
-	return flags
-}
-
-// registerSessionBoundaries registers callbacks that queue begin and end request
-// boundaries when the connection is borrowed from or returned to the pool.
-func (c *connection) registerSessionBoundaries() {
-	c.appendSessionStartFunction(&SessionResetCallback{
-		function: func(ctx context.Context) error {
-			// Queue the end-request boundary when the connection is returned.
-			err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestBegin))
-			if err != nil {
-				return driver.ErrBadConn
-			}
-			return nil
-		},
-		description: "Push begin-request",
-	}, true)
-	c.appendSessionEndFunction(&SessionResetCallback{
-		function: func(ctx context.Context) error {
-			// Queue the end-request boundary when the connection is returned.
-			err := c.pushSessionStateRequest(ctx, c.addExplicitFlagIfSupported(sessionStateRequestEnd))
-			if err != nil {
-				return driver.ErrBadConn
-			}
-			return nil
-		},
-		description: "Push end-request",
-	})
-}
-
-// pushSessionStateRequest queues an OSESSSTATE request-boundary piggyback when
-// the server advertises support for session-state operations.
-func (c *connection) pushSessionStateRequest(ctx context.Context, flags sessionState) error {
-	capability, ok := c.shelf.GetCapabilities()[kpccapRtbTtcSessstateops]
-	if !ok || !capability.IsSet {
-		return nil
-	}
-
-	msg, err := c.shelf.GetMessageFactory().GetMessageForFunction(TTIPFN, oSessState)
-	if err != nil {
-		common.Odl.Warn("Error creating OSESSSTATE message", "error", err)
-		return common.NewOracleError(oracleErrors.InternalError, err)
-	}
-
-	request, _ := msg.(*tTIOsessstate)
-	request.flags = driverCommon.UB8(flags)
-
-	if err := c.shelf.GetMessageStreamer().Push(ctx, msg); err != nil {
-		common.Odl.Warn("Error pushing OSESSSTATE message", "error", err)
-		return common.NewOracleError(oracleErrors.StreamerWriteError, err)
-	}
 	return nil
 }

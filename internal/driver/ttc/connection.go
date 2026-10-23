@@ -54,31 +54,18 @@ import (
 	oracleErrors "github.com/oracle/go-oracledb/v26/oracle/errors"
 )
 
-// SessionResetCallback is a callback run when a connection is borrowed from
-// or returned to the pool.
-//
-// A callback should return driver.ErrBadConn when the connection must be
-// discarded. Other errors are logged.
-type SessionResetCallback struct {
-	description string
-	function    func(context.Context) error
-}
-
 // connection implements database/sql/driver.Conn and holds negotiated session
 // artifacts.
 type connection struct {
 	shelf   *ttiShelf[driverCommon.MessageType]
 	sessCtx *driverCommon.SessionContext
 	ns      driverCommon.NetworkSession
-	// _connectionCreationFunctions contains callbacks run when the connection
-	// is created
-	_connectionCreationFunctions []*SessionResetCallback
-	// _sessionStartFunctions contains callbacks run when the connection is
+	// _requestStartCallbacks contains callbacks run when the connection is
 	// borrowed from the pool (ResetSession).
-	_sessionStartFunctions []*SessionResetCallback
-	// _sessionEndFunctions contains callbacks run when the connection is
+	_requestStartCallbacks []*requestBoundaryCallback
+	// _requestEndCallbacks contains callbacks run when the connection is
 	// returned to the pool (IsValid).
-	_sessionEndFunctions []*SessionResetCallback
+	_requestEndCallbacks []*requestBoundaryCallback
 	// _isClosed is used to know if the connection has been closed. If _isClosed
 	// is set to true the connection cannot be used.
 	_isClosed bool
@@ -99,29 +86,27 @@ func newConnection(
 	ns driverCommon.NetworkSession,
 ) (*connection, error) {
 	conn := &connection{
-		shelf:                        shelf,
-		sessCtx:                      sessCtx,
-		ns:                           ns,
-		_connectionCreationFunctions: make([]*SessionResetCallback, 0),
-		_sessionStartFunctions:       make([]*SessionResetCallback, 0),
-		_sessionEndFunctions:         make([]*SessionResetCallback, 0),
-		_isClosed:                    false,
-		_isValid:                     true,
+		shelf:     shelf,
+		sessCtx:   sessCtx,
+		ns:        ns,
+		_isClosed: false,
+		_isValid:  true,
 	}
 	conn.registerEventListeners(conn.shelf.getEventService())
 	conn._registerHandleConnectionShouldBeDropped()
 	conn.shelf.registerCancelExecution(conn.cancelCurrentExecution)
-	conn.registerSessionBoundaries()
 	if err := conn._registerServerTimezoneOffset(ctx); err != nil {
-		return nil, err
-	}
-	// Run session-start callbacks when the connection is created.
-	common.Odl.Finest("Running session reset callbacks on conection creation")
-	if err := conn.runSessionResetCallbacks(ctx, conn._connectionCreationFunctions); err != nil {
 		return nil, err
 	}
 
 	return conn, nil
+}
+
+// initializeRequestBoundaryCallbacks installs request-boundary callbacks on
+// the connection.
+func (c *connection) initializeRequestBoundaryCallbacks(requestStartCallbacks []*requestBoundaryCallback, requestEndCallbacks []*requestBoundaryCallback) {
+	c._requestStartCallbacks = requestStartCallbacks
+	c._requestEndCallbacks = requestEndCallbacks
 }
 
 /*
@@ -324,38 +309,6 @@ func (c *connection) _registerServerTimezoneOffset(ctx context.Context) error {
 		return err
 	}
 	c.shelf.registerServerTimeZoneOffset(int16(TZH*3600 + TZM*60))
-	return nil
-}
-
-// appendSessionStartFunction adds a callback to run when the connection is
-// borrowed from the pool.
-func (c *connection) appendSessionStartFunction(startFunction *SessionResetCallback, runOnConnectionCreation bool) {
-	common.Odl.Fine("Session start function added", "description", startFunction.description)
-	c._sessionStartFunctions = append(c._sessionStartFunctions, startFunction)
-	if runOnConnectionCreation {
-		common.Odl.Fine("Connection creation function added", "description", startFunction.description)
-		c._connectionCreationFunctions = append(c._connectionCreationFunctions, startFunction)
-	}
-}
-
-// appendSessionEndFunction adds a callback to run when the connection is
-// returned to the pool.
-func (c *connection) appendSessionEndFunction(endFunction *SessionResetCallback) {
-	common.Odl.Fine("Session end function added", "description", endFunction.description)
-	c._sessionEndFunctions = append(c._sessionEndFunctions, endFunction)
-}
-
-func (c *connection) runSessionResetCallbacks(ctx context.Context, callbacks []*SessionResetCallback) error {
-	for _, callback := range callbacks {
-		common.Odl.Fine("Running session reset callback", "description", callback.description)
-		err := callback.function(ctx)
-		if err != nil {
-			common.Odl.Debug("An error occurred while executing session reset callback", "description", callback.description, "error", err.Error())
-			if err == driver.ErrBadConn {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
