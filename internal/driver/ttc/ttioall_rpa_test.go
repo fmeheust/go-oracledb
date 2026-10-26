@@ -84,11 +84,11 @@ func runTTIRPATest(t *testing.T, name string, dump []string) {
 		t.Fatalf("%s: UnmarshalFrom failed: %v", name, err)
 	}
 	if hasOutBinds {
-		if len(rpa.pidmlRowCounts) != 1 {
-			t.Fatalf("%s: DML row-count length mismatch: got %d want 1", name, len(rpa.pidmlRowCounts))
+		if len(rpa.pidmlRowCounts) != 1 || rpa.pidmlRowCounts[0] != 3 {
+			t.Fatalf("%s: DML row counts mismatch: got %v want [3]", name, rpa.pidmlRowCounts)
 		}
-		if got := rpa.getTotalAffectedRowsCount(); got != 1 {
-			t.Fatalf("%s: total affected rows mismatch: got %d want 1", name, got)
+		if got := rpa.getTotalAffectedRowsCount(); got != 3 {
+			t.Fatalf("%s: total affected rows mismatch: got %d want 3", name, got)
 		}
 	}
 
@@ -145,9 +145,25 @@ func TestTTIOallRPA_Unmarshal_DMLRows_Truncated(t *testing.T) {
 	if len(payload) == 0 {
 		t.Fatal("empty payload from validTTIRPAInsertDump")
 	}
-	// The fixture ends with the AL8PIDMLRC values. Removing its final byte leaves
-	// the core RPA intact while truncating the DML row-count section.
-	truncated := payload[:len(payload)-1]
+	// Locate the end of AL8PIDMLRC by parsing the complete fixture. The captured
+	// frame has trailing bytes after the row-count section, so truncating its final
+	// byte would not necessarily truncate data consumed by UnmarshalFrom.
+	fullBuf := NewArrayDataBuffer(len(payload))
+	if err := fullBuf.WriteBytesWithContext(context.Background(), payload); err != nil {
+		t.Fatalf("failed to load complete payload: %v", err)
+	}
+	fullMar := NewMarshalEngine(fullBuf, common.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
+	fullRPA := &ttioallrpa{hasOutBinds: true}
+	if err := fullRPA.UnmarshalFrom(context.Background(), fullMar); err != nil {
+		t.Fatalf("complete fixture failed to parse: %v", err)
+	}
+	dmlRowsEnd := fullBuf.currentReadPosition
+	if dmlRowsEnd <= 0 || dmlRowsEnd >= len(payload) {
+		t.Fatalf("unexpected DML row-count boundary: %d of %d bytes", dmlRowsEnd, len(payload))
+	}
+	// Remove the last byte consumed by AL8PIDMLRC while preserving the complete
+	// core RPA before it.
+	truncated := payload[:dmlRowsEnd-1]
 	// Confirm the truncated fixture still contains a complete core RPA, isolating
 	// the expected failure to automatic DML row-count parsing.
 	coreBuf := NewArrayDataBuffer(len(truncated))

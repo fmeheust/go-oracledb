@@ -328,7 +328,7 @@ func TestStatementExecutor_Others_Create_MarshalAndExec(t *testing.T) {
 }
 
 // TestStatementExecutor_DML_Insert_MarshalAndExec verifies DML INSERT marshal+exec using a seeded TTIRPA payload.
-// Expectation: ExecContext completes without error and reports one affected row.
+// Expectation: ExecContext completes without error and reports three affected rows from the seeded RPA.
 func TestStatementExecutor_DML_Insert_MarshalAndExec(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -357,8 +357,8 @@ func TestStatementExecutor_DML_Insert_MarshalAndExec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RowsAffected failed: %v", err)
 	}
-	if rowsAffected != 1 {
-		t.Fatalf("RowsAffected mismatch: got %d want 1", rowsAffected)
+	if rowsAffected != 3 {
+		t.Fatalf("RowsAffected mismatch: got %d want 3", rowsAffected)
 	}
 }
 
