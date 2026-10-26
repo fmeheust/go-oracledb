@@ -52,7 +52,7 @@ import (
 // - transaction context (length + bytes) is read/ignored
 // - keyword-values is read
 type ttioallrpa struct {
-	hasOutBinds bool // indicates that the RPA is for a DML oall8, may include out binds
+	unmarshalRowCounts bool // indicates that the RPA should include DML row counts
 	// Decoded fields (subset)
 	scn      uint64             // built from al8o4[0] and al8o4[1] without KSCNFVB
 	cursorID driverCommon.SB4   // from al8o4[2]
@@ -152,7 +152,7 @@ func (p *ttioallrpa) UnmarshalFrom(ctx context.Context, mar driverCommon.Marshal
 		return common.NewOracleError(oracleErrors.FailUnmarshal, err, TTCMsgTypeDescription[p.GetMsgCode()])
 	}
 
-	if p.hasOutBinds {
+	if p.unmarshalRowCounts {
 		return p.UnmarshalDMLRows(ctx, mar)
 	}
 

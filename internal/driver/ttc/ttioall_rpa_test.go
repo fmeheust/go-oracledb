@@ -73,8 +73,8 @@ func runTTIRPATest(t *testing.T, name string, dump []string) {
 
 	// Use concrete type directly (same package) so we can assert fields. DML
 	// fixtures include AL8PIDMLRC after the core RPA fields.
-	hasOutBinds := strings.Contains(name, "INSERT")
-	rpa := &ttioallrpa{hasOutBinds: hasOutBinds}
+	unmarshalRowCounts := strings.Contains(name, "INSERT")
+	rpa := &ttioallrpa{unmarshalRowCounts: unmarshalRowCounts}
 
 	if rpa.GetMsgCode() != TTIRPA {
 		t.Fatalf("%s: GetMsgCode mismatch, expected TTIRPA", name)
@@ -83,7 +83,7 @@ func runTTIRPATest(t *testing.T, name string, dump []string) {
 	if err := rpa.UnmarshalFrom(context.Background(), mar); err != nil {
 		t.Fatalf("%s: UnmarshalFrom failed: %v", name, err)
 	}
-	if hasOutBinds {
+	if unmarshalRowCounts {
 		if len(rpa.pidmlRowCounts) != 1 || rpa.pidmlRowCounts[0] != 3 {
 			t.Fatalf("%s: DML row counts mismatch: got %v want [3]", name, rpa.pidmlRowCounts)
 		}
@@ -153,7 +153,7 @@ func TestTTIOallRPA_Unmarshal_DMLRows_Truncated(t *testing.T) {
 		t.Fatalf("failed to load complete payload: %v", err)
 	}
 	fullMar := NewMarshalEngine(fullBuf, common.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
-	fullRPA := &ttioallrpa{hasOutBinds: true}
+	fullRPA := &ttioallrpa{unmarshalRowCounts: true}
 	if err := fullRPA.UnmarshalFrom(context.Background(), fullMar); err != nil {
 		t.Fatalf("complete fixture failed to parse: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestTTIOallRPA_Unmarshal_DMLRows_Truncated(t *testing.T) {
 	}
 	mar := NewMarshalEngine(buf, common.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
 
-	rpa := &ttioallrpa{hasOutBinds: true}
+	rpa := &ttioallrpa{unmarshalRowCounts: true}
 	if err := rpa.UnmarshalFrom(context.Background(), mar); err == nil {
 		t.Fatal("expected UnmarshalFrom to fail on truncated DML row counts")
 	}
