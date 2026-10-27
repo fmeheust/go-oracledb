@@ -832,12 +832,17 @@ func TestSessionlessTransactionStartAfterSuspendSameConnection(t *testing.T) {
 		t.Skip("No configuration available")
 	}
 
-	db, err := openTestDBWithConfig(TestingConfig)
+	db, err := sql.Open("oracledb", "scott/tiger@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=phoenix127228.dev3sub3phx.databasede3phx.oraclevcn.com)(PORT=5525))(CONNECT_DATA=(SERVICE_NAME=cdb1_pdb1.regress.rdbms.dev.us.oracle.com)))")
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(5)
+
+	loggingConfig := NewOracleLoggingConfig()
+	loggingConfig.Destination = "STDOUT"
+	loggingConfig.Level = "FINEST"
+	GetDefaultDriver().ApplyDriverLoggingConfig(loggingConfig)
 
 	ctx := context.Background()
 	conn, err := db.Conn(ctx)
@@ -872,6 +877,10 @@ func TestSessionlessTransactionStartAfterSuspendSameConnection(t *testing.T) {
 	if err := firstTx.Suspend(); err != nil {
 		t.Fatalf("suspend first sessionless transaction: %v", err)
 	}
+
+	var local_transaction_id int
+	db.QueryRow("select dbms_transaction.local_transaction_id from dual").Scan(&local_transaction_id)
+	fmt.Printf("Local transaction id: %d \n", local_transaction_id)
 
 	err = conn.PingContext(context.Background())
 	if err != nil {

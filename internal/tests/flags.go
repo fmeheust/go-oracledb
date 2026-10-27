@@ -68,8 +68,8 @@ var TestCategories TestCategoryList
 
 func init() {
 
-	flag.StringVar(&ConfigFileName, "driver.config.filename", "", "tests config name")
-	flag.StringVar(&ConfigName, "driver.config.name", "", "tests config name")
+	flag.StringVar(&ConfigFileName, "driver.config.filename", "C:\\work\\driver\\go-driver\\pure-go-driver-config\\configurations\\driver_test_config.json", "testing config name")
+	flag.StringVar(&ConfigName, "driver.config.name", "phoenix127228", "testing config name")
 	flag.Var(&TestCategories, "test.category", "tests category to be enabled, can be unitary,functional,robustness,... May be specified multiple times")
 }
 
