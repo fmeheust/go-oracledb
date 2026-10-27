@@ -544,3 +544,54 @@ func TestDriver_InsertForeignKeyViolation(t *testing.T) {
 		t.Fatalf("expected returned child id to remain unset on foreign key violation, got %d", insertedChildID)
 	}
 }
+
+// TestDriver_InsertPrimaryKeyViolation exercises the server-initiated
+// break-reset path. It pins one physical connection, raises ORA-00001 on that
+// session, then runs another query through the same connection to verify that
+// the post-reset response is still received and the session remains usable.
+func TestDriver_InsertPrimaryKeyViolation(t *testing.T) {
+	t.Parallel()
+	if TestingConfig == nil {
+		t.Skip("No configuration available")
+	}
+
+	db, err := openTestDBWithConfig(TestingConfig)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatalf("get connection: %v", err)
+	}
+	defer conn.Close()
+
+	table := createObjectName("pk_violation_test")
+	if _, err := conn.ExecContext(ctx, "CREATE TABLE "+table+" (id NUMBER PRIMARY KEY)"); err != nil {
+		t.Fatalf("create table failed: %v", err)
+	}
+	defer func() {
+		if _, err := conn.ExecContext(ctx, "DROP TABLE "+table+" PURGE"); err != nil {
+			t.Errorf("cleanup drop table %s failed: %v", table, err)
+		}
+	}()
+
+	if _, err := conn.ExecContext(ctx, "INSERT INTO "+table+" (id) VALUES (:1)", 1); err != nil {
+		t.Fatalf("insert initial row failed: %v", err)
+	}
+	if _, err := conn.ExecContext(ctx, "INSERT INTO "+table+" (id) VALUES (:1)", 1); err == nil {
+		t.Fatal("expected primary key violation, got nil error")
+	} else if !strings.Contains(err.Error(), "ORA-00001") {
+		t.Fatalf("expected ORA-00001 primary key violation, got: %v", err)
+	}
+
+	var id int64
+	if err := conn.QueryRowContext(ctx, "SELECT id FROM "+table+" WHERE id = :1", 1).Scan(&id); err != nil {
+		t.Fatalf("query after primary key violation failed: %v", err)
+	}
+	if id != 1 {
+		t.Fatalf("query after primary key violation returned id %d, want 1", id)
+	}
+}

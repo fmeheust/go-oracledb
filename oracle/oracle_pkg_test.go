@@ -235,6 +235,7 @@ var testCases = []oracleTest.CategorizedTestCase{
 	{Name: "TestConnectorConnectLeavesNetworkSessionOpenAfterSuccess", Categories: "unitary", Exclusive: false, Fn: TestConnectorConnectLeavesNetworkSessionOpenAfterSuccess},
 	{Name: "TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess", Categories: "unitary", Exclusive: false, Fn: TestConnectorConnectDoesNotReturnStaleAttemptErrorAfterLaterSuccess},
 	{Name: "TestDriver_InsertForeignKeyViolation", Categories: "functional", Exclusive: false, Fn: TestDriver_InsertForeignKeyViolation},
+	{Name: "TestDriver_InsertPrimaryKeyViolation", Categories: "functional", Exclusive: false, Fn: TestDriver_InsertPrimaryKeyViolation},
 	{Name: "TestDriver_Varchar2_TrailingSpacesPreserved", Categories: "functional", Exclusive: false, Fn: TestDriver_Varchar2_TrailingSpacesPreserved},
 	{Name: "TestDriver_Varchar2_EmptyStringIsNull", Categories: "functional", Exclusive: false, Fn: TestDriver_Varchar2_EmptyStringIsNull},
 	{Name: "TestDriver_Varchar2_EmbeddedNULRoundTrip", Categories: "functional", Exclusive: false, Fn: TestDriver_Varchar2_EmbeddedNULRoundTrip},

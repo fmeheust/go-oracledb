@@ -58,25 +58,22 @@ const systemWalletLocation = "SYSTEM"
 
 // sessionAtts represents network session attributes
 type sessionAtts struct {
-	largeSDU                           bool
-	sdu                                int
-	tdu                                int
-	nt                                 transport.NTattributes
-	uuid                               string
-	networkCompressionThreshold        int
-	networkCompression                 bool
-	networkCompressionLevels           []string
-	connectTimeout                     int
-	recvTimeout                        int
-	sendTimeout                        int
-	naFlags                            int
-	cDataNVPair                        interface{} // Placeholder for nvStrToNvPair data
-	negotiatedNetworkCompressionScheme int
-	networkCompressionEnabled          bool
-	firstRecvCompressedPacket          bool
-	firstSendCompressedPacket          bool
-	version                            int
-	options                            int
+	largeSDU                    bool
+	sdu                         int
+	tdu                         int
+	nt                          transport.NTattributes
+	uuid                        string
+	networkCompressionThreshold int
+	networkCompression          bool
+	networkCompressionLevels    []string
+	connectTimeout              int
+	recvTimeout                 int
+	sendTimeout                 int
+	naFlags                     int
+	networkCompressionEnabled   bool
+	firstRecvCompressedPacket   bool
+	firstSendCompressedPacket   bool
+	version                     int
 }
 
 // GenUUID generates a UUID for connection ID

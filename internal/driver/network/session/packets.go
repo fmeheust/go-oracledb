@@ -56,10 +56,6 @@ type packetUnmarshaller interface {
 	unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header) error
 }
 
-type packetMarshaller interface {
-	marshal(buffer []byte, sAtts *sessionAtts, flags uint8) error
-}
-
 // header represents a packet header
 type header struct {
 	packetLength   uint32
@@ -200,16 +196,6 @@ func (dp *dataPacket) Remaining() int {
 	return dp.len - dp.offset
 }
 
-func (dp *dataPacket) ReadByte() (byte, error) {
-	if dp.offset < dp.len {
-		retByte := dp.buf[dp.offset]
-		dp.offset++
-		return retByte, nil
-	}
-	common.Odl.Finest("dataPacket.ReadByte EOF")
-	return 0, io.EOF
-}
-
 func (dp *dataPacket) Read(numBytes int) ([]byte, error) {
 	if (dp.offset + numBytes) <= dp.len {
 		retBytes := dp.buf[dp.offset : dp.offset+numBytes]
@@ -298,7 +284,6 @@ func (ap *acceptPacket) unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header
 	ap.buf = buffer
 	ap.len = len(buffer)
 	sAtts.version = int(binary.BigEndian.Uint16(buffer[NSPACVSN:]))
-	sAtts.options = int(binary.BigEndian.Uint16(buffer[NSPACOPT:]))
 	sdu := int(binary.BigEndian.Uint16(buffer[NSPACSDU:]))
 	tdu := int(binary.BigEndian.Uint16(buffer[NSPACTDU:]))
 	sdu = clamp(sdu, NSPMNSDULN, NSPMXSDULN)
@@ -326,7 +311,6 @@ func (ap *acceptPacket) unmarshal(buffer []byte, sAtts *sessionAtts, hdr *header
 				common.Odl.Error("unsupported server network compression scheme", "scheme", compressionScheme)
 				return common.NewOracleError(oracleErrors.InvalidNetworkValue, nil, "network compression scheme", compressionScheme)
 			}
-			sAtts.negotiatedNetworkCompressionScheme = compressionScheme
 			sAtts.networkCompressionEnabled = true
 			sAtts.firstRecvCompressedPacket = true
 			sAtts.firstSendCompressedPacket = true
@@ -408,7 +392,6 @@ type markerPacket struct {
 	hdr        *header
 	buf        []byte
 	markerType uint8
-	markerODT  uint8
 	data       uint8
 }
 

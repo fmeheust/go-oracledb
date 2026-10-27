@@ -704,7 +704,7 @@ func (array *ArrayBasedDataBuffer) isDataTobeFlushed() bool {
 }
 
 // ReadBytesWithContext reads a byte array of the specified length.
-func (array *ArrayBasedDataBuffer) ReadBytesWithContext(ctx context.Context, length int32) (*[]byte, error) {
+func (array *ArrayBasedDataBuffer) ReadBytesWithContext(ctx context.Context, length int32) ([]byte, error) {
 	if array.currentReadPosition+int(length) > array.currentWritePosition {
 		return nil, io.EOF
 	}
@@ -712,7 +712,7 @@ func (array *ArrayBasedDataBuffer) ReadBytesWithContext(ctx context.Context, len
 	array.currentReadPosition += int(length)
 	res := make([]byte, length)
 	copy(res, buf)
-	return &res, nil
+	return res, nil
 }
 
 // FaultyArrayBasedDataBuffer is an ArrayBasedDataBuffer that can simulate read/write errors for testing.
@@ -754,7 +754,7 @@ func (f *FaultyArrayBasedDataBuffer) Flush(ctx context.Context) error {
 }
 
 // ReadBytesWithContext reads bytes with context, simulating errors if configured.
-func (f *FaultyArrayBasedDataBuffer) ReadBytesWithContext(ctx context.Context, length int32) (*[]byte, error) {
+func (f *FaultyArrayBasedDataBuffer) ReadBytesWithContext(ctx context.Context, length int32) ([]byte, error) {
 	f.ReadBytesCallCount++
 	if f.FailOnReadBytesCall > 0 && f.ReadBytesCallCount == f.FailOnReadBytesCall {
 		return nil, errors.New("simulated read error (ReadBytes)")
@@ -961,7 +961,7 @@ func (t *TestDataBuffer) ReadByteWithContext(ctx context.Context) (byte, error) 
 }
 
 // ReadBytesWithContext reads bytes
-func (t *TestDataBuffer) ReadBytesWithContext(ctx context.Context, n int32) (*[]byte, error) {
+func (t *TestDataBuffer) ReadBytesWithContext(ctx context.Context, n int32) ([]byte, error) {
 	b := make([]byte, int(n))
 	_, err := io.ReadFull(&t.buf, b)
 	if err != nil {
@@ -970,7 +970,7 @@ func (t *TestDataBuffer) ReadBytesWithContext(ctx context.Context, n int32) (*[]
 		}
 		return nil, err
 	}
-	return &b, nil
+	return b, nil
 }
 
 // *** Streamer ***

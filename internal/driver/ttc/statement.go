@@ -379,34 +379,10 @@ func (s *Statement) createSubContextWithCancelAfterfunction(ctx context.Context)
 
 	// attach and after function to the new context
 	stop := context.AfterFunc(subContext, func() {
-		defer close(cancellationState.done)
-		ctx, cancel := context.WithTimeout(context.Background(), cancelTimeout)
-		// Wait until we can start
-		common.Odl.Debug("Break-reset after function started")
-		close(cancellationState.started)
-		if start := <-cancellationState.start; !start {
-			cancel()
-			return
-		}
-		common.Odl.Debug("Start break-reset")
 		err := s.shelf.cancelExecution(ctx)
 		if err != nil {
 			common.Odl.Error("Error during statement cancellation.", "error", err)
 		}
-		common.Odl.Debug("Break-reset completed")
-		// Allow statement execution to continue
-		cancellationState.completed <- statementCancellationResult{ctx, cancel}
 	})
-	var cleanupOnce sync.Once
-	cleanup := func() {
-		cleanupOnce.Do(func() {
-			if !stop() {
-				cancellationState.abortBreakReset()
-				<-cancellationState.done
-			}
-			cancelSubContext()
-		})
-	}
-	// return the subcontext, its cancel function, and after-function cleanup
-	return subContext, cancelSubContext, cleanup
+	return subContext, cancelSubContext, func() { stop() }
 }

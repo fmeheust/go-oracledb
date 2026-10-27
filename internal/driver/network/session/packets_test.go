@@ -75,7 +75,7 @@ func TestHeaderMarshalUnmarshal(t *testing.T) {
 	// Test large SDU
 	sAtts.largeSDU = true
 	bufLarge := make([]byte, NSPSIZHD)
-	err = h.marshal(bufLarge, sAtts, NSPFLSD)
+	err = h.marshal(bufLarge, sAtts, 0x20)
 	if err != nil {
 		t.Errorf("Marshal large SDU failed: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestHeaderMarshalUnmarshal(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unmarshal large SDU failed: %v", err)
 	}
-	if h3.packetLength != 100 || h3.flags != NSPFLSD {
+	if h3.packetLength != 100 || h3.flags != 0x20 {
 		t.Errorf("Large SDU mismatch: got %+v, want %+v", h3, *h)
 	}
 
@@ -261,21 +261,6 @@ func TestDataPacketUnmarshal(t *testing.T) {
 	}
 }
 
-func TestDataPacketReadByte(t *testing.T) {
-	t.Parallel()
-	dp := &dataPacket{offset: 0, len: 5, buf: []byte{1, 2, 3, 4, 5}}
-	b, err := dp.ReadByte()
-	if err != nil || b != 1 || dp.offset != 1 {
-		t.Errorf("ReadByte failed")
-	}
-
-	dp.offset = 5
-	_, err = dp.ReadByte()
-	if err == nil {
-		t.Errorf("Expected EOF")
-	}
-}
-
 func TestDataPacketRead(t *testing.T) {
 	t.Parallel()
 	dp := &dataPacket{offset: 0, len: 5, buf: []byte{1, 2, 3, 4, 5}}
@@ -303,11 +288,9 @@ func TestAcceptPacketUnmarshal(t *testing.T) {
 	sAtts := &sessionAtts{version: 315, largeSDU: true}
 	buf := make([]byte, 100)
 	binary.BigEndian.PutUint16(buf[NSPACVSN:], 315)
-	binary.BigEndian.PutUint16(buf[NSPACOPT:], 1)
 	binary.BigEndian.PutUint32(buf[NSPACLSD:], 8192)
 	binary.BigEndian.PutUint32(buf[NSPACLTD:], 8192)
 	buf[NSPACCFL] = NSPACCFON | (NETWORK_COMPRESSION_ZLIB << 2)
-	binary.BigEndian.PutUint32(buf[NSPACFL2:], TNS_ACCEPT_FLAG_HAS_END_OF_REQUEST|TNS_ACCEPT_FLAG_FAST_AUTH)
 	buf[NSPACFL0] = 10
 	buf[NSPACFL1] = 20
 	hdr := &header{packetLength: 100, typ: NSPTAC}
@@ -317,10 +300,10 @@ func TestAcceptPacketUnmarshal(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unmarshal failed: %v", err)
 	}
-	if sAtts.version != 315 || sAtts.options != 1 || sAtts.sdu != 8192 || sAtts.tdu != 8192 || !sAtts.largeSDU {
+	if sAtts.version != 315 || sAtts.sdu != 8192 || sAtts.tdu != 8192 || !sAtts.largeSDU {
 		t.Errorf("Basic fields mismatch")
 	}
-	if !sAtts.networkCompressionEnabled || sAtts.negotiatedNetworkCompressionScheme != NETWORK_COMPRESSION_ZLIB || !sAtts.firstRecvCompressedPacket || !sAtts.firstSendCompressedPacket {
+	if !sAtts.networkCompressionEnabled || !sAtts.firstRecvCompressedPacket || !sAtts.firstSendCompressedPacket {
 		t.Errorf("Compression fields mismatch")
 	}
 	if ap.flag0 != 10 || ap.flag1 != 20 || ap.cflag != buf[NSPACCFL] {
@@ -394,7 +377,6 @@ func TestAcceptPacketClampsOversizedValues(t *testing.T) {
 		buf := make([]byte, 100)
 		sAtts := &sessionAtts{}
 		binary.BigEndian.PutUint16(buf[NSPACVSN:], 314)
-		binary.BigEndian.PutUint16(buf[NSPACOPT:], 1)
 		binary.BigEndian.PutUint16(buf[NSPACSDU:], sixteenBitMax)
 		binary.BigEndian.PutUint16(buf[NSPACTDU:], sixteenBitMax)
 		hdr := &header{packetLength: uint32(len(buf)), typ: NSPTAC}
@@ -414,7 +396,6 @@ func TestAcceptPacketClampsOversizedValues(t *testing.T) {
 		buf := make([]byte, 100)
 		sAtts := &sessionAtts{}
 		binary.BigEndian.PutUint16(buf[NSPACVSN:], 315)
-		binary.BigEndian.PutUint16(buf[NSPACOPT:], 1)
 		binary.BigEndian.PutUint16(buf[NSPACSDU:], uint16(NSPMXSDULN))
 		binary.BigEndian.PutUint16(buf[NSPACTDU:], 0xFFFF)
 		binary.BigEndian.PutUint32(buf[NSPACLSD:], uint32(NSPABSSDULN*4))
@@ -541,12 +522,12 @@ func TestMarkerPacket(t *testing.T) {
 	}
 
 	// Test attention marker
-	buf[NSPMKTYP] = NSPMKTAT
+	buf[NSPMKTYP] = 2
 	err = mp.unmarshal(buf, sAtts, &hdr)
 	if err != nil {
-		t.Errorf("Unmarshal NSPMKTAT failed: %v", err)
+		t.Errorf("Unmarshal 2 failed: %v", err)
 	}
-	if mp.markerType != NSPMKTAT {
+	if mp.markerType != 2 {
 		t.Errorf("Attention marker type mismatch")
 	}
 

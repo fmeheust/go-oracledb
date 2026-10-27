@@ -1196,13 +1196,13 @@ func (b *aggregateLimitDataBuffer) ReadByteWithContext(context.Context) (byte, e
 	return _longLengthIndicator, nil
 }
 
-func (b *aggregateLimitDataBuffer) ReadBytesWithContext(_ context.Context, length int32) (*[]byte, error) {
+func (b *aggregateLimitDataBuffer) ReadBytesWithContext(_ context.Context, length int32) ([]byte, error) {
 	if b.pendingChunkData {
 		if int(length) != b.currentChunkLen {
 			return nil, fmt.Errorf("unexpected chunk data length %d, want %d", length, b.currentChunkLen)
 		}
 		b.pendingChunkData = false
-		return new(make([]byte, int(length))), nil
+		return make([]byte, int(length)), nil
 	}
 
 	if length != 4 {
@@ -1219,7 +1219,7 @@ func (b *aggregateLimitDataBuffer) ReadBytesWithContext(_ context.Context, lengt
 
 	data := make([]byte, 4)
 	binary.BigEndian.PutUint32(data, uint32(b.currentChunkLen))
-	return &data, nil
+	return data, nil
 }
 
 func (b *aggregateLimitDataBuffer) Flush(context.Context) error {

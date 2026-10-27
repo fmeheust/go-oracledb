@@ -756,7 +756,7 @@ func (m *MarshalEngine) UnmarshalB1Array(ctx context.Context, length int) (drive
 		return nil, _wrapError(err, "B1Array")
 	}
 	value := make([]byte, length)
-	copy(value, *readValues)
+	copy(value, readValues)
 	return value, nil
 }
 
@@ -1021,7 +1021,7 @@ func (m *MarshalEngine) _readAndCopyToBuffer(ctx context.Context, buffer *[]byte
 	if err != nil {
 		return err
 	}
-	copy(*buffer, *data)
+	copy(*buffer, data)
 	return nil
 }
 
@@ -1208,7 +1208,7 @@ func _decodeUniversal[T unmarshalTypes, V unmarshalTypes](
 	}
 
 	var bytesValues = make([]byte, typeRep.nbBytes)
-	copy(bytesValues[len(bytesValues)-int(numberOfBytes):], *bytes)
+	copy(bytesValues[len(bytesValues)-int(numberOfBytes):], bytes)
 
 	// convert the byte array in big endian encoding to an uint64
 	calculatedValue := bigEndianFunc(bytesValues[:])
@@ -1311,9 +1311,9 @@ func _readNative[T unmarshalTypes, V unmarshalTypes](ctx context.Context, dataBu
 		return 0, _wrapError(err, "unmarshal "+typeName)
 	}
 	if byteOrder == driverCommon.LITTLE_ENDIAN {
-		return T(littleEndianFunc(*buffer)), nil
+		return T(littleEndianFunc(buffer)), nil
 	}
-	return T(bigEndianFunc(*buffer)), nil
+	return T(bigEndianFunc(buffer)), nil
 }
 
 // Wraps the original error with message containing the data type name.

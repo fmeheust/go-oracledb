@@ -48,7 +48,6 @@ import (
 
 	oracleCommon "github.com/oracle/go-oracledb/v26/internal/common"
 	"github.com/oracle/go-oracledb/v26/internal/driver/common"
-	"github.com/oracle/go-oracledb/v26/internal/driver/network/session"
 )
 
 // TestNewOAuth_Success tests the NewOAuth constructor.
@@ -863,7 +862,6 @@ func TestOAuthRPAUnmarshalFrom_Fail(t *testing.T) {
 			} else {
 				engine = NewMarshalEngine(buf, common.BIG_ENDIAN, [5]byte{Native, Universal, Universal, Universal, Universal})
 			}
-			session.PrintPacket(payload, 0, len(payload))
 			rpa := NewOAuthRPA()
 			unmarshallable, _ := rpa.(common.Unmarshallable)
 			err := unmarshallable.UnmarshalFrom(context.Background(), engine)

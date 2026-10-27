@@ -81,8 +81,8 @@ type DataBuffer interface {
 
 	// ReadByteWithContext ReadByte Reads one byte.
 	ReadByteWithContext(context.Context) (byte, error)
-	// ReadBytesWithContext ReadBytes Read the specified number of bytes and returns a byte array of that size.
-	ReadBytesWithContext(context.Context, int32) (*[]byte, error)
+	// ReadBytesWithContext reads the specified number of bytes and returns them.
+	ReadBytesWithContext(context.Context, int32) ([]byte, error)
 
 	// Flush Flushes the data
 	Flush(context.Context) error
