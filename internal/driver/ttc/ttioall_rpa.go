@@ -159,6 +159,10 @@ func (p *ttioallrpa) UnmarshalFrom(ctx context.Context, mar driverCommon.Marshal
 	return nil
 }
 
+func (p *ttioallrpa) enableUnmarshalRowCounts() {
+	p.unmarshalRowCounts = true
+}
+
 // UnmarshalDMLRows decodes optional per-iteration DML row counts (AL8PIDMLRC).
 func (p *ttioallrpa) UnmarshalDMLRows(ctx context.Context, mar driverCommon.Marshaller) error {
 	count, err := mar.UnmarshalUB4(ctx)

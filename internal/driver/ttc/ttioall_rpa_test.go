@@ -74,7 +74,10 @@ func runTTIRPATest(t *testing.T, name string, dump []string) {
 	// Use concrete type directly (same package) so we can assert fields. DML
 	// fixtures include AL8PIDMLRC after the core RPA fields.
 	unmarshalRowCounts := strings.Contains(name, "INSERT")
-	rpa := &ttioallrpa{unmarshalRowCounts: unmarshalRowCounts}
+	rpa := &ttioallrpa{}
+	if unmarshalRowCounts {
+		rpa.enableUnmarshalRowCounts()
+	}
 
 	if rpa.GetMsgCode() != TTIRPA {
 		t.Fatalf("%s: GetMsgCode mismatch, expected TTIRPA", name)

@@ -1442,7 +1442,7 @@ func (e *statementExecutorDML) registerDMLCallbacks(ctx context.Context) {
 			common.Odl.Error("registerOallRpaCallback: GetMessageForFunction(TTIRPA,oAll8) failed", "error", err, "stage", "get-oallrpa")
 			return nil, common.NewOracleError(oracleErrors.CallbackFactoryError, err, "registerOallRpaCallback failed")
 		}
-		msg.(*ttioallrpa).unmarshalRowCounts = true
+		msg.(*ttioallrpa).enableUnmarshalRowCounts()
 		return msg, nil
 	})
 	e.registerIOVCallbacks(ctx)
