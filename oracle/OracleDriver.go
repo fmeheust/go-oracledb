@@ -118,9 +118,9 @@ func NewOracleConnector(config *oracleconfig.OracleDriverConfig) (driver.Connect
 	var connector driver.Connector
 	var err error
 	if config != nil {
-		connector, err = drv.OpenConnector(config.ConnectDescriptor)
+		connector, err = drv.openConnector(config.ConnectDescriptor)
 	} else {
-		connector, err = drv.OpenConnector("")
+		connector, err = drv.openConnector("")
 	}
 
 	if err != nil {
@@ -132,7 +132,7 @@ func NewOracleConnector(config *oracleconfig.OracleDriverConfig) (driver.Connect
 // Open implements database/sql/driver.Driver interface for OracleDriver.
 // It establishes a new Oracle connection using the given Data Source Name.
 func (drv *Driver) Open(dsn string) (driver.Conn, error) {
-	connector, err := drv.OpenConnector(dsn)
+	connector, err := drv.openConnector(dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +141,13 @@ func (drv *Driver) Open(dsn string) (driver.Conn, error) {
 
 var _initLoggingOnce sync.Once
 
-// OpenConnector implements database/sql/driver.DriverContext for Driver.
+// openConnector implements database/sql/driver.DriverContext for Driver.
 func (drv *Driver) OpenConnector(dsn string) (driver.Connector, error) {
+	return drv.openConnector(dsn)
+}
+
+// openConnector returns a new database/sql/driver.Connector for this OracleDriver, using the Data Source Name.
+func (drv *Driver) openConnector(dsn string) (driver.Connector, error) {
 
 	_initLoggingOnce.Do(func() {
 		// This is delayed until now because we cannot assume the start sequence of the application.
