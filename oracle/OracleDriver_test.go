@@ -545,6 +545,8 @@ func TestDriver_InsertForeignKeyViolation(t *testing.T) {
 	}
 }
 
+// TestDriver_implementDriverContext check that the driver implements both
+// driver.Driver and driver.DriverContext interfaces
 func TestDriver_implementDriverContext(t *testing.T) {
 	var drv any = NewDriver()
 	if _, ok := drv.(driver.Driver); !ok {
