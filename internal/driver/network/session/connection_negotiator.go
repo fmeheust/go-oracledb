@@ -61,6 +61,7 @@ func (negotiator *connectionNegotiator) Connect(ctx context.Context, address tra
 		}
 		return nil, err
 	}
+	// Negotiation completed, create network session
 	return newNetworkSession(negotiator.transport), nil
 }
 
@@ -401,7 +402,7 @@ func (negotiator *connectionNegotiator) connect(ctx context.Context, address tra
 			if err != nil {
 				return err
 			}
-			// The background reader now exclusively owns transport reads.
+			// End of negotiation this streamer will no longer be used
 			negotiator.negotiationStreamer = nil
 			return nil
 		case *refusePacket:

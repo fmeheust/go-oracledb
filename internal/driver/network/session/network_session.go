@@ -22,14 +22,16 @@ type networkSession struct {
 // newNetworkSession creates the fully initialized runtime session after ACCEPT.
 // transport owns the accepted adapter and negotiated session attributes.
 func newNetworkSession(transport *networkTransport) *networkSession {
+	// create the packet streamer and all services
 	streamer := newPacketStreamer(transport.sAtts.sdu, transport.readPacketFromTransport, transport.writePacketToTransport)
 	dataService := newDataService(streamer, transport.sAtts)
 	breakReset := newBreakResetService(streamer, transport.sAtts)
+	notificationService := &notificationService{streamer: streamer}
 	return &networkSession{
 		networkTransport: transport,
 		dataService:      dataService,
 		breakReset:       breakReset,
-		notifications:    &notificationService{streamer: streamer},
+		notifications:    notificationService,
 	}
 }
 
