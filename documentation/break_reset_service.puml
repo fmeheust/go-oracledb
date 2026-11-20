@@ -1,0 +1,92 @@
+@startuml
+title Client-triggered break-reset
+
+autonumber
+actor Caller
+participant "breakResetService" as service
+participant "packetStreamer" as streamer
+participant "breakResetState" as state
+participant "networkTransport / adapter" as transport
+participant "Oracle Net server" as server
+
+Caller -> service : CancelOperation(ctx)
+service -> state : begin()
+state --> service : started
+service -> streamer : pauseDataPacketHandling()
+
+group send markers in protocol order
+  service -> streamer : writePacket(NIQIMARK)
+  streamer -> transport : serialized packet write
+  transport -> server : NIQIMARK (break)
+  service -> streamer : writePacket(NIQRMARK)
+  streamer -> transport : serialized packet write
+  transport -> server : NIQRMARK (reset)
+end
+
+opt DATA arrives before reset completes
+  server -> transport : NSPTDA
+  transport -> streamer : read / decode DATA packet
+  streamer -> streamer : paused=true; discard packet
+end
+
+server -> transport : reset marker\n(NSPMKTD1, NIQRMARK)
+transport -> streamer : decode packet
+streamer -> service : hand off marker; wait for acknowledgment
+service -> state : finish()
+state --> service : completed
+service -> streamer : resumeDataPacketHandling()
+service -> streamer : acknowledgeMarker()
+streamer -> transport : read next packet
+
+note over service,streamer
+  CancelOperation returns after sending both markers.
+  The DATA path stays paused until the marker watcher
+  receives and handles the server's reset marker.
+end note
+@enduml
+
+@startuml
+title Server-triggered break-reset
+
+autonumber
+participant "Oracle Net server" as server
+participant "networkTransport / adapter" as transport
+participant "packetStreamer" as streamer
+participant "breakResetService\n(marker watcher)" as service
+participant "breakResetState" as state
+
+server -> transport : break marker\n(NSPMKTD0 or NSPMKTD1)
+transport -> streamer : decode packet
+streamer -> service : hand off marker; wait for acknowledgment
+service -> state : begin()
+state --> service : started
+service -> streamer : pauseDataPacketHandling()
+service -> streamer : writePacket(NIQRMARK)
+streamer -> transport : serialized packet write
+transport -> server : NIQRMARK acknowledgment
+service -> streamer : acknowledgeMarker()
+
+opt DATA arrives before reset marker
+  server -> transport : NSPTDA
+  transport -> streamer : read / decode DATA packet
+  streamer -> streamer : paused=true; discard packet
+end
+
+server -> transport : reset marker\n(NSPMKTD1, NIQRMARK)
+transport -> streamer : decode packet
+streamer -> service : hand off marker; wait for acknowledgment
+service -> state : finish()
+state --> service : completed
+service -> streamer : resumeDataPacketHandling()
+service -> streamer : acknowledgeMarker()
+streamer -> transport : read next packet
+
+note over streamer,service
+  The reader waits at each marker until the watcher acknowledges it.
+  NSPTDA packets received between pauseDataPacketHandling() and
+  resumeDataPacketHandling() are discarded. DATA already handed to the
+  data service before the pause remains available to be read.
+  A second break during an active exchange is ignored; a reset marker
+  with no active exchange is treated as stray and does not resume DATA.
+end note
+@enduml
